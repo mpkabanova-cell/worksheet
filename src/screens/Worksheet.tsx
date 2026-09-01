@@ -2,44 +2,150 @@ import type { DragEvent } from 'react'
 import { useMemo, useState } from 'react'
 import type { TaskType, WorksheetBlock, WorksheetDraft } from '@/data/worksheet'
 import { GRADES, SUBJECTS, formatSavedAgo, labelForType, uid } from '@/data/worksheet'
-import { Button, Icon, Input, Select, Textarea } from '@/components/ui'
+import { Button, FigmaIcon, Icon, Input, Select, Textarea } from '@/components/ui'
 import { MathText } from '@/components/MathText'
 import starFilled from '@/assets/worksheet/star-filled.svg'
 import starEmpty from '@/assets/worksheet/star-empty.svg'
-import plusIcon from '@/assets/worksheet/plus.svg'
-import iconDrag from '@/assets/create/drag.svg'
+import pageAddIcon from '@/assets/worksheet/tools/page-add.svg'
+import toolText from '@/assets/worksheet/tools/tool-text.svg'
+import toolMedia from '@/assets/worksheet/tools/tool-media.svg'
+import toolPageBreak from '@/assets/worksheet/tools/tool-page-break.svg'
+import toolShortAnswer from '@/assets/worksheet/tools/tool-short-answer.svg'
+import toolSingleChoice from '@/assets/worksheet/tools/tool-single-choice.svg'
+import toolMultipleChoice from '@/assets/worksheet/tools/tool-multiple-choice.svg'
+import toolFillGaps from '@/assets/worksheet/tools/tool-fill-gaps.svg'
+import toolMatching from '@/assets/worksheet/tools/tool-matching.svg'
+import toolOrdering from '@/assets/worksheet/tools/tool-ordering.svg'
+import toolTable from '@/assets/worksheet/tools/tool-table.svg'
+import aiOrbBg from '@/assets/worksheet/tools/ai-orb-bg.png'
+import iconUndo from '@/assets/worksheet/tools/undo.svg'
+import iconRedo from '@/assets/worksheet/tools/redo.svg'
+import iconThumbUp from '@/assets/worksheet/tools/thumb-up.svg'
+import iconThumbDown from '@/assets/worksheet/tools/thumb-down.svg'
+import widgetArrowUp from '@/assets/worksheet/tools/widget-arrow-up.svg'
+import widgetArrowDown from '@/assets/worksheet/tools/widget-arrow-down.svg'
+import widgetRegenerate from '@/assets/worksheet/tools/widget-regenerate.svg'
+import widgetDuplicate from '@/assets/worksheet/tools/widget-duplicate.svg'
+import widgetTrash from '@/assets/worksheet/tools/widget-trash.svg'
+import widgetDragHandle from '@/assets/worksheet/tools/widget-drag-handle.svg'
+import wysiwygBold from '@/assets/worksheet/tools/wysiwyg-bold.svg'
+import wysiwygItalic from '@/assets/worksheet/tools/wysiwyg-italic.svg'
+import wysiwygUnderline from '@/assets/worksheet/tools/wysiwyg-underline.svg'
+import wysiwygStrike from '@/assets/worksheet/tools/wysiwyg-strike.svg'
+import wysiwygMath from '@/assets/worksheet/tools/wysiwyg-math.svg'
+import wysiwygCode from '@/assets/worksheet/tools/wysiwyg-code.svg'
+import wysiwygSuperscript from '@/assets/worksheet/tools/wysiwyg-superscript.svg'
+import wysiwygSubscript from '@/assets/worksheet/tools/wysiwyg-subscript.svg'
+import wysiwygImage from '@/assets/worksheet/tools/wysiwyg-image.svg'
+import wysiwygMore from '@/assets/worksheet/tools/wysiwyg-more.svg'
 import './Worksheet.css'
 import './Loader.css'
 
 const TOOL_SECTIONS: {
   title: string
-  items: { type: TaskType | 'generate'; label: string; icon: string; ai?: boolean }[]
+  items: { type: TaskType | 'generate'; label: string; icon?: string; ai?: boolean }[]
 }[] = [
   {
     title: 'Инструменты',
     items: [
-      { type: 'text', label: 'Текстовый блок', icon: 'T' },
-      { type: 'answer_field', label: 'Медиа задание', icon: '▶' },
-      { type: 'page_break', label: 'Разрыв страницы', icon: '⎘' },
+      { type: 'text', label: 'Текстовый блок', icon: toolText },
+      { type: 'answer_field', label: 'Медиа задание', icon: toolMedia },
+      { type: 'page_break', label: 'Разрыв страницы', icon: toolPageBreak },
     ],
   },
   {
     title: 'Готовые блоки',
     items: [
-      { type: 'short_answer', label: 'Ввод ответа', icon: '✎' },
-      { type: 'single_choice', label: 'Одиночный выбор', icon: '○' },
-      { type: 'multiple_choice', label: 'Множественный выбор', icon: '☑' },
-      { type: 'fill_gaps', label: 'Заполнение пропусков', icon: '___' },
-      { type: 'matching', label: 'Сопоставление', icon: '↔' },
-      { type: 'ordering', label: 'Упорядочивание', icon: '↕' },
-      { type: 'table', label: 'Таблица', icon: '▦' },
+      { type: 'short_answer', label: 'Ввод ответа', icon: toolShortAnswer },
+      { type: 'single_choice', label: 'Одиночный выбор', icon: toolSingleChoice },
+      { type: 'multiple_choice', label: 'Множественный выбор', icon: toolMultipleChoice },
+      { type: 'fill_gaps', label: 'Заполнение пропусков', icon: toolFillGaps },
+      { type: 'matching', label: 'Сопоставление', icon: toolMatching },
+      { type: 'ordering', label: 'Упорядочивание', icon: toolOrdering },
+      { type: 'table', label: 'Таблица', icon: toolTable },
     ],
   },
   {
     title: 'Дополнительные возможности',
-    items: [{ type: 'generate', label: 'Сгенерировать задание', icon: '✦', ai: true }],
+    items: [{ type: 'generate', label: 'Сгенерировать задание', ai: true }],
   },
 ]
+
+function AiOrb({ size = 24 }: { size?: number }) {
+  const scale = size / 24
+  return (
+    <span className="ai-orb" style={{ width: size, height: size }}>
+      <img src={aiOrbBg} alt="" className="ai-orb-bg" />
+      <span
+        className="ai-orb-eye"
+        style={{
+          width: 2.297 * scale,
+          height: 5.836 * scale,
+          left: 7.99 * scale,
+          top: 6.98 * scale,
+        }}
+      />
+      <span
+        className="ai-orb-eye"
+        style={{
+          width: 2.297 * scale,
+          height: 5.836 * scale,
+          left: 13.71 * scale,
+          top: 6.98 * scale,
+        }}
+      />
+    </span>
+  )
+}
+
+const WYSIWYG_TOOLS = [
+  { icon: wysiwygBold, label: 'Жирный' },
+  { icon: wysiwygItalic, label: 'Курсив' },
+  { icon: wysiwygUnderline, label: 'Подчёркнутый' },
+  { icon: wysiwygStrike, label: 'Зачёркнутый' },
+  { icon: wysiwygMath, label: 'Формула' },
+  { icon: wysiwygCode, label: 'Код' },
+  { icon: wysiwygSuperscript, label: 'Надстрочный' },
+  { icon: wysiwygSubscript, label: 'Подстрочный' },
+  { icon: wysiwygImage, label: 'Изображение' },
+] as const
+
+function WysiwygToolbar({ onSoon }: { onSoon?: (message: string) => void }) {
+  return (
+    <div className="block-wysiwyg" onClick={(e) => e.stopPropagation()}>
+      <div className="wysiwyg-tools">
+        {WYSIWYG_TOOLS.map((tool) => (
+          <button
+            key={tool.label}
+            type="button"
+            className="wysiwyg-btn"
+            aria-label={tool.label}
+            onClick={() => onSoon?.(`${tool.label} в разработке`)}
+          >
+            <FigmaIcon src={tool.icon} size={18} />
+          </button>
+        ))}
+      </div>
+      <span className="wysiwyg-divider" aria-hidden />
+      <button
+        type="button"
+        className="wysiwyg-btn"
+        aria-label="Разделитель"
+        onClick={() => onSoon?.('Разделитель в разработке')}
+      >
+        <span className="wysiwyg-hr" aria-hidden />
+      </button>
+      <button
+        type="button"
+        className="wysiwyg-btn"
+        aria-label="Ещё"
+        onClick={() => onSoon?.('Дополнительное форматирование в разработке')}
+      >
+        <FigmaIcon src={wysiwygMore} size={18} />
+      </button>
+    </div>
+  )
+}
 
 type Mode = 'preview' | 'edit' | 'answers' | 'edit-widget' | 'add-block'
 
@@ -69,6 +175,7 @@ interface WorksheetScreenProps {
   onAddBlockOpen?: () => void
   onCloseAddBlock?: () => void
   onGenerateTask?: () => void
+  onRegenerate?: () => void
   onSave?: () => void
   onUndo?: () => void
   onRedo?: () => void
@@ -100,6 +207,7 @@ export function WorksheetScreen({
   onAddBlockOpen: _onAddBlockOpen,
   onCloseAddBlock: _onCloseAddBlock,
   onGenerateTask,
+  onRegenerate,
   onSave: _onSave,
   onUndo,
   onRedo,
@@ -198,6 +306,7 @@ export function WorksheetScreen({
             onSoon={onSoon}
             sidebarDragType={sidebarDragType}
             setSidebarDragType={setSidebarDragType}
+            onSidebarDragEnd={() => setDropTargetId(null)}
           />
         ) : (
           <aside className="page-rail">
@@ -212,7 +321,7 @@ export function WorksheetScreen({
               </button>
             ))}
             <button type="button" className="page-add" onClick={onAddPage} aria-label="Добавить страницу">
-              <img src={plusIcon} alt="" width={20} height={20} />
+              <img src={pageAddIcon} alt="" width={20} height={20} />
             </button>
           </aside>
         )}
@@ -239,7 +348,7 @@ export function WorksheetScreen({
             <div className="sheet-divider" />
 
             <div
-              className="sheet-content"
+              className={`sheet-content ${isEdit ? 'editing' : ''}`}
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => {
                 if (sidebarDragType) {
@@ -266,7 +375,7 @@ export function WorksheetScreen({
 
               {pageBlocks.map((block, index) => (
                 <div key={block.id}>
-                  {dropTargetId === block.id && dragBlockId ? (
+                  {dropTargetId === block.id && (sidebarDragType || dragBlockId) ? (
                     <div className="drop-indicator" aria-hidden />
                   ) : null}
                   <BlockCard
@@ -279,16 +388,25 @@ export function WorksheetScreen({
                     dragging={dragBlockId === block.id}
                     onSelect={() => onSelectBlock?.(block.id)}
                     onRemove={() => onRemoveBlock?.(block.id)}
-                    onDragStart={() => setDragBlockId(block.id)}
-                    onDragEnd={() => {
-                      setDragBlockId(null)
-                      setDropTargetId(null)
-                    }}
                     onDragOver={(e) => {
                       e.preventDefault()
                       setDropTargetId(block.id)
                     }}
                     onDrop={() => handleDropOnBlock(block.id)}
+                    onMoveUp={() => onMoveBlock?.(block.id, -1)}
+                    onMoveDown={() => onMoveBlock?.(block.id, 1)}
+                    onDuplicate={() => onSoon?.('Дублирование блока в разработке')}
+                    onRegenerateBlock={() => onGenerateTask?.()}
+                    onDragStart={(e) => {
+                      e.dataTransfer.effectAllowed = 'move'
+                      e.dataTransfer.setData('text/plain', block.id)
+                      setDragBlockId(block.id)
+                    }}
+                    onDragEnd={() => {
+                      setDragBlockId(null)
+                      setDropTargetId(null)
+                    }}
+                    onSoon={onSoon}
                   />
                 </div>
               ))}
@@ -318,7 +436,8 @@ export function WorksheetScreen({
                 onChange={(e) => onChangeDraft?.({ ...draft, grade: e.target.value })}
               />
             </label>
-            <label className="switch-row side-switch">
+            <div className="side-switch-row">
+              <span>Показать ответы</span>
               <button
                 type="button"
                 role="switch"
@@ -328,9 +447,9 @@ export function WorksheetScreen({
               >
                 <span className="knob" />
               </button>
-              <span>Показать ответы</span>
-            </label>
-            <label className="switch-row side-switch">
+            </div>
+            <div className="side-switch-row">
+              <span>Показывать сложность</span>
               <button
                 type="button"
                 role="switch"
@@ -340,14 +459,30 @@ export function WorksheetScreen({
               >
                 <span className="knob" />
               </button>
-              <span>Показывать сложность</span>
-            </label>
+            </div>
+            <div className="settings-divider" />
+            <div className="side-switch-row">
+              <span>Оценить генерацию</span>
+              <div className="settings-rate-icons">
+                <button type="button" className="rate-icon-btn" onClick={() => onSoon?.('Спасибо за оценку')} aria-label="Нравится">
+                  <FigmaIcon src={iconThumbUp} size={20} />
+                </button>
+                <button type="button" className="rate-icon-btn" onClick={() => onSoon?.('Спасибо за оценку')} aria-label="Не нравится">
+                  <FigmaIcon src={iconThumbDown} size={20} />
+                </button>
+              </div>
+            </div>
+            <button type="button" className="side-switch-row settings-regenerate" onClick={onRegenerate}>
+              <span>Перегенерировать</span>
+              <AiOrb size={24} />
+            </button>
+            <div className="settings-divider" />
             <div className="settings-actions">
               <button type="button" className="history-btn" onClick={onUndo} aria-label="Отменить">
-                ↶
+                <FigmaIcon src={iconUndo} size={20} />
               </button>
               <button type="button" className="history-btn" onClick={onRedo} aria-label="Повторить">
-                ↷
+                <FigmaIcon src={iconRedo} size={20} />
               </button>
             </div>
           </aside>
@@ -378,6 +513,7 @@ function WorksheetToolsSidebar({
   onSoon,
   sidebarDragType: _sidebarDragType,
   setSidebarDragType,
+  onSidebarDragEnd,
 }: {
   pageCount: number
   currentPage: number
@@ -388,6 +524,7 @@ function WorksheetToolsSidebar({
   onSoon?: (message: string) => void
   sidebarDragType: TaskType | null
   setSidebarDragType: (type: TaskType | null) => void
+  onSidebarDragEnd?: () => void
 }) {
   const handleClick = (type: TaskType | 'generate') => {
     if (type === 'generate') {
@@ -415,7 +552,7 @@ function WorksheetToolsSidebar({
           </button>
         ))}
         <button type="button" className="page-add" onClick={onAddPage} aria-label="Добавить страницу">
-          <img src={plusIcon} alt="" width={20} height={20} />
+          <img src={pageAddIcon} alt="" width={20} height={20} />
         </button>
       </div>
       <div className="ws-tools-menu">
@@ -428,15 +565,28 @@ function WorksheetToolsSidebar({
                 type="button"
                 className={`ws-tools-item ${item.ai ? 'ai' : ''}`}
                 draggable={item.type !== 'generate'}
-                onDragStart={() => {
-                  if (item.type !== 'generate') setSidebarDragType(item.type)
+                onDragStart={(e) => {
+                  if (item.type === 'generate' || !item.icon) return
+                  setSidebarDragType(item.type)
+                  const ghost = document.createElement('div')
+                  ghost.className = 'ws-drag-ghost'
+                  ghost.innerHTML = `<img src="${item.icon}" width="20" height="20" alt="" /><span>${item.label}</span>`
+                  document.body.appendChild(ghost)
+                  e.dataTransfer.setDragImage(ghost, 16, 20)
+                  e.dataTransfer.effectAllowed = 'copy'
+                  window.setTimeout(() => ghost.remove(), 0)
                 }}
-                onDragEnd={() => setSidebarDragType(null)}
+                onDragEnd={() => {
+                  setSidebarDragType(null)
+                  onSidebarDragEnd?.()
+                }}
                 onClick={() => handleClick(item.type)}
               >
-                <span className="ws-tools-item-icon" aria-hidden>
-                  {item.icon}
-                </span>
+                {item.ai ? (
+                  <AiOrb size={24} />
+                ) : (
+                  <FigmaIcon src={item.icon!} size={20} className="ws-tools-item-icon" />
+                )}
                 {item.label}
               </button>
             ))}
@@ -886,8 +1036,13 @@ function BlockCard({
   dragging,
   onSelect,
   onRemove,
+  onMoveUp,
+  onMoveDown,
+  onDuplicate,
+  onRegenerateBlock,
   onDragStart,
   onDragEnd,
+  onSoon,
   onDragOver,
   onDrop,
 }: {
@@ -900,20 +1055,51 @@ function BlockCard({
   dragging?: boolean
   onSelect: () => void
   onRemove: () => void
-  onDragStart: () => void
+  onMoveUp: () => void
+  onMoveDown: () => void
+  onDuplicate: () => void
+  onRegenerateBlock: () => void
+  onDragStart: (e: DragEvent) => void
   onDragEnd: () => void
+  onSoon?: (message: string) => void
   onDragOver: (e: DragEvent) => void
   onDrop: () => void
 }) {
   if (block.type === 'page_break') {
     return (
-      <div
-        className={`page-break-block ${selected ? 'selected' : ''} ${editable ? 'editable' : ''} ${dragging ? 'dragging' : ''}`}
-        onClick={editable ? onSelect : undefined}
-        onDragOver={editable ? onDragOver : undefined}
-        onDrop={editable ? onDrop : undefined}
-      >
-        — Разрыв страницы —
+      <div className={`ws-task-wrap ${selected ? 'selected' : ''} ${editable ? 'editable' : ''}`}>
+        {editable && selected ? (
+          <>
+            <span
+              className="block-drag-side"
+              draggable
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+              aria-label="Перетащить"
+            >
+              <FigmaIcon src={widgetDragHandle} size={20} />
+            </span>
+            <div className="block-tools" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="block-tool-btn" onClick={onMoveUp} aria-label="Вверх">
+              <FigmaIcon src={widgetArrowUp} size={16} />
+            </button>
+            <button type="button" className="block-tool-btn" onClick={onMoveDown} aria-label="Вниз">
+              <FigmaIcon src={widgetArrowDown} size={16} />
+            </button>
+            <button type="button" className="block-tool-btn" onClick={onRemove} aria-label="Удалить">
+              <FigmaIcon src={widgetTrash} size={16} />
+            </button>
+          </div>
+          </>
+        ) : null}
+        <div
+          className={`page-break-block ${selected ? 'selected' : ''} ${editable ? 'editable' : ''} ${dragging ? 'dragging' : ''}`}
+          onClick={editable ? onSelect : undefined}
+          onDragOver={editable ? onDragOver : undefined}
+          onDrop={editable ? onDrop : undefined}
+        >
+          — Разрыв страницы —
+        </div>
       </div>
     )
   }
@@ -926,53 +1112,63 @@ function BlockCard({
   const cells = block.tableCells
 
   return (
-    <article
-      className={`ws-task ${selected ? 'selected' : ''} ${editable ? 'editable' : ''} ${isPlainText ? 'plain' : ''} ${dragging ? 'dragging' : ''}`}
-      onClick={editable ? onSelect : undefined}
-      onDragOver={editable ? onDragOver : undefined}
-      onDrop={editable ? onDrop : undefined}
-    >
-      <div className="ws-task-head">
-        {!isPlainText ? <span className="ws-task-num">{number}.</span> : null}
-        <div className="ws-task-main">
-          <p className="ws-task-text">
-            {block.instruction ? (
-              <>
-                <MathText className="instruction" text={block.instruction} />{' '}
-              </>
-            ) : null}
-            <MathText text={question} />
-          </p>
-          {showDifficulty && !isPlainText ? (
-            <div className="ws-task-meta">
-              <span className="diff-label">Сложность:</span>
-              <Stars value={block.difficulty ?? 1} />
-            </div>
-          ) : null}
-        </div>
-        {editable ? (
+    <div className={`ws-task-wrap ${selected ? 'selected' : ''} ${editable ? 'editable' : ''}`}>
+      {editable && selected ? (
+        <>
+          <WysiwygToolbar onSoon={onSoon} />
+          <span
+            className="block-drag-side"
+            draggable
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
+            aria-label="Перетащить"
+          >
+            <FigmaIcon src={widgetDragHandle} size={20} />
+          </span>
           <div className="block-tools" onClick={(e) => e.stopPropagation()}>
-            <span
-              className="block-drag-handle"
-              draggable
-              onDragStart={onDragStart}
-              onDragEnd={onDragEnd}
-              aria-label="Перетащить"
-            >
-              <img src={iconDrag} alt="" width={20} height={20} />
-            </span>
-            <button type="button" className="icon-btn tiny" aria-label="Настройки блока">
-              <Icon name="gear" size={16} />
-            </button>
-            <button type="button" className="icon-btn tiny" aria-label="Перегенерировать">
-              <Icon name="refresh" size={16} />
-            </button>
-            <button type="button" className="icon-btn tiny" onClick={onRemove} aria-label="Удалить">
-              <Icon name="trash" size={16} />
-            </button>
+          <button type="button" className="block-tool-btn" onClick={onMoveUp} aria-label="Вверх">
+            <FigmaIcon src={widgetArrowUp} size={16} />
+          </button>
+          <button type="button" className="block-tool-btn" onClick={onMoveDown} aria-label="Вниз">
+            <FigmaIcon src={widgetArrowDown} size={16} />
+          </button>
+          <button type="button" className="block-tool-btn" onClick={onRegenerateBlock} aria-label="Перегенерировать">
+            <FigmaIcon src={widgetRegenerate} size={16} />
+          </button>
+          <button type="button" className="block-tool-btn" onClick={onDuplicate} aria-label="Дублировать">
+            <FigmaIcon src={widgetDuplicate} size={16} />
+          </button>
+          <button type="button" className="block-tool-btn" onClick={onRemove} aria-label="Удалить">
+            <FigmaIcon src={widgetTrash} size={16} />
+          </button>
+        </div>
+        </>
+      ) : null}
+      <article
+        className={`ws-task ${selected ? 'selected' : ''} ${editable ? 'editable' : ''} ${isPlainText ? 'plain' : ''} ${dragging ? 'dragging' : ''}`}
+        onClick={editable ? onSelect : undefined}
+        onDragOver={editable ? onDragOver : undefined}
+        onDrop={editable ? onDrop : undefined}
+      >
+        <div className="ws-task-head">
+          {!isPlainText ? <span className="ws-task-num">{number}.</span> : null}
+          <div className="ws-task-main">
+            <p className="ws-task-text">
+              {block.instruction ? (
+                <>
+                  <MathText className="instruction" text={block.instruction} />{' '}
+                </>
+              ) : null}
+              <MathText text={question} />
+            </p>
+            {showDifficulty && !isPlainText ? (
+              <div className="ws-task-meta">
+                <span className="diff-label">Сложность:</span>
+                <Stars value={block.difficulty ?? 1} />
+              </div>
+            ) : null}
           </div>
-        ) : null}
-      </div>
+        </div>
 
       {block.type === 'single_choice' || block.type === 'multiple_choice' ? (
         <div className="ws-task-slot options">
@@ -1112,5 +1308,6 @@ function BlockCard({
         </div>
       ) : null}
     </article>
+    </div>
   )
 }

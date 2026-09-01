@@ -192,12 +192,95 @@
   box-shadow: 0 0 0 2px rgba(80, 58, 224, 0.08);
 }
 
+.ws-task-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.ws-task-wrap.editable.selected {
+  margin-top: 32px;
+}
+
+.ws-task-wrap.editable.selected:has(.block-wysiwyg) {
+  margin-top: 56px;
+}
+
+.block-wysiwyg {
+  position: absolute;
+  top: -56px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  background: var(--bg-white);
+  border-radius: 8px 8px 0 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  z-index: 3;
+}
+
+.wysiwyg-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wysiwyg-btn {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  flex-shrink: 0;
+  color: var(--text-default);
+}
+
+.wysiwyg-btn:hover {
+  background: var(--bg-secondary);
+}
+
+.wysiwyg-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border-secondary);
+  flex-shrink: 0;
+}
+
+.wysiwyg-hr {
+  display: block;
+  width: 14px;
+  height: 2px;
+  background: currentColor;
+  border-radius: 1px;
+}
+
+.block-drag-side {
+  position: absolute;
+  left: -28px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  cursor: grab;
+  color: var(--text-tertiary);
+  z-index: 2;
+}
+
+.block-drag-side:active {
+  cursor: grabbing;
+}
+
+.sheet-content.editing {
+  padding-left: 36px;
+}
+
 .ws-task-head {
   display: flex;
   align-items: flex-start;
   gap: 0;
   width: 100%;
-  padding-right: 80px;
   position: relative;
 }
 
@@ -482,20 +565,63 @@
 }
 
 .ws-tools-item-icon {
-  width: 20px;
-  height: 20px;
   flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  color: var(--text-secondary);
-  font-size: 12px;
 }
 
-.ws-tools-item.ai .ws-tools-item-icon {
-  background: linear-gradient(135deg, #7b61ff, #503ae0);
+.ws-tools-item-icon.figma-icon {
+  display: block;
+}
+
+.ws-tools-item.ai .ws-tools-item-icon.figma-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.ai-orb {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.ai-orb-bg {
+  position: absolute;
+  height: 126.47%;
+  width: 223.63%;
+  left: -61.82%;
+  top: -12.75%;
+  max-width: none;
+}
+
+.ai-orb-eye {
+  position: absolute;
+  background: #fff;
+  border-radius: 24px;
+}
+
+.ws-drag-ghost {
+  position: fixed;
+  top: -1000px;
+  left: -1000px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg-white);
   border-radius: 6px;
-  color: #fff;
-  font-size: 10px;
+  box-shadow: 0 8px 24px rgba(22, 26, 51, 0.12);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  color: var(--text-default);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.ws-drag-ghost img {
+  display: block;
+  flex-shrink: 0;
 }
 
 .group-grid {
@@ -589,7 +715,6 @@
   overflow: auto;
   width: 280px;
   position: relative;
-}
 }
 
 .side-head {
@@ -722,12 +847,29 @@
 }
 
 .block-tools {
-  display: flex;
-  gap: 0;
   position: absolute;
-  top: 0;
+  top: -32px;
   right: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  background: var(--bg-secondary);
+  border-radius: 8px 8px 0 0;
+  z-index: 2;
+}
+
+.block-tool-btn {
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
   flex-shrink: 0;
+  color: var(--text-default);
+}
+
+.block-tool-btn:hover {
+  opacity: 0.72;
 }
 
 .page-break-block {
@@ -807,6 +949,68 @@
   line-height: 24px;
 }
 
+.side-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 40px;
+  padding: 0 12px;
+  width: 100%;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  color: var(--text-default);
+}
+
+.side-switch-row .switch {
+  width: 32px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.side-switch-row .switch .knob {
+  width: 16px;
+  height: 16px;
+  top: 2px;
+  left: 2px;
+}
+
+.side-switch-row .switch.on .knob {
+  transform: translateX(12px);
+}
+
+.settings-divider {
+  height: 1px;
+  background: var(--border-secondary);
+  margin: 4px 12px;
+}
+
+.settings-rate-icons {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.rate-icon-btn {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+}
+
+.settings-regenerate {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.settings-regenerate:hover {
+  background: var(--bg-primary);
+  border-radius: 6px;
+}
+
 .side-switch {
   display: flex;
   align-items: center;
@@ -816,8 +1020,8 @@
 }
 
 .switch {
-  width: 44px;
-  height: 24px;
+  width: 32px;
+  height: 20px;
   border-radius: 999px;
   background: var(--bg-tertiary);
   position: relative;
@@ -832,15 +1036,49 @@
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: #fff;
+  box-shadow:
+    0 0 2px rgba(0, 0, 0, 0.05),
+    0 2px 2px rgba(0, 0, 0, 0.1);
   transition: transform 0.15s ease;
 }
 
 .switch.on .knob {
-  transform: translateX(20px);
+  transform: translateX(12px);
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-section-title {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-secondary);
+}
+
+.settings-rate-row {
+  display: flex;
+  gap: 8px;
+}
+
+.rate-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: var(--bg-white);
+  border: 1px solid var(--border-secondary);
+}
+
+.rate-btn:hover {
+  background: var(--bg-secondary);
 }
 
 .settings-actions {
@@ -917,6 +1155,11 @@
   .edit-actions-row,
   .proto-nav,
   .block-tools {
+    display: none !important;
+  }
+
+  .block-wysiwyg,
+  .block-drag-side {
     display: none !important;
   }
 
@@ -1047,9 +1290,37 @@
   }
 
   .block-tools {
+    position: static;
     width: 100%;
     justify-content: flex-end;
-    margin-top: 4px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+  }
+
+  .ws-task-wrap.editable.selected {
+    margin-top: 0;
+  }
+
+  .ws-task-wrap.editable.selected:has(.block-wysiwyg) {
+    margin-top: 0;
+  }
+
+  .block-wysiwyg {
+    position: static;
+    width: 100%;
+    overflow-x: auto;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    box-shadow: none;
+    border: 1px solid var(--border-secondary);
+  }
+
+  .block-drag-side {
+    display: none;
+  }
+
+  .sheet-content.editing {
+    padding-left: 8px;
   }
 
   .breadcrumbs button,

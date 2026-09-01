@@ -8,7 +8,6 @@ const SCREENS: { id: Screen; label: string }[] = [
   { id: 'create', label: 'Создание' },
   { id: 'create-advanced', label: 'Создание · расширенные' },
   { id: 'create-filled', label: 'Создание · заполнено' },
-  { id: 'create-manual', label: 'Создание вручную' },
   { id: 'loader', label: 'Лоадер' },
   { id: 'preview', label: 'Предпросмотр' },
   { id: 'edit', label: 'Редактирование' },

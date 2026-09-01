@@ -242,19 +242,21 @@
 }
 
 .switch-row {
-  display: inline-flex;
-  align-items: flex-start;
-  gap: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
   font-size: 16px;
   line-height: 24px;
   color: var(--text-default);
-  width: fit-content;
-  cursor: pointer;
+  width: 100%;
+  max-width: 480px;
+  min-height: 40px;
 }
 
 .switch {
-  width: 40px;
-  height: 24px;
+  width: 32px;
+  height: 20px;
   border-radius: 999px;
   background: var(--bg-tertiary);
   position: relative;
@@ -270,19 +272,18 @@
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   border-radius: 999px;
   background: #fff;
   box-shadow:
     0 0 2px rgba(0, 0, 0, 0.05),
     0 2px 2px rgba(0, 0, 0, 0.1);
-  transition: left 0.15s ease;
+  transition: transform 0.15s ease;
 }
 
 .switch.on .knob {
-  left: auto;
-  right: 2px;
+  transform: translateX(12px);
 }
 
 .input-with-clear {
@@ -344,13 +345,16 @@
 .create-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  padding-top: 8px;
+  gap: 16px;
+  padding-top: 16px;
+  margin-top: auto;
   width: 100%;
+  flex-shrink: 0;
 }
 
 .footer-btn {
-  width: 200px;
+  width: 160px;
+  min-width: 160px;
 }
 
 @media (max-width: 900px) {
@@ -407,12 +411,17 @@
   box-shadow: var(--shadow-modal);
   padding: 0;
   background: var(--bg-page);
+  display: flex;
+  flex-direction: column;
 }
 
 .create-page--overlay .create-inner {
   width: 100%;
   max-width: none;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .create-page--overlay .create-header {
@@ -420,7 +429,10 @@
 }
 
 .create-page--overlay .create-shell {
-  min-height: 944px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
 }
 
 .create-page--overlay .create-sidemenu {
@@ -428,11 +440,51 @@
   padding: 32px 16px;
   background: var(--bg-page);
   border-right: none;
+  flex-shrink: 0;
+}
+
+.create-sidemenu-title {
+  padding: 0 16px 24px;
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 28px;
+  letter-spacing: -0.2px;
+  color: var(--text-default);
 }
 
 .create-page--overlay .create-form {
   background: var(--bg-white);
-  padding: 40px 32px;
+  padding: 40px 32px 32px;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.create-page--overlay .create-footer {
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  padding: 16px 0 0;
+  background: linear-gradient(to top, var(--bg-white) 70%, rgba(255, 255, 255, 0));
+  z-index: 1;
+}
+
+.create-page--overlay .create-footer .btn-secondary {
+  background: var(--bg-secondary);
+  color: var(--text-default);
+}
+
+.create-page--overlay .create-footer .btn-secondary:hover:not(:disabled) {
+  background: #e4e6f7;
+}
+
+.create-page--overlay .create-footer .btn-brand:disabled {
+  background: var(--bg-secondary);
+  color: var(--text-tertiary);
+  opacity: 1;
 }
 
 .create-page--overlay .create-close {

@@ -18,10 +18,8 @@ import {
 import './Create.css'
 
 interface CreateProps {
-  mode: 'generate' | 'manual'
   draft: WorksheetDraft
   onChange: (draft: WorksheetDraft) => void
-  onModeChange: (mode: 'generate' | 'manual') => void
   onClose: () => void
   onSubmit: () => void
   advancedOpen?: boolean
@@ -29,10 +27,8 @@ interface CreateProps {
 }
 
 export function Create({
-  mode,
   draft,
   onChange,
-  onModeChange,
   onClose,
   onSubmit,
   advancedOpen = false,
@@ -106,238 +102,51 @@ export function Create({
         <header className="create-header">
           <h1>Создание рабочего листа</h1>
           <p>
-            Сгенерируйте или создайте вручную рабочий лист, его можно будет редактировать и
-            конвертировать в задание для выдачи ученикам
+            Сгенерируйте рабочий лист — его можно будет редактировать и конвертировать в задание
+            для выдачи ученикам
           </p>
         </header>
 
         <div className="create-shell">
           <aside className="create-sidemenu">
-            <button
-              type="button"
-              className={mode === 'generate' ? 'active' : ''}
-              onClick={() => onModeChange('generate')}
-            >
+            {overlay ? (
+              <div className="create-sidemenu-title">Создание рабочего листа</div>
+            ) : null}
+            <button type="button" className="active">
               Сгенерировать
-            </button>
-            <button
-              type="button"
-              className={mode === 'manual' ? 'active' : ''}
-              onClick={() => onModeChange('manual')}
-            >
-              Создать вручную
             </button>
           </aside>
 
           <div className="create-form">
-            {mode === 'generate' ? (
-              <>
-                <div className="create-main">
-                  <div className="row-3">
-                    <Field label="Предмет" required>
-                      <Select
-                        options={SUBJECTS}
-                        placeholder="Выберите предмет"
-                        value={draft.subject}
-                        onChange={(e) => onChange({ ...draft, subject: e.target.value })}
-                      />
-                    </Field>
-                    <Field label="Параллель" required>
-                      <Select
-                        options={GRADES}
-                        placeholder="Выберите параллель"
-                        value={draft.grade}
-                        onChange={(e) => onChange({ ...draft, grade: e.target.value })}
-                      />
-                    </Field>
-                    <Field label="Количество заданий" required>
-                      <Select
-                        options={TASK_COUNTS}
-                        value={String(draft.taskCount)}
-                        onChange={(e) => syncTaskCount(e.target.value)}
-                      />
-                    </Field>
-                  </div>
+            <div className="create-main">
+              <div className="row-3">
+                <Field label="Предмет" required>
+                  <Select
+                    options={SUBJECTS}
+                    placeholder="Выберите предмет"
+                    value={draft.subject}
+                    onChange={(e) => onChange({ ...draft, subject: e.target.value })}
+                  />
+                </Field>
+                <Field label="Параллель" required>
+                  <Select
+                    options={GRADES}
+                    placeholder="Выберите параллель"
+                    value={draft.grade}
+                    onChange={(e) => onChange({ ...draft, grade: e.target.value })}
+                  />
+                </Field>
+                <Field label="Количество заданий" required>
+                  <Select
+                    options={TASK_COUNTS}
+                    value={String(draft.taskCount)}
+                    onChange={(e) => syncTaskCount(e.target.value)}
+                  />
+                </Field>
+              </div>
 
-                  <Field label="Тема рабочего листа" required>
-                    <div className="input-with-clear">
-                      <Input
-                        placeholder="Например, умножение дробей"
-                        value={draft.topic}
-                        onChange={(e) =>
-                          onChange({
-                            ...draft,
-                            topic: e.target.value,
-                            title: e.target.value || draft.title,
-                          })
-                        }
-                      />
-                      {draft.topic ? (
-                        <button
-                          type="button"
-                          className="clear-btn"
-                          aria-label="Очистить"
-                          onClick={() => onChange({ ...draft, topic: '', title: '' })}
-                        >
-                          <FigmaIcon src={iconClear} size={20} />
-                        </button>
-                      ) : null}
-                    </div>
-                  </Field>
-
-                  <Field label="Пожелания">
-                    <Textarea
-                      placeholder="Особенности группы, акценты, ограничение по времени..."
-                      value={draft.wishes}
-                      maxLength={500}
-                      counter={`${draft.wishes.length}/500`}
-                      onChange={(e) => onChange({ ...draft, wishes: e.target.value })}
-                    />
-                  </Field>
-                </div>
-
-                <div className="create-advanced-wrap">
-                  <button
-                    type="button"
-                    className="advanced-link"
-                    onClick={() => setAdvanced((v) => !v)}
-                  >
-                    <FigmaIcon src={iconGear} size={20} />
-                    {advanced ? 'Скрыть расширенные настройки' : 'Показать расширенные настройки'}
-                  </button>
-
-                  {advanced ? (
-                    <div className="advanced-settings">
-                      <div className="plan-block">
-                        <div className="plan-header">
-                          <h3>Порядок заданий</h3>
-                          <button
-                            type="button"
-                            className="gen-plan"
-                            onClick={generatePlan}
-                            disabled={planBusy}
-                          >
-                            <FigmaIcon src={iconSparkle} size={20} />
-                            {planBusy ? 'Генерация…' : 'Сгенерировать план'}
-                          </button>
-                        </div>
-                        {planError ? <p className="plan-error">{planError}</p> : null}
-
-                        <div className="plan-rows">
-                          {draft.plan.map((row, index) => (
-                            <div
-                              key={row.id}
-                              className={`plan-row ${dragPlanIdx === index ? 'dragging' : ''}`}
-                              onDragOver={(e) => e.preventDefault()}
-                              onDrop={() => {
-                                if (dragPlanIdx !== null) reorderPlan(dragPlanIdx, index)
-                                setDragPlanIdx(null)
-                              }}
-                            >
-                              <span className="plan-index">{index + 1}.</span>
-                              <Select
-                                className="plan-type"
-                                options={PLAN_TASK_TYPES.map((t) => t.label)}
-                                value={
-                                  PLAN_TASK_TYPES.find((t) => t.type === row.taskType)?.label ??
-                                  row.taskType
-                                }
-                                onChange={(e) => {
-                                  const found = PLAN_TASK_TYPES.find((t) => t.label === e.target.value)
-                                  if (found) updatePlan(index, { taskType: found.type as TaskType })
-                                }}
-                              />
-                              <Input
-                                className="plan-hint"
-                                placeholder="Записать общую формулу квадратного уравнения"
-                                maxLength={200}
-                                value={row.userExpectation}
-                                onChange={(e) =>
-                                  updatePlan(index, { userExpectation: e.target.value })
-                                }
-                              />
-                              <span
-                                className="drag-handle"
-                                draggable
-                                onDragStart={() => setDragPlanIdx(index)}
-                                onDragEnd={() => setDragPlanIdx(null)}
-                                aria-hidden
-                              >
-                                <FigmaIcon src={iconDrag} size={20} />
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <Field label="Сложность" className="difficulty-field">
-                        <Select
-                          options={DIFFICULTY_OPTIONS.map((d) => d.label)}
-                          value={
-                            DIFFICULTY_OPTIONS.find((d) => d.value === draft.difficulty)?.label ??
-                            'Дифференцированная'
-                          }
-                          onChange={(e) => {
-                            const found = DIFFICULTY_OPTIONS.find((d) => d.label === e.target.value)
-                            if (found) {
-                              onChange({ ...draft, difficulty: found.value as DifficultyMode })
-                            }
-                          }}
-                        />
-                      </Field>
-
-                      <label className="switch-row">
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={draft.showDifficulty}
-                          className={`switch ${draft.showDifficulty ? 'on' : ''}`}
-                          onClick={() =>
-                            onChange({ ...draft, showDifficulty: !draft.showDifficulty })
-                          }
-                        >
-                          <span className="knob" />
-                        </button>
-                        <span>Показывать сложность</span>
-                      </label>
-
-                      <label className="switch-row">
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={draft.addIntro}
-                          className={`switch ${draft.addIntro ? 'on' : ''}`}
-                          onClick={() => onChange({ ...draft, addIntro: !draft.addIntro })}
-                        >
-                          <span className="knob" />
-                        </button>
-                        <span>Добавить вводную часть перед заданиями</span>
-                      </label>
-                    </div>
-                  ) : null}
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="row-2">
-                  <Field label="Предмет" required>
-                    <Select
-                      options={SUBJECTS}
-                      placeholder="Выберите предмет"
-                      value={draft.subject}
-                      onChange={(e) => onChange({ ...draft, subject: e.target.value })}
-                    />
-                  </Field>
-                  <Field label="Параллель" required>
-                    <Select
-                      options={GRADES}
-                      placeholder="Выберите параллель"
-                      value={draft.grade}
-                      onChange={(e) => onChange({ ...draft, grade: e.target.value })}
-                    />
-                  </Field>
-                </div>
-                <Field label="Название рабочего листа" required>
+              <Field label="Тема рабочего листа" required>
+                <div className="input-with-clear">
                   <Input
                     placeholder="Например, умножение дробей"
                     value={draft.topic}
@@ -349,40 +158,167 @@ export function Create({
                       })
                     }
                   />
-                </Field>
-                <div className="manual-hint">
-                  <p>
-                    После создания откроется редактор. Добавляйте готовые блоки заданий и базовые
-                    элементы документа.
-                  </p>
-                  <div className="block-preview-grid">
-                    {PLAN_TASK_TYPES.map((b) => (
-                      <div key={b.type} className="block-preview">
-                        <strong>{b.label}</strong>
-                        <span>{b.hint}</span>
-                      </div>
-                    ))}
+                  {draft.topic ? (
+                    <button
+                      type="button"
+                      className="clear-btn"
+                      aria-label="Очистить"
+                      onClick={() => onChange({ ...draft, topic: '', title: '' })}
+                    >
+                      <FigmaIcon src={iconClear} size={20} />
+                    </button>
+                  ) : null}
+                </div>
+              </Field>
+
+              <Field label="Пожелания">
+                <Textarea
+                  placeholder="Особенности группы, акценты, ограничение по времени..."
+                  value={draft.wishes}
+                  maxLength={500}
+                  counter={`${draft.wishes.length}/500`}
+                  onChange={(e) => onChange({ ...draft, wishes: e.target.value })}
+                />
+              </Field>
+            </div>
+
+            <div className="create-advanced-wrap">
+              <button
+                type="button"
+                className="advanced-link"
+                onClick={() => setAdvanced((v) => !v)}
+              >
+                <FigmaIcon src={iconGear} size={20} />
+                {advanced ? 'Скрыть расширенные настройки' : 'Показать расширенные настройки'}
+              </button>
+
+              {advanced ? (
+                <div className="advanced-settings">
+                  <div className="plan-block">
+                    <div className="plan-header">
+                      <h3>Порядок заданий</h3>
+                      <button
+                        type="button"
+                        className="gen-plan"
+                        onClick={generatePlan}
+                        disabled={planBusy}
+                      >
+                        <FigmaIcon src={iconSparkle} size={20} />
+                        {planBusy ? 'Генерация…' : 'Сгенерировать план'}
+                      </button>
+                    </div>
+                    {planError ? <p className="plan-error">{planError}</p> : null}
+
+                    <div className="plan-rows">
+                      {draft.plan.map((row, index) => (
+                        <div
+                          key={row.id}
+                          className={`plan-row ${dragPlanIdx === index ? 'dragging' : ''}`}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={() => {
+                            if (dragPlanIdx !== null) reorderPlan(dragPlanIdx, index)
+                            setDragPlanIdx(null)
+                          }}
+                        >
+                          <span className="plan-index">{index + 1}.</span>
+                          <Select
+                            className="plan-type"
+                            options={PLAN_TASK_TYPES.map((t) => t.label)}
+                            value={
+                              PLAN_TASK_TYPES.find((t) => t.type === row.taskType)?.label ??
+                              row.taskType
+                            }
+                            onChange={(e) => {
+                              const found = PLAN_TASK_TYPES.find((t) => t.label === e.target.value)
+                              if (found) updatePlan(index, { taskType: found.type as TaskType })
+                            }}
+                          />
+                          <Input
+                            className="plan-hint"
+                            placeholder="Записать общую формулу квадратного уравнения"
+                            maxLength={200}
+                            value={row.userExpectation}
+                            onChange={(e) =>
+                              updatePlan(index, { userExpectation: e.target.value })
+                            }
+                          />
+                          <span
+                            className="drag-handle"
+                            draggable
+                            onDragStart={() => setDragPlanIdx(index)}
+                            onDragEnd={() => setDragPlanIdx(null)}
+                            aria-hidden
+                          >
+                            <FigmaIcon src={iconDrag} size={20} />
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Field label="Сложность" className="difficulty-field">
+                    <Select
+                      options={DIFFICULTY_OPTIONS.map((d) => d.label)}
+                      value={
+                        DIFFICULTY_OPTIONS.find((d) => d.value === draft.difficulty)?.label ??
+                        'Дифференцированная'
+                      }
+                      onChange={(e) => {
+                        const found = DIFFICULTY_OPTIONS.find((d) => d.label === e.target.value)
+                        if (found) {
+                          onChange({ ...draft, difficulty: found.value as DifficultyMode })
+                        }
+                      }}
+                    />
+                  </Field>
+
+                  <div className="switch-row">
+                    <span>Показывать сложность</span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={draft.showDifficulty}
+                      className={`switch ${draft.showDifficulty ? 'on' : ''}`}
+                      onClick={() =>
+                        onChange({ ...draft, showDifficulty: !draft.showDifficulty })
+                      }
+                    >
+                      <span className="knob" />
+                    </button>
+                  </div>
+
+                  <div className="switch-row">
+                    <span>Добавить вводную часть перед заданиями</span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={draft.addIntro}
+                      className={`switch ${draft.addIntro ? 'on' : ''}`}
+                      onClick={() => onChange({ ...draft, addIntro: !draft.addIntro })}
+                    >
+                      <span className="knob" />
+                    </button>
                   </div>
                 </div>
-              </>
-            )}
+              ) : null}
+            </div>
+
+            <footer className="create-footer">
+              <Button variant="secondary" size="lg" className="footer-btn" onClick={onClose}>
+                Отменить
+              </Button>
+              <Button
+                variant="brand"
+                size="lg"
+                className="footer-btn"
+                disabled={!canSubmit}
+                onClick={onSubmit}
+              >
+                Создать
+              </Button>
+            </footer>
           </div>
         </div>
-
-        <footer className="create-footer">
-          <Button variant="secondary" size="lg" className="footer-btn" onClick={onClose}>
-            Отменить
-          </Button>
-          <Button
-            variant="brand"
-            size="lg"
-            className="footer-btn"
-            disabled={!canSubmit}
-            onClick={onSubmit}
-          >
-            Создать
-          </Button>
-        </footer>
       </div>
     </div>
   )

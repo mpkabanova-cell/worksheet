@@ -3,6 +3,9 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 .modal-pad.center {
@@ -49,7 +52,34 @@
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  margin-top: 8px;
+  margin-top: auto;
+  padding-top: 16px;
+  flex-shrink: 0;
+}
+
+.modal-actions .btn {
+  min-width: 120px;
+}
+
+.modal-actions .btn-lg,
+.modal-actions .btn-md {
+  min-width: 160px;
+  height: 48px;
+}
+
+.modal-actions .btn-secondary {
+  background: var(--bg-secondary);
+  color: var(--text-default);
+}
+
+.modal-actions .btn-secondary:hover:not(:disabled) {
+  background: #e4e6f7;
+}
+
+.modal-actions .btn-brand:disabled {
+  background: var(--bg-secondary);
+  color: var(--text-tertiary);
+  opacity: 1;
 }
 
 .modal-actions.center {

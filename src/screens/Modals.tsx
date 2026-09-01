@@ -90,10 +90,10 @@ export function Modals({
             </Field>
           </div>
           <div className="modal-actions">
-            <Button variant="secondary" onClick={onClose}>
+            <Button variant="secondary" size="lg" onClick={onClose}>
               Отмена
             </Button>
-            <Button variant="brand" disabled={!canConvert} onClick={onConfirmConvert}>
+            <Button variant="brand" size="lg" disabled={!canConvert} onClick={onConfirmConvert}>
               Преобразовать
             </Button>
           </div>
@@ -108,7 +108,7 @@ export function Modals({
           <h2>Задание создано</h2>
           <p className="modal-desc">Рабочий лист преобразован в задание.</p>
           <div className="modal-actions center">
-            <Button variant="brand" onClick={onClose}>
+            <Button variant="brand" size="lg" onClick={onClose}>
               Готово
             </Button>
           </div>
@@ -162,10 +162,10 @@ export function Modals({
             Показывать правильные ответы
           </label>
           <div className="modal-actions">
-            <Button variant="secondary" onClick={onClose}>
+            <Button variant="secondary" size="lg" onClick={onClose}>
               Отмена
             </Button>
-            <Button variant="brand" onClick={onClose}>
+            <Button variant="brand" size="lg" onClick={onClose}>
               Сохранить
             </Button>
           </div>
@@ -246,16 +246,16 @@ export function Modals({
           </div>
 
           <div className="modal-actions">
-            <Button variant="secondary" onClick={() => onSoon?.('PDF в разработке')}>
+            <Button variant="secondary" size="lg" onClick={() => onSoon?.('PDF в разработке')}>
               PDF
             </Button>
-            <Button variant="secondary" onClick={() => onSoon?.('DOCX в разработке')}>
+            <Button variant="secondary" size="lg" onClick={() => onSoon?.('DOCX в разработке')}>
               DOCX
             </Button>
-            <Button variant="secondary" onClick={onSave}>
+            <Button variant="secondary" size="lg" onClick={onSave}>
               Сохранить
             </Button>
-            <Button variant="brand" onClick={onPrint}>
+            <Button variant="brand" size="lg" onClick={onPrint}>
               Распечатать
             </Button>
           </div>
@@ -292,10 +292,10 @@ export function Modals({
           </div>
           <p className="modal-desc">Будет создана копия «{draft.title}».</p>
           <div className="modal-actions">
-            <Button variant="secondary" onClick={onClose}>
+            <Button variant="secondary" size="lg" onClick={onClose}>
               Отмена
             </Button>
-            <Button variant="brand" onClick={onConfirmDuplicate}>
+            <Button variant="brand" size="lg" onClick={onConfirmDuplicate}>
               Дублировать
             </Button>
           </div>
@@ -312,10 +312,10 @@ export function Modals({
           </div>
           <p className="modal-desc">«{draft.title}» будет удалён безвозвратно.</p>
           <div className="modal-actions">
-            <Button variant="secondary" onClick={onClose}>
+            <Button variant="secondary" size="lg" onClick={onClose}>
               Отмена
             </Button>
-            <Button variant="danger" onClick={onConfirmDelete}>
+            <Button variant="danger" size="lg" onClick={onConfirmDelete}>
               Удалить
             </Button>
           </div>
@@ -355,10 +355,10 @@ export function Modals({
             <p className="error-note">Укажите тему, чтобы запустить перегенерацию</p>
           ) : null}
           <div className="modal-actions">
-            <Button variant="secondary" onClick={onClose}>
+            <Button variant="secondary" size="lg" onClick={onClose}>
               Отмена
             </Button>
-            <Button variant="brand" disabled={!draft.topic.trim()} onClick={onConfirmRegenerate}>
+            <Button variant="brand" size="lg" disabled={!draft.topic.trim()} onClick={onConfirmRegenerate}>
               Перегенерировать
             </Button>
           </div>
@@ -396,10 +396,10 @@ export function Modals({
             />
           </Field>
           <div className="modal-actions">
-            <Button variant="secondary" onClick={onClose} disabled={generateTaskBusy}>
+            <Button variant="secondary" size="lg" onClick={onClose} disabled={generateTaskBusy}>
               Отмена
             </Button>
-            <Button variant="brand" onClick={onConfirmGenerateTask} disabled={generateTaskBusy}>
+            <Button variant="brand" size="lg" onClick={onConfirmGenerateTask} disabled={generateTaskBusy}>
               {generateTaskBusy ? 'Генерация…' : 'Сгенерировать'}
             </Button>
           </div>

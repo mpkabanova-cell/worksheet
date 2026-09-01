@@ -19,7 +19,6 @@ export type Screen =
   | 'create'
   | 'create-advanced'
   | 'create-filled'
-  | 'create-manual'
   | 'loader'
   | 'preview'
   | 'edit'

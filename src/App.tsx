@@ -5,7 +5,6 @@ import { generateSingleTaskAI, generateWorksheetAI } from '@/data/ai'
 import type { GenerateMode } from '@/data/ai'
 import {
   createEmptyBlock,
-  createManualWorksheet,
   generateWorksheet,
 } from '@/data/generator'
 import {
@@ -47,7 +46,6 @@ export default function App() {
   const [stubNav, setStubNav] = useState<NavId>('ai')
   const [createOpen, setCreateOpen] = useState(false)
   const [createAdvanced, setCreateAdvanced] = useState(false)
-  const [createMode, setCreateMode] = useState<'generate' | 'manual'>('generate')
   const [draft, setDraftState] = useState<WorksheetDraft>(() => demoDraft())
   const [modal, setModal] = useState<Modal>(null)
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
@@ -165,10 +163,6 @@ export default function App() {
   }, [screen, setDraft])
 
   useEffect(() => {
-    if (screen === 'create-manual') setCreateMode('manual')
-    if (screen === 'create' || screen === 'create-advanced' || screen === 'create-filled') {
-      setCreateMode('generate')
-    }
     if (screen === 'edit-widget' && !selectedBlockId && draft.blocks[0]) {
       setSelectedBlockId(draft.blocks[0].id)
     }
@@ -176,7 +170,6 @@ export default function App() {
 
   const openCreate = (advanced = false) => {
     setDraft(emptyDraft())
-    setCreateMode('generate')
     setCreateAdvanced(advanced)
     setCreateOpen(true)
   }
@@ -187,13 +180,6 @@ export default function App() {
   }
 
   const submitCreate = () => {
-    if (createMode === 'manual') {
-      setDraft((d) => createManualWorksheet(d))
-      setCurrentPage(0)
-      setCreateOpen(false)
-      setScreen('edit')
-      return
-    }
     setPendingGenerate(true)
     setGenerateMode('create')
     setDraft((d) => ({ ...d, title: d.topic || d.title }))
@@ -340,16 +326,7 @@ export default function App() {
   }
 
   const goScreen = (next: Screen) => {
-    if (next === 'create-manual') {
-      setCreateMode('manual')
-      setDraft(emptyDraft())
-      setCreateOpen(true)
-      setCreateAdvanced(false)
-      setScreen('home')
-      return
-    }
     if (next === 'create') {
-      setCreateMode('generate')
       setDraft(emptyDraft())
       setCreateOpen(true)
       setCreateAdvanced(false)
@@ -357,7 +334,6 @@ export default function App() {
       return
     }
     if (next === 'create-advanced') {
-      setCreateMode('generate')
       setDraft(emptyDraft())
       setCreateOpen(true)
       setCreateAdvanced(true)
@@ -365,7 +341,6 @@ export default function App() {
       return
     }
     if (next === 'create-filled') {
-      setCreateMode('generate')
       setDraft(filledCreateDraft())
       setCreateOpen(true)
       setCreateAdvanced(true)
@@ -413,8 +388,7 @@ export default function App() {
     (SHELL_SCREENS.includes(screen) ||
       screen === 'create' ||
       screen === 'create-advanced' ||
-      screen === 'create-filled' ||
-      screen === 'create-manual')
+      screen === 'create-filled')
 
   return (
     <>
@@ -471,11 +445,9 @@ export default function App() {
             <div className="create-overlay">
               <Create
                 overlay
-                mode={createMode}
                 draft={draft}
                 advancedOpen={createAdvanced || screen === 'create-advanced' || screen === 'create-filled'}
                 onChange={setDraft}
-                onModeChange={setCreateMode}
                 onClose={closeCreate}
                 onSubmit={submitCreate}
               />
@@ -533,6 +505,7 @@ export default function App() {
           onAddBlockOpen={() => setScreen('edit')}
           onCloseAddBlock={() => setScreen('edit')}
           onGenerateTask={() => setModal('generate-task')}
+          onRegenerate={() => setModal('regenerate')}
           onSave={handleSave}
           onUndo={undo}
           onRedo={redo}
