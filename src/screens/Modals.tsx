@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Button, Field, Icon, Input, ModalShell, Select, Textarea } from '@/components/ui'
 import { GRADES, PLAN_TASK_TYPES, SUBJECTS, labelForType } from '@/data/worksheet'
 import type { Modal, TaskType, WorksheetDraft } from '@/data/worksheet'
@@ -22,6 +23,7 @@ interface ModalsProps {
   onPrint: () => void
   onSave: () => void
   onOpen: (modal: Modal) => void
+  onSoon?: (message: string) => void
 }
 
 export function Modals({
@@ -43,7 +45,22 @@ export function Modals({
   onPrint,
   onSave,
   onOpen,
+  onSoon,
 }: ModalsProps) {
+  const [convertTitle, setConvertTitle] = useState('')
+  const [convertGrade, setConvertGrade] = useState('')
+  const [convertDue, setConvertDue] = useState('')
+
+  useEffect(() => {
+    if (modal === 'convert') {
+      setConvertTitle(draft.title)
+      setConvertGrade(draft.grade ? `${draft.grade} класс` : '')
+      setConvertDue('')
+    }
+  }, [modal, draft.title, draft.grade])
+
+  const canConvert = convertTitle.trim().length > 0
+
   return (
     <>
       <ModalShell open={modal === 'convert'} onClose={onClose} width={560}>
@@ -58,21 +75,25 @@ export function Modals({
             Рабочий лист «{draft.title}» станет заданием для выдачи ученикам.
           </p>
           <Field label="Название задания" required>
-            <Input defaultValue={draft.title} />
+            <Input value={convertTitle} onChange={(e) => setConvertTitle(e.target.value)} />
           </Field>
           <div className="modal-row">
             <Field label="Класс">
-              <Select options={GRADES.map((g) => `${g} класс`)} defaultValue={`${draft.grade} класс`} />
+              <Select
+                options={GRADES.map((g) => `${g} класс`)}
+                value={convertGrade}
+                onChange={(e) => setConvertGrade(e.target.value)}
+              />
             </Field>
             <Field label="Срок сдачи">
-              <Input type="date" />
+              <Input type="date" value={convertDue} onChange={(e) => setConvertDue(e.target.value)} />
             </Field>
           </div>
           <div className="modal-actions">
             <Button variant="secondary" onClick={onClose}>
               Отмена
             </Button>
-            <Button variant="brand" onClick={onConfirmConvert}>
+            <Button variant="brand" disabled={!canConvert} onClick={onConfirmConvert}>
               Преобразовать
             </Button>
           </div>
@@ -225,6 +246,12 @@ export function Modals({
           </div>
 
           <div className="modal-actions">
+            <Button variant="secondary" onClick={() => onSoon?.('PDF в разработке')}>
+              PDF
+            </Button>
+            <Button variant="secondary" onClick={() => onSoon?.('DOCX в разработке')}>
+              DOCX
+            </Button>
             <Button variant="secondary" onClick={onSave}>
               Сохранить
             </Button>

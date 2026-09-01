@@ -1,5 +1,21 @@
+export type NavId =
+  | 'desk'
+  | 'ai'
+  | 'materials'
+  | 'schedule'
+  | 'quiz'
+  | 'students'
+  | 'ai-check'
+  | 'analysis'
+  | 'results'
+  | 'stats'
+  | 'ratings'
+  | 'tools'
+
 export type Screen =
   | 'home'
+  | 'worksheets-list'
+  | 'coming-soon'
   | 'create'
   | 'create-advanced'
   | 'create-filled'
@@ -72,6 +88,9 @@ export interface WorksheetBlock {
   orderItems?: string[]
   gapsText?: string
   gapsAnswers?: string[]
+  tableRows?: number
+  tableCols?: number
+  tableCells?: string[][]
   difficulty?: 1 | 2 | 3
 }
 
@@ -218,4 +237,76 @@ export function filledCreateDraft(): WorksheetDraft {
 
 export function uid(prefix = 'b'): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+}
+
+export interface SavedWorksheetMeta {
+  id: string
+  title: string
+  subject: string
+  grade: string
+  savedAt: string
+}
+
+export function listSavedWorksheets(): SavedWorksheetMeta[] {
+  const items: SavedWorksheetMeta[] = []
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (!key?.startsWith('worksheet:')) continue
+    try {
+      const raw = localStorage.getItem(key)
+      if (!raw) continue
+      const draft = JSON.parse(raw) as WorksheetDraft
+      items.push({
+        id: draft.id,
+        title: draft.title || draft.topic || 'Без названия',
+        subject: draft.subject,
+        grade: draft.grade,
+        savedAt: draft.savedAt ?? new Date().toISOString(),
+      })
+    } catch {
+      /* skip corrupt entries */
+    }
+  }
+  return items.sort((a, b) => b.savedAt.localeCompare(a.savedAt))
+}
+
+export function loadWorksheet(id: string): WorksheetDraft | null {
+  try {
+    const raw = localStorage.getItem(`worksheet:${id}`)
+    if (!raw) return null
+    return JSON.parse(raw) as WorksheetDraft
+  } catch {
+    return null
+  }
+}
+
+export function deleteWorksheet(id: string): void {
+  localStorage.removeItem(`worksheet:${id}`)
+}
+
+export function formatSavedAgo(iso?: string): string {
+  if (!iso) return 'Не сохранено'
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'Сохранено только что'
+  if (mins < 60) return `Сохранено ${mins} мин назад`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `Сохранено ${hours} ч назад`
+  const days = Math.floor(hours / 24)
+  return `Сохранено ${days} дн назад`
+}
+
+export const NAV_LABELS: Record<NavId, string> = {
+  desk: 'Рабочий стол',
+  ai: 'ИИ-помощник',
+  materials: 'Библиотека заданий',
+  schedule: 'Расписание',
+  quiz: 'Викторины',
+  students: 'Мои ученики',
+  'ai-check': 'ИИ-проверка заданий',
+  analysis: 'Анализ уроков',
+  results: 'Результаты учеников',
+  stats: 'Статистика',
+  ratings: 'Рейтинги',
+  tools: 'Инструменты',
 }

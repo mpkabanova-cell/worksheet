@@ -3,6 +3,8 @@ import './PrototypeNav.css'
 
 const SCREENS: { id: Screen; label: string }[] = [
   { id: 'home', label: 'Главная' },
+  { id: 'worksheets-list', label: 'Рабочие листы' },
+  { id: 'coming-soon', label: 'Coming soon' },
   { id: 'create', label: 'Создание' },
   { id: 'create-advanced', label: 'Создание · расширенные' },
   { id: 'create-filled', label: 'Создание · заполнено' },
@@ -13,6 +15,7 @@ const SCREENS: { id: Screen; label: string }[] = [
   { id: 'edit-widget', label: 'Редактор блока' },
   { id: 'add-block', label: 'Добавить блок' },
   { id: 'show-answers', label: 'Показать ответы' },
+  { id: 'print', label: 'Печать' },
 ]
 
 const MODALS: { id: Exclude<Modal, null>; label: string }[] = [

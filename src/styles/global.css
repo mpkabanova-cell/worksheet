@@ -136,6 +136,17 @@ ul {
   padding: 24px;
 }
 
+.create-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: var(--bg-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
 .full-page {
   min-height: 100%;
   background: var(--bg-white);

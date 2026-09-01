@@ -621,6 +621,130 @@
   width: min(1000px, 100%);
 }
 
+.ws-navbar-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ws-saved {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-tertiary);
+  padding-left: 2px;
+}
+
+.drop-indicator {
+  height: 48px;
+  margin: 4px 12px;
+  border: 2px dashed var(--border-brand);
+  border-radius: 12px;
+  background: var(--bg-brand-soft);
+}
+
+.ws-task.dragging,
+.page-break-block.dragging {
+  opacity: 0.55;
+}
+
+.block-drag-handle {
+  cursor: grab;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+}
+
+.ws-settings-panel h3 {
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 24px;
+}
+
+.side-switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-default);
+  font-size: 14px;
+}
+
+.switch {
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.switch.on {
+  background: var(--bg-brand);
+}
+
+.switch .knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s ease;
+}
+
+.switch.on .knob {
+  transform: translateX(20px);
+}
+
+.settings-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.group-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.table-size-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.table-editor-grid {
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+}
+
+.table-cell-input {
+  border: 1px solid var(--border-secondary);
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 13px;
+  background: var(--bg-secondary);
+}
+
+.ws-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ws-table td {
+  border: 1px solid var(--border-secondary);
+  padding: 10px 12px;
+  min-width: 64px;
+  min-height: 36px;
+}
+
 @media print {
   .ws-navbar,
   .page-rail,

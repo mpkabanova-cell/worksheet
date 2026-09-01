@@ -25,6 +25,7 @@ interface CreateProps {
   onClose: () => void
   onSubmit: () => void
   advancedOpen?: boolean
+  overlay?: boolean
 }
 
 export function Create({
@@ -35,10 +36,12 @@ export function Create({
   onClose,
   onSubmit,
   advancedOpen = false,
+  overlay = false,
 }: CreateProps) {
   const [advanced, setAdvanced] = useState(advancedOpen)
   const [planBusy, setPlanBusy] = useState(false)
   const [planError, setPlanError] = useState('')
+  const [dragPlanIdx, setDragPlanIdx] = useState<number | null>(null)
 
   useEffect(() => {
     setAdvanced(advancedOpen)
@@ -68,6 +71,14 @@ export function Create({
     })
   }
 
+  const reorderPlan = (from: number, to: number) => {
+    if (from === to) return
+    const next = [...draft.plan]
+    const [item] = next.splice(from, 1)
+    next.splice(to, 0, item)
+    onChange({ ...draft, plan: next })
+  }
+
   const generatePlan = async () => {
     if (!draft.subject || !draft.grade || !draft.topic.trim()) {
       setPlanError('Сначала заполните предмет, параллель и тему')
@@ -86,7 +97,7 @@ export function Create({
   }
 
   return (
-    <div className="create-page">
+    <div className={`create-page ${overlay ? 'create-page--overlay' : ''}`}>
       <button type="button" className="create-close" onClick={onClose} aria-label="Закрыть">
         <FigmaIcon src={iconClose} size={20} />
       </button>
@@ -214,7 +225,15 @@ export function Create({
 
                         <div className="plan-rows">
                           {draft.plan.map((row, index) => (
-                            <div key={row.id} className="plan-row">
+                            <div
+                              key={row.id}
+                              className={`plan-row ${dragPlanIdx === index ? 'dragging' : ''}`}
+                              onDragOver={(e) => e.preventDefault()}
+                              onDrop={() => {
+                                if (dragPlanIdx !== null) reorderPlan(dragPlanIdx, index)
+                                setDragPlanIdx(null)
+                              }}
+                            >
                               <span className="plan-index">{index + 1}.</span>
                               <Select
                                 className="plan-type"
@@ -237,7 +256,13 @@ export function Create({
                                   updatePlan(index, { userExpectation: e.target.value })
                                 }
                               />
-                              <span className="drag-handle" aria-hidden>
+                              <span
+                                className="drag-handle"
+                                draggable
+                                onDragStart={() => setDragPlanIdx(index)}
+                                onDragEnd={() => setDragPlanIdx(null)}
+                                aria-hidden
+                              >
                                 <FigmaIcon src={iconDrag} size={20} />
                               </span>
                             </div>
@@ -346,7 +371,7 @@ export function Create({
 
         <footer className="create-footer">
           <Button variant="secondary" size="lg" className="footer-btn" onClick={onClose}>
-            Отмена
+            Отменить
           </Button>
           <Button
             variant="brand"

@@ -1,11 +1,13 @@
-import { useMemo } from 'react'
+import type { DragEvent } from 'react'
+import { useMemo, useState } from 'react'
 import type { TaskType, WorksheetBlock, WorksheetDraft } from '@/data/worksheet'
-import { TASK_TYPE_META, labelForType } from '@/data/worksheet'
-import { Button, Icon, Input, Textarea } from '@/components/ui'
+import { GRADES, SUBJECTS, TASK_TYPE_META, formatSavedAgo, labelForType, uid } from '@/data/worksheet'
+import { Button, Icon, Input, Select, Textarea } from '@/components/ui'
 import { MathText } from '@/components/MathText'
 import starFilled from '@/assets/worksheet/star-filled.svg'
 import starEmpty from '@/assets/worksheet/star-empty.svg'
 import plusIcon from '@/assets/worksheet/plus.svg'
+import iconDrag from '@/assets/create/drag.svg'
 import './Worksheet.css'
 import './Loader.css'
 
@@ -20,11 +22,13 @@ interface WorksheetScreenProps {
   onSelectBlock?: (id: string | null) => void
   onChangeBlock?: (block: WorksheetBlock) => void
   onChangeDraft?: (draft: WorksheetDraft) => void
-  onAddBlock?: (type: TaskType) => void
+  onAddBlock?: (type: TaskType, insertBeforeId?: string | null) => void
   onRemoveBlock?: (id: string) => void
   onMoveBlock?: (id: string, dir: -1 | 1) => void
+  onReorderBlock?: (fromId: string, toId: string) => void
   onAddPage?: () => void
   onBack: () => void
+  onMaterials?: () => void
   onEdit?: () => void
   onPreview?: () => void
   onConvert?: () => void
@@ -35,6 +39,10 @@ interface WorksheetScreenProps {
   onAddBlockOpen?: () => void
   onCloseAddBlock?: () => void
   onGenerateTask?: () => void
+  onSave?: () => void
+  onUndo?: () => void
+  onRedo?: () => void
+  onSoon?: (message: string) => void
 }
 
 export function WorksheetScreen({
@@ -49,21 +57,30 @@ export function WorksheetScreen({
   onAddBlock,
   onRemoveBlock,
   onMoveBlock,
+  onReorderBlock,
   onAddPage,
   onBack,
+  onMaterials,
   onEdit,
   onPreview,
   onConvert,
   onDownload,
   onMenu,
-  onShowAnswers,
+  onShowAnswers: _onShowAnswers,
   onAddBlockOpen,
   onCloseAddBlock,
   onGenerateTask,
+  onSave,
+  onUndo,
+  onRedo,
+  onSoon,
 }: WorksheetScreenProps) {
   const selected = draft.blocks.find((b) => b.id === selectedBlockId) ?? null
   const isEdit = mode === 'edit' || mode === 'edit-widget' || mode === 'add-block'
   const showAnswers = mode === 'answers' || draft.showAnswers
+  const [dragBlockId, setDragBlockId] = useState<string | null>(null)
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null)
+  const [sidebarDragType, setSidebarDragType] = useState<TaskType | null>(null)
 
   const pageBlocks = useMemo(
     () => draft.blocks.filter((b) => b.page === currentPage),
@@ -71,21 +88,39 @@ export function WorksheetScreen({
   )
 
   const pageCount = Math.max(draft.pages, 1)
+  const hasSidePanel = mode === 'edit' || mode === 'edit-widget' || mode === 'add-block'
+
+  const handleDropOnBlock = (targetId: string) => {
+    if (sidebarDragType) {
+      onAddBlock?.(sidebarDragType, targetId)
+      setSidebarDragType(null)
+      setDropTargetId(null)
+      return
+    }
+    if (dragBlockId && dragBlockId !== targetId) {
+      onReorderBlock?.(dragBlockId, targetId)
+    }
+    setDragBlockId(null)
+    setDropTargetId(null)
+  }
 
   return (
     <div className="ws-page">
       <header className="ws-navbar">
-        <nav className="breadcrumbs" aria-label="Навигация">
-          <button type="button" onClick={onBack}>
-            Главная
-          </button>
-          <span>/</span>
-          <button type="button" onClick={onBack}>
-            Рабочие листы
-          </button>
-          <span>/</span>
-          <span className="current">{draft.title || 'Без названия'}</span>
-        </nav>
+        <div className="ws-navbar-left">
+          <nav className="breadcrumbs" aria-label="Навигация">
+            <button type="button" onClick={onBack}>
+              Главная
+            </button>
+            <span>/</span>
+            <button type="button" onClick={onMaterials ?? onBack}>
+              Материалы
+            </button>
+            <span>/</span>
+            <span className="current">{draft.title || 'Без названия'}</span>
+          </nav>
+          <span className="ws-saved">{formatSavedAgo(draft.savedAt)}</span>
+        </div>
 
         <div className="ws-actions">
           <button type="button" className="icon-btn" onClick={onMenu} aria-label="Ещё">
@@ -94,17 +129,17 @@ export function WorksheetScreen({
 
           {isEdit ? (
             <>
+              <Button variant="ghost" size="sm" onClick={() => onSoon?.('Интерактивный режим скоро')}>
+                Сделать интерактивным
+              </Button>
               <Button variant="ghost" size="sm" onClick={onGenerateTask}>
                 <Icon name="refresh" size={20} /> Сгенерировать задание
               </Button>
-              <Button variant="ghost" size="sm" onClick={onShowAnswers}>
-                <Icon name="eye" size={20} /> {showAnswers ? 'Скрыть ответы' : 'Ответы'}
-              </Button>
-              <Button variant="secondary" size="sm" onClick={onConvert}>
-                Преобразовать
-              </Button>
-              <Button variant="brand" size="sm" onClick={onPreview}>
+              <Button variant="secondary" size="sm" onClick={onPreview}>
                 Предпросмотр
+              </Button>
+              <Button variant="brand" size="sm" onClick={onDownload}>
+                Распечатать
               </Button>
             </>
           ) : (
@@ -123,7 +158,7 @@ export function WorksheetScreen({
         </div>
       </header>
 
-      <div className={`ws-body-layout ${mode === 'edit-widget' || mode === 'add-block' ? 'with-side' : ''}`}>
+      <div className={`ws-body-layout ${hasSidePanel ? 'with-side' : ''}`}>
         <aside className="page-rail">
           {Array.from({ length: pageCount }, (_, i) => (
             <button
@@ -161,7 +196,16 @@ export function WorksheetScreen({
 
             <div className="sheet-divider" />
 
-            <div className="sheet-content">
+            <div
+              className="sheet-content"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => {
+                if (sidebarDragType) {
+                  onAddBlock?.(sidebarDragType)
+                  setSidebarDragType(null)
+                }
+              }}
+            >
               {isEdit ? (
                 <div className="sheet-intro-widget">
                   <textarea
@@ -179,19 +223,34 @@ export function WorksheetScreen({
               ) : null}
 
               {pageBlocks.map((block, index) => (
-                <BlockCard
-                  key={block.id}
-                  block={block}
-                  index={index}
-                  editable={isEdit}
-                  selected={selectedBlockId === block.id}
-                  showAnswer={showAnswers}
-                  showDifficulty={draft.showDifficulty}
-                  onSelect={() => onSelectBlock?.(block.id)}
-                  onRemove={() => onRemoveBlock?.(block.id)}
-                  onMoveUp={() => onMoveBlock?.(block.id, -1)}
-                  onMoveDown={() => onMoveBlock?.(block.id, 1)}
-                />
+                <div key={block.id}>
+                  {dropTargetId === block.id && dragBlockId ? (
+                    <div className="drop-indicator" aria-hidden />
+                  ) : null}
+                  <BlockCard
+                    block={block}
+                    index={index}
+                    editable={isEdit}
+                    selected={selectedBlockId === block.id}
+                    showAnswer={showAnswers}
+                    showDifficulty={draft.showDifficulty}
+                    dragging={dragBlockId === block.id}
+                    onSelect={() => onSelectBlock?.(block.id)}
+                    onRemove={() => onRemoveBlock?.(block.id)}
+                    onMoveUp={() => onMoveBlock?.(block.id, -1)}
+                    onMoveDown={() => onMoveBlock?.(block.id, 1)}
+                    onDragStart={() => setDragBlockId(block.id)}
+                    onDragEnd={() => {
+                      setDragBlockId(null)
+                      setDropTargetId(null)
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      setDropTargetId(block.id)
+                    }}
+                    onDrop={() => handleDropOnBlock(block.id)}
+                  />
+                </div>
               ))}
 
               {isEdit ? (
@@ -208,119 +267,74 @@ export function WorksheetScreen({
           </div>
         </main>
 
-        {mode === 'edit-widget' && selected ? (
-          <aside className="ws-sidepanel">
-            <div className="side-head">
-              <h3>Редактирование блока</h3>
-              <button type="button" className="icon-btn" onClick={() => onSelectBlock?.(null)} aria-label="Закрыть">
-                <Icon name="close" size={18} />
+        {mode === 'edit' ? (
+          <aside className="ws-sidepanel ws-settings-panel">
+            <h3>Настройки рабочего листа</h3>
+            <label className="side-field">
+              <span>Предмет</span>
+              <Select
+                options={SUBJECTS}
+                placeholder="Выберите предмет"
+                value={draft.subject}
+                onChange={(e) => onChangeDraft?.({ ...draft, subject: e.target.value })}
+              />
+            </label>
+            <label className="side-field">
+              <span>Параллель</span>
+              <Select
+                options={GRADES}
+                placeholder="Выберите параллель"
+                value={draft.grade}
+                onChange={(e) => onChangeDraft?.({ ...draft, grade: e.target.value })}
+              />
+            </label>
+            <label className="switch-row side-switch">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={draft.showAnswers}
+                className={`switch ${draft.showAnswers ? 'on' : ''}`}
+                onClick={() => onChangeDraft?.({ ...draft, showAnswers: !draft.showAnswers })}
+              >
+                <span className="knob" />
               </button>
-            </div>
-            <label className="side-field">
-              <span>Тип</span>
-              <strong>{labelForType(selected.type)}</strong>
+              <span>Показать ответы</span>
             </label>
-            <label className="side-field">
-              <span>Заголовок</span>
-              <Input
-                value={selected.title}
-                onChange={(e) => onChangeBlock?.({ ...selected, title: e.target.value })}
-              />
+            <label className="switch-row side-switch">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={draft.showDifficulty}
+                className={`switch ${draft.showDifficulty ? 'on' : ''}`}
+                onClick={() => onChangeDraft?.({ ...draft, showDifficulty: !draft.showDifficulty })}
+              >
+                <span className="knob" />
+              </button>
+              <span>Показывать сложность</span>
             </label>
-            {selected.instruction !== undefined ? (
-              <label className="side-field">
-                <span>Инструкция</span>
-                <Input
-                  value={selected.instruction ?? ''}
-                  onChange={(e) => onChangeBlock?.({ ...selected, instruction: e.target.value })}
-                />
-              </label>
-            ) : null}
-            <label className="side-field">
-              <span>Вопрос / текст</span>
-              <Textarea
-                rows={4}
-                value={selected.question ?? selected.body ?? selected.gapsText ?? ''}
-                onChange={(e) => {
-                  if (selected.type === 'fill_gaps') {
-                    onChangeBlock?.({ ...selected, gapsText: e.target.value, question: e.target.value })
-                  } else if (selected.type === 'text') {
-                    onChangeBlock?.({ ...selected, body: e.target.value })
-                  } else {
-                    onChangeBlock?.({ ...selected, question: e.target.value })
-                  }
-                }}
-              />
-            </label>
-            {(selected.type === 'single_choice' || selected.type === 'multiple_choice') && (
-              <label className="side-field">
-                <span>Варианты (каждый с новой строки)</span>
-                <Textarea
-                  rows={4}
-                  value={(selected.options ?? []).map((o) => o.text).join('\n')}
-                  onChange={(e) => {
-                    const texts = e.target.value.split('\n')
-                    onChangeBlock?.({
-                      ...selected,
-                      options: texts.map((text, i) => ({
-                        id: selected.options?.[i]?.id ?? `option_${i + 1}`,
-                        text,
-                      })),
-                    })
-                  }}
-                />
-              </label>
-            )}
-            {(selected.correctAnswers || selected.correctOptionId) && (
-              <label className="side-field">
-                <span>Правильный ответ</span>
-                <Input
-                  value={
-                    selected.correctAnswers?.join(', ') ??
-                    selected.options?.find((o) => o.id === selected.correctOptionId)?.text ??
-                    ''
-                  }
-                  onChange={(e) =>
-                    onChangeBlock?.({
-                      ...selected,
-                      correctAnswers: e.target.value.split(',').map((s) => s.trim()),
-                    })
-                  }
-                />
-              </label>
-            )}
-            <label className="side-field">
-              <span>Сложность</span>
-              <div className="diff-picker">
-                {([1, 2, 3] as const).map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    className={(selected.difficulty ?? 1) >= n ? 'on' : ''}
-                    onClick={() => onChangeBlock?.({ ...selected, difficulty: n })}
-                  >
-                    <img
-                      src={(selected.difficulty ?? 1) >= n ? starFilled : starEmpty}
-                      alt=""
-                      width={16}
-                      height={16}
-                    />
-                  </button>
-                ))}
-              </div>
-            </label>
-            <div className="side-actions">
-              <Button variant="secondary" onClick={() => onMoveBlock?.(selected.id, -1)}>
-                ↑ Выше
+            <div className="settings-actions">
+              <Button variant="secondary" size="sm" onClick={onUndo}>
+                ↶
               </Button>
-              <Button variant="secondary" onClick={() => onMoveBlock?.(selected.id, 1)}>
-                ↓ Ниже
+              <Button variant="secondary" size="sm" onClick={onRedo}>
+                ↷
+              </Button>
+              <Button variant="brand" size="sm" onClick={onSave}>
+                Сохранить
               </Button>
             </div>
-            <Button variant="danger-soft" onClick={() => onRemoveBlock?.(selected.id)}>
-              Удалить блок
-            </Button>
           </aside>
+        ) : null}
+
+        {mode === 'edit-widget' && selected ? (
+          <BlockEditorPanel
+            block={selected}
+            onChange={onChangeBlock!}
+            onClose={() => onSelectBlock?.(null)}
+            onMoveUp={() => onMoveBlock?.(selected.id, -1)}
+            onMoveDown={() => onMoveBlock?.(selected.id, 1)}
+            onRemove={() => onRemoveBlock?.(selected.id)}
+          />
         ) : null}
 
         {mode === 'add-block' ? (
@@ -334,7 +348,15 @@ export function WorksheetScreen({
             <p className="side-section-label">Готовые блоки заданий</p>
             <div className="add-grid">
               {TASK_TYPE_META.filter((b) => b.category === 'task').map((b) => (
-                <button key={b.type} type="button" className="add-type" onClick={() => onAddBlock?.(b.type)}>
+                <button
+                  key={b.type}
+                  type="button"
+                  className="add-type"
+                  draggable
+                  onDragStart={() => setSidebarDragType(b.type)}
+                  onDragEnd={() => setSidebarDragType(null)}
+                  onClick={() => onAddBlock?.(b.type)}
+                >
                   <strong>{b.label}</strong>
                   <span>{b.hint}</span>
                 </button>
@@ -343,7 +365,15 @@ export function WorksheetScreen({
             <p className="side-section-label">Инструменты</p>
             <div className="add-grid">
               {TASK_TYPE_META.filter((b) => b.category === 'element').map((b) => (
-                <button key={b.type} type="button" className="add-type" onClick={() => onAddBlock?.(b.type)}>
+                <button
+                  key={b.type}
+                  type="button"
+                  className="add-type"
+                  draggable
+                  onDragStart={() => setSidebarDragType(b.type)}
+                  onDragEnd={() => setSidebarDragType(null)}
+                  onClick={() => onAddBlock?.(b.type)}
+                >
                   <strong>{b.label}</strong>
                   <span>{b.hint}</span>
                 </button>
@@ -353,6 +383,399 @@ export function WorksheetScreen({
         ) : null}
       </div>
     </div>
+  )
+}
+
+function BlockEditorPanel({
+  block,
+  onChange,
+  onClose,
+  onMoveUp,
+  onMoveDown,
+  onRemove,
+}: {
+  block: WorksheetBlock
+  onChange: (block: WorksheetBlock) => void
+  onClose: () => void
+  onMoveUp: () => void
+  onMoveDown: () => void
+  onRemove: () => void
+}) {
+  return (
+    <aside className="ws-sidepanel">
+      <div className="side-head">
+        <h3>Редактирование блока</h3>
+        <button type="button" className="icon-btn" onClick={onClose} aria-label="Закрыть">
+          <Icon name="close" size={18} />
+        </button>
+      </div>
+      <label className="side-field">
+        <span>Тип</span>
+        <strong>{labelForType(block.type)}</strong>
+      </label>
+      <label className="side-field">
+        <span>Заголовок</span>
+        <Input value={block.title} onChange={(e) => onChange({ ...block, title: e.target.value })} />
+      </label>
+      {block.instruction !== undefined ? (
+        <label className="side-field">
+          <span>Инструкция</span>
+          <Input
+            value={block.instruction ?? ''}
+            onChange={(e) => onChange({ ...block, instruction: e.target.value })}
+          />
+        </label>
+      ) : null}
+
+      {block.type !== 'table' ? (
+        <label className="side-field">
+          <span>{block.type === 'text' ? 'Текст' : 'Вопрос / текст'}</span>
+          <Textarea
+            rows={4}
+            value={block.question ?? block.body ?? block.gapsText ?? ''}
+            onChange={(e) => {
+              if (block.type === 'fill_gaps') {
+                onChange({ ...block, gapsText: e.target.value, question: e.target.value })
+              } else if (block.type === 'text') {
+                onChange({ ...block, body: e.target.value })
+              } else {
+                onChange({ ...block, question: e.target.value })
+              }
+            }}
+          />
+        </label>
+      ) : null}
+
+      {(block.type === 'single_choice' || block.type === 'multiple_choice') && (
+        <>
+          <label className="side-field">
+            <span>Варианты (каждый с новой строки)</span>
+            <Textarea
+              rows={4}
+              value={(block.options ?? []).map((o) => o.text).join('\n')}
+              onChange={(e) => {
+                const texts = e.target.value.split('\n').filter(Boolean)
+                const options = texts.map((text, i) => ({
+                  id: block.options?.[i]?.id ?? `option_${i + 1}`,
+                  text,
+                }))
+                onChange({
+                  ...block,
+                  options,
+                  correctOptionId: block.correctOptionId ?? options[0]?.id,
+                })
+              }}
+            />
+          </label>
+          <label className="side-field">
+            <span>Правильный ответ</span>
+            {block.type === 'single_choice' ? (
+              <Select
+                options={(block.options ?? []).map((o) => o.text)}
+                value={block.options?.find((o) => o.id === block.correctOptionId)?.text ?? ''}
+                onChange={(e) => {
+                  const opt = block.options?.find((o) => o.text === e.target.value)
+                  if (opt) onChange({ ...block, correctOptionId: opt.id })
+                }}
+              />
+            ) : (
+              <Input
+                placeholder="Варианты через запятую"
+                value={(block.correctOptionIds ?? [])
+                  .map((id) => block.options?.find((o) => o.id === id)?.text)
+                  .filter(Boolean)
+                  .join(', ')}
+                onChange={(e) => {
+                  const texts = e.target.value.split(',').map((s) => s.trim())
+                  const ids = texts
+                    .map((t) => block.options?.find((o) => o.text === t)?.id)
+                    .filter(Boolean) as string[]
+                  onChange({ ...block, correctOptionIds: ids })
+                }}
+              />
+            )}
+          </label>
+        </>
+      )}
+
+      {block.type === 'matching' ? (
+        <MatchingEditor block={block} onChange={onChange} />
+      ) : null}
+
+      {block.type === 'grouping' ? (
+        <GroupingEditor block={block} onChange={onChange} />
+      ) : null}
+
+      {block.type === 'ordering' ? (
+        <OrderingEditor block={block} onChange={onChange} />
+      ) : null}
+
+      {block.type === 'fill_gaps' ? (
+        <label className="side-field">
+          <span>Ответы к пропускам (через запятую)</span>
+          <Input
+            value={(block.gapsAnswers ?? []).join(', ')}
+            onChange={(e) =>
+              onChange({
+                ...block,
+                gapsAnswers: e.target.value.split(',').map((s) => s.trim()),
+              })
+            }
+          />
+        </label>
+      ) : null}
+
+      {block.type === 'table' ? (
+        <TableEditor block={block} onChange={onChange} />
+      ) : null}
+
+      {(block.correctAnswers || block.type === 'short_answer' || block.type === 'extended_answer') &&
+      block.type !== 'single_choice' &&
+      block.type !== 'multiple_choice' ? (
+        <label className="side-field">
+          <span>Правильный ответ</span>
+          <Input
+            value={block.correctAnswers?.join(', ') ?? ''}
+            onChange={(e) =>
+              onChange({
+                ...block,
+                correctAnswers: e.target.value.split(',').map((s) => s.trim()),
+              })
+            }
+          />
+        </label>
+      ) : null}
+
+      <label className="side-field">
+        <span>Сложность</span>
+        <div className="diff-picker">
+          {([1, 2, 3] as const).map((n) => (
+            <button
+              key={n}
+              type="button"
+              className={(block.difficulty ?? 1) >= n ? 'on' : ''}
+              onClick={() => onChange({ ...block, difficulty: n })}
+            >
+              <img
+                src={(block.difficulty ?? 1) >= n ? starFilled : starEmpty}
+                alt=""
+                width={16}
+                height={16}
+              />
+            </button>
+          ))}
+        </div>
+      </label>
+      <div className="side-actions">
+        <Button variant="secondary" onClick={onMoveUp}>
+          ↑ Выше
+        </Button>
+        <Button variant="secondary" onClick={onMoveDown}>
+          ↓ Ниже
+        </Button>
+      </div>
+      <Button variant="danger-soft" onClick={onRemove}>
+        Удалить блок
+      </Button>
+    </aside>
+  )
+}
+
+function MatchingEditor({
+  block,
+  onChange,
+}: {
+  block: WorksheetBlock
+  onChange: (block: WorksheetBlock) => void
+}) {
+  const left = block.leftItems ?? []
+  const right = block.rightItems ?? []
+  const updateLeft = (index: number, text: string) => {
+    const next = left.map((item, i) => (i === index ? { ...item, text } : item))
+    onChange({ ...block, leftItems: next })
+  }
+  const updateRight = (index: number, text: string) => {
+    const next = right.map((item, i) => (i === index ? { ...item, text } : item))
+    onChange({ ...block, rightItems: next })
+  }
+  return (
+    <>
+      <p className="side-section-label">Левая колонка</p>
+      {left.map((item, i) => (
+        <Input key={item.id} value={item.text} onChange={(e) => updateLeft(i, e.target.value)} />
+      ))}
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() =>
+          onChange({
+            ...block,
+            leftItems: [...left, { id: uid('left'), text: 'Новый элемент' }],
+          })
+        }
+      >
+        + Слева
+      </Button>
+      <p className="side-section-label">Правая колонка</p>
+      {right.map((item, i) => (
+        <Input key={item.id} value={item.text} onChange={(e) => updateRight(i, e.target.value)} />
+      ))}
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() =>
+          onChange({
+            ...block,
+            rightItems: [...right, { id: uid('right'), text: 'Новый элемент' }],
+          })
+        }
+      >
+        + Справа
+      </Button>
+    </>
+  )
+}
+
+function GroupingEditor({
+  block,
+  onChange,
+}: {
+  block: WorksheetBlock
+  onChange: (block: WorksheetBlock) => void
+}) {
+  const groups = block.groups ?? []
+  return (
+    <>
+      {groups.map((g, gi) => (
+        <div key={g.id} className="group-editor">
+          <Input
+            value={g.title}
+            onChange={(e) => {
+              const next = groups.map((group, i) =>
+                i === gi ? { ...group, title: e.target.value } : group,
+              )
+              onChange({ ...block, groups: next })
+            }}
+          />
+          <Textarea
+            rows={3}
+            value={g.items.join('\n')}
+            onChange={(e) => {
+              const next = groups.map((group, i) =>
+                i === gi ? { ...group, items: e.target.value.split('\n').filter(Boolean) } : group,
+              )
+              onChange({ ...block, groups: next })
+            }}
+          />
+        </div>
+      ))}
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() =>
+          onChange({
+            ...block,
+            groups: [...groups, { id: uid('group'), title: 'Новая группа', items: ['Элемент'] }],
+          })
+        }
+      >
+        + Группа
+      </Button>
+    </>
+  )
+}
+
+function OrderingEditor({
+  block,
+  onChange,
+}: {
+  block: WorksheetBlock
+  onChange: (block: WorksheetBlock) => void
+}) {
+  return (
+    <label className="side-field">
+      <span>Элементы (каждый с новой строки)</span>
+      <Textarea
+        rows={5}
+        value={(block.orderItems ?? []).join('\n')}
+        onChange={(e) =>
+          onChange({
+            ...block,
+            orderItems: e.target.value.split('\n').filter(Boolean),
+          })
+        }
+      />
+    </label>
+  )
+}
+
+function TableEditor({
+  block,
+  onChange,
+}: {
+  block: WorksheetBlock
+  onChange: (block: WorksheetBlock) => void
+}) {
+  const rows = block.tableRows ?? 3
+  const cols = block.tableCols ?? 3
+  const cells =
+    block.tableCells ??
+    Array.from({ length: rows }, () => Array.from({ length: cols }, () => ''))
+
+  const resize = (newRows: number, newCols: number) => {
+    const next = Array.from({ length: newRows }, (_, r) =>
+      Array.from({ length: newCols }, (_, c) => cells[r]?.[c] ?? ''),
+    )
+    onChange({ ...block, tableRows: newRows, tableCols: newCols, tableCells: next })
+  }
+
+  const setCell = (r: number, c: number, value: string) => {
+    const next = cells.map((row, ri) => row.map((cell, ci) => (ri === r && ci === c ? value : cell)))
+    onChange({ ...block, tableCells: next })
+  }
+
+  return (
+    <>
+      <div className="table-size-row">
+        <FieldInline label="Строк" value={rows} onChange={(n) => resize(n, cols)} />
+        <FieldInline label="Столбцов" value={cols} onChange={(n) => resize(rows, n)} />
+      </div>
+      <div className="table-editor-grid">
+        {cells.map((row, r) =>
+          row.map((cell, c) => (
+            <input
+              key={`${r}-${c}`}
+              className="table-cell-input"
+              value={cell}
+              onChange={(e) => setCell(r, c, e.target.value)}
+            />
+          )),
+        )}
+      </div>
+    </>
+  )
+}
+
+function FieldInline({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: number
+  onChange: (n: number) => void
+}) {
+  return (
+    <label className="side-field inline">
+      <span>{label}</span>
+      <Input
+        type="number"
+        min={1}
+        max={8}
+        value={value}
+        onChange={(e) => onChange(Math.max(1, Math.min(8, Number(e.target.value) || 1)))}
+      />
+    </label>
   )
 }
 
@@ -380,10 +803,15 @@ function BlockCard({
   selected,
   showAnswer,
   showDifficulty,
+  dragging,
   onSelect,
   onRemove,
   onMoveUp,
   onMoveDown,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
 }: {
   block: WorksheetBlock
   index: number
@@ -391,16 +819,23 @@ function BlockCard({
   selected: boolean
   showAnswer: boolean
   showDifficulty: boolean
+  dragging?: boolean
   onSelect: () => void
   onRemove: () => void
   onMoveUp: () => void
   onMoveDown: () => void
+  onDragStart: () => void
+  onDragEnd: () => void
+  onDragOver: (e: DragEvent) => void
+  onDrop: () => void
 }) {
   if (block.type === 'page_break') {
     return (
       <div
-        className={`page-break-block ${selected ? 'selected' : ''} ${editable ? 'editable' : ''}`}
+        className={`page-break-block ${selected ? 'selected' : ''} ${editable ? 'editable' : ''} ${dragging ? 'dragging' : ''}`}
         onClick={editable ? onSelect : undefined}
+        onDragOver={editable ? onDragOver : undefined}
+        onDrop={editable ? onDrop : undefined}
       >
         — Разрыв страницы —
       </div>
@@ -410,11 +845,16 @@ function BlockCard({
   const number = index + 1
   const question = block.question ?? block.body ?? block.gapsText ?? ''
   const isPlainText = block.type === 'text'
+  const rows = block.tableRows ?? 3
+  const cols = block.tableCols ?? 3
+  const cells = block.tableCells
 
   return (
     <article
-      className={`ws-task ${selected ? 'selected' : ''} ${editable ? 'editable' : ''} ${isPlainText ? 'plain' : ''}`}
+      className={`ws-task ${selected ? 'selected' : ''} ${editable ? 'editable' : ''} ${isPlainText ? 'plain' : ''} ${dragging ? 'dragging' : ''}`}
       onClick={editable ? onSelect : undefined}
+      onDragOver={editable ? onDragOver : undefined}
+      onDrop={editable ? onDrop : undefined}
     >
       <div className="ws-task-head">
         {!isPlainText ? <span className="ws-task-num">{number}.</span> : null}
@@ -436,6 +876,15 @@ function BlockCard({
         </div>
         {editable ? (
           <div className="block-tools" onClick={(e) => e.stopPropagation()}>
+            <span
+              className="block-drag-handle"
+              draggable
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+              aria-label="Перетащить"
+            >
+              <img src={iconDrag} alt="" width={20} height={20} />
+            </span>
             <button type="button" className="icon-btn tiny" onClick={onMoveUp} aria-label="Выше">
               ↑
             </button>
@@ -539,7 +988,17 @@ function BlockCard({
 
       {block.type === 'table' ? (
         <div className="ws-task-slot">
-          <div className="grid-field" />
+          <table className="ws-table">
+            <tbody>
+              {Array.from({ length: rows }).map((_, r) => (
+                <tr key={r}>
+                  {Array.from({ length: cols }).map((_, c) => (
+                    <td key={c}>{cells?.[r]?.[c] ?? ''}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       ) : null}
 

@@ -281,7 +281,13 @@ export function createEmptyBlock(type: TaskType, page = 0): WorksheetBlock {
     case 'answer_field':
       return { ...base, question: 'Поле для ответа ученика', answerLines: 4 }
     case 'table':
-      return { ...base, question: 'Заполни таблицу', body: '3×3' }
+      return {
+        ...base,
+        question: 'Заполни таблицу',
+        tableRows: 3,
+        tableCols: 3,
+        tableCells: Array.from({ length: 3 }, () => Array.from({ length: 3 }, () => '')),
+      }
     case 'page_break':
       return { ...base, title: 'Разрыв страницы' }
     default:
