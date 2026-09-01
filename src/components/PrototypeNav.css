@@ -58,3 +58,16 @@
 .proto-list button.active {
   color: #cbbfff;
 }
+
+@media (max-width: 640px) {
+  .proto-nav {
+    right: 8px;
+    bottom: 8px;
+    max-width: calc(100vw - 16px);
+  }
+
+  .proto-nav summary {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+}

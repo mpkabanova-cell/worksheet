@@ -47,19 +47,26 @@ const ANALYSIS: NavItem[] = [
 
 interface SidebarProps {
   activeId: NavId
+  mobileOpen?: boolean
+  onMobileToggle?: () => void
   onNavigate: (id: NavId) => void
   onSoon?: (message: string) => void
 }
 
-export function Sidebar({ activeId, onNavigate, onSoon }: SidebarProps) {
+export function Sidebar({ activeId, mobileOpen = false, onMobileToggle, onNavigate, onSoon }: SidebarProps) {
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${mobileOpen ? 'sidebar--open' : ''}`}>
       <div className="sidebar-top">
         <div className="brand">
           <img src={logoSign} alt="" className="brand-sign" width={32} height={32} />
           <img src={logoName} alt="Ассистент Преподавателя" className="brand-name" height={20} />
         </div>
-        <button className="collapse-btn" aria-label="Свернуть меню" type="button">
+        <button
+          className="collapse-btn"
+          aria-label={mobileOpen ? 'Закрыть меню' : 'Свернуть меню'}
+          type="button"
+          onClick={onMobileToggle}
+        >
           <img src={iconExpand} alt="" width={24} height={24} />
         </button>
       </div>

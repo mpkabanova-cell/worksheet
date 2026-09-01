@@ -80,3 +80,13 @@
 .breadcrumbs button:hover {
   background: var(--bg-secondary);
 }
+
+@media (max-width: 1024px) {
+  .ws-navbar {
+    height: auto;
+    min-height: 64px;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+}

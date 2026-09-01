@@ -59,6 +59,7 @@ export default function App() {
   const [generateTaskBusy, setGenerateTaskBusy] = useState(false)
   const [toastMessage, setToastMessage] = useState('')
   const [listRefresh, setListRefresh] = useState(0)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const toastTimer = useRef<number | null>(null)
   const draftRef = useRef(draft)
   const generateModeRef = useRef<GenerateMode>('create')
@@ -117,6 +118,15 @@ export default function App() {
       setToastMessage('')
     }, 2800)
   }
+
+  useEffect(() => {
+    if (!sidebarOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [sidebarOpen])
 
   useEffect(() => {
     if (screen !== 'loader') return
@@ -304,6 +314,7 @@ export default function App() {
   }
 
   const navigateNav = (id: NavId) => {
+    setSidebarOpen(false)
     if (id === 'desk') {
       setScreen('home')
       return
@@ -408,9 +419,36 @@ export default function App() {
   return (
     <>
       {SHELL_SCREENS.includes(screen) ? (
-        <div className="app-shell">
-          <Sidebar activeId={activeNav} onNavigate={navigateNav} onSoon={showToast} />
+        <div className={`app-shell ${sidebarOpen ? 'sidebar-open' : ''}`}>
+          {sidebarOpen ? (
+            <button
+              type="button"
+              className="sidebar-backdrop"
+              aria-label="Закрыть меню"
+              onClick={() => setSidebarOpen(false)}
+            />
+          ) : null}
+          <Sidebar
+            activeId={activeNav}
+            mobileOpen={sidebarOpen}
+            onMobileToggle={() => setSidebarOpen((v) => !v)}
+            onNavigate={navigateNav}
+            onSoon={showToast}
+          />
           <div className="main-pane">
+            <header className="mobile-topbar">
+              <button
+                type="button"
+                className="mobile-menu-btn"
+                aria-label="Открыть меню"
+                onClick={() => setSidebarOpen(true)}
+              >
+                <span />
+                <span />
+                <span />
+              </button>
+              <span className="mobile-topbar-title">Ассистент Преподавателя</span>
+            </header>
             <div className="main-card">
               {screen === 'home' ? (
                 <Home onCreateWorksheet={() => openCreate()} onSoon={showToast} />
@@ -492,7 +530,7 @@ export default function App() {
             setDraft((d) => ({ ...d, showAnswers: !d.showAnswers }))
             setScreen((s) => (s === 'show-answers' ? 'preview' : 'show-answers'))
           }}
-          onAddBlockOpen={() => setScreen('add-block')}
+          onAddBlockOpen={() => setScreen('edit')}
           onCloseAddBlock={() => setScreen('edit')}
           onGenerateTask={() => setModal('generate-task')}
           onSave={handleSave}

@@ -147,9 +147,97 @@ ul {
   padding: 24px;
 }
 
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  border: none;
+  background: var(--bg-overlay);
+  cursor: pointer;
+}
+
 .full-page {
   min-height: 100%;
   background: var(--bg-white);
   display: flex;
   flex-direction: column;
+}
+
+.mobile-topbar {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-white);
+  border-bottom: 1px solid var(--border-secondary);
+  flex-shrink: 0;
+}
+
+.mobile-menu-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.mobile-menu-btn span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--text-default);
+}
+
+.mobile-topbar-title {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1024px) {
+  .app-shell {
+    flex-direction: column;
+  }
+
+  .main-pane {
+    padding: 0;
+    width: 100%;
+  }
+
+  .main-card {
+    border-radius: 0;
+  }
+
+  .mobile-topbar {
+    display: flex;
+  }
+
+  .page-pad {
+    padding: 20px 16px;
+  }
+
+  .create-overlay {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .sidebar-backdrop {
+    display: block;
+  }
+}
+
+@media (max-width: 640px) {
+  .page-pad {
+    padding: 16px 12px;
+  }
 }

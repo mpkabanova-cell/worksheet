@@ -325,7 +325,7 @@ export function Modals({
       <ModalShell
         open={modal === 'regenerate' || modal === 'regenerate-empty-topic'}
         onClose={onClose}
-        width={560}
+        width={432}
       >
         <div className="modal-pad">
           <div className="modal-title-row">
@@ -365,7 +365,7 @@ export function Modals({
         </div>
       </ModalShell>
 
-      <ModalShell open={modal === 'generate-task'} onClose={onClose} width={520}>
+      <ModalShell open={modal === 'generate-task'} onClose={onClose} width={480}>
         <div className="modal-pad">
           <div className="modal-title-row">
             <h2>Сгенерировать задание</h2>

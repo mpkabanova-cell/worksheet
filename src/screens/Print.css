@@ -61,6 +61,26 @@
   display: flex;
   gap: 12px;
   justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .print-page {
+    padding: 20px 16px;
+  }
+
+  .print-row {
+    grid-template-columns: 1fr;
+  }
+
+  .print-actions {
+    flex-direction: column-reverse;
+  }
+
+  .print-actions .btn-brand,
+  .print-actions .btn-secondary {
+    width: 100%;
+  }
 }
 
 @media print {

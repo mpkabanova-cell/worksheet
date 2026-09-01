@@ -100,4 +100,30 @@
 .ws-list-card-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .ws-list-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ws-list-head .btn-brand,
+  .ws-list-head .btn-secondary {
+    width: 100%;
+  }
+
+  .ws-list-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ws-list-card-actions {
+    flex-direction: column;
+  }
+
+  .ws-list-card-actions .btn-brand,
+  .ws-list-card-actions .btn-secondary {
+    width: 100%;
+  }
 }

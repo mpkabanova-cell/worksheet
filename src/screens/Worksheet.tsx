@@ -1,7 +1,7 @@
 import type { DragEvent } from 'react'
 import { useMemo, useState } from 'react'
 import type { TaskType, WorksheetBlock, WorksheetDraft } from '@/data/worksheet'
-import { GRADES, SUBJECTS, TASK_TYPE_META, formatSavedAgo, labelForType, uid } from '@/data/worksheet'
+import { GRADES, SUBJECTS, formatSavedAgo, labelForType, uid } from '@/data/worksheet'
 import { Button, Icon, Input, Select, Textarea } from '@/components/ui'
 import { MathText } from '@/components/MathText'
 import starFilled from '@/assets/worksheet/star-filled.svg'
@@ -10,6 +10,36 @@ import plusIcon from '@/assets/worksheet/plus.svg'
 import iconDrag from '@/assets/create/drag.svg'
 import './Worksheet.css'
 import './Loader.css'
+
+const TOOL_SECTIONS: {
+  title: string
+  items: { type: TaskType | 'generate'; label: string; icon: string; ai?: boolean }[]
+}[] = [
+  {
+    title: 'Инструменты',
+    items: [
+      { type: 'text', label: 'Текстовый блок', icon: 'T' },
+      { type: 'answer_field', label: 'Медиа задание', icon: '▶' },
+      { type: 'page_break', label: 'Разрыв страницы', icon: '⎘' },
+    ],
+  },
+  {
+    title: 'Готовые блоки',
+    items: [
+      { type: 'short_answer', label: 'Ввод ответа', icon: '✎' },
+      { type: 'single_choice', label: 'Одиночный выбор', icon: '○' },
+      { type: 'multiple_choice', label: 'Множественный выбор', icon: '☑' },
+      { type: 'fill_gaps', label: 'Заполнение пропусков', icon: '___' },
+      { type: 'matching', label: 'Сопоставление', icon: '↔' },
+      { type: 'ordering', label: 'Упорядочивание', icon: '↕' },
+      { type: 'table', label: 'Таблица', icon: '▦' },
+    ],
+  },
+  {
+    title: 'Дополнительные возможности',
+    items: [{ type: 'generate', label: 'Сгенерировать задание', icon: '✦', ai: true }],
+  },
+]
 
 type Mode = 'preview' | 'edit' | 'answers' | 'edit-widget' | 'add-block'
 
@@ -63,14 +93,14 @@ export function WorksheetScreen({
   onMaterials,
   onEdit,
   onPreview,
-  onConvert,
+  onConvert: _onConvert,
   onDownload,
   onMenu,
   onShowAnswers: _onShowAnswers,
-  onAddBlockOpen,
-  onCloseAddBlock,
+  onAddBlockOpen: _onAddBlockOpen,
+  onCloseAddBlock: _onCloseAddBlock,
   onGenerateTask,
-  onSave,
+  onSave: _onSave,
   onUndo,
   onRedo,
   onSoon,
@@ -89,6 +119,7 @@ export function WorksheetScreen({
 
   const pageCount = Math.max(draft.pages, 1)
   const hasSidePanel = mode === 'edit' || mode === 'edit-widget' || mode === 'add-block'
+  const showToolsSidebar = isEdit
 
   const handleDropOnBlock = (targetId: string) => {
     if (sidebarDragType) {
@@ -129,14 +160,11 @@ export function WorksheetScreen({
 
           {isEdit ? (
             <>
-              <Button variant="ghost" size="sm" onClick={() => onSoon?.('Интерактивный режим скоро')}>
+              <Button variant="secondary" size="sm" onClick={() => onSoon?.('Интерактивный режим скоро')}>
                 Сделать интерактивным
               </Button>
-              <Button variant="ghost" size="sm" onClick={onGenerateTask}>
-                <Icon name="refresh" size={20} /> Сгенерировать задание
-              </Button>
               <Button variant="secondary" size="sm" onClick={onPreview}>
-                Предпросмотр
+                <Icon name="eye" size={20} /> Предпросмотр
               </Button>
               <Button variant="brand" size="sm" onClick={onDownload}>
                 Распечатать
@@ -144,8 +172,8 @@ export function WorksheetScreen({
             </>
           ) : (
             <>
-              <Button variant="secondary" size="sm" onClick={onConvert}>
-                Преобразовать
+              <Button variant="secondary" size="sm" onClick={() => onSoon?.('Интерактивный режим скоро')}>
+                Сделать интерактивным
               </Button>
               <Button variant="secondary" size="sm" onClick={onEdit}>
                 <Icon name="edit" size={20} /> Редактировать
@@ -158,22 +186,36 @@ export function WorksheetScreen({
         </div>
       </header>
 
-      <div className={`ws-body-layout ${hasSidePanel ? 'with-side' : ''}`}>
-        <aside className="page-rail">
-          {Array.from({ length: pageCount }, (_, i) => (
-            <button
-              key={i}
-              type="button"
-              className={`page-thumb ${currentPage === i ? 'active' : ''}`}
-              onClick={() => onPageChange(i)}
-            >
-              {i + 1}
+      <div className={`ws-body-layout ${hasSidePanel ? 'with-side' : ''} ${showToolsSidebar ? 'with-tools' : ''}`}>
+        {showToolsSidebar ? (
+          <WorksheetToolsSidebar
+            pageCount={pageCount}
+            currentPage={currentPage}
+            onPageChange={onPageChange}
+            onAddPage={onAddPage}
+            onAddBlock={(type) => onAddBlock?.(type)}
+            onGenerateTask={onGenerateTask}
+            onSoon={onSoon}
+            sidebarDragType={sidebarDragType}
+            setSidebarDragType={setSidebarDragType}
+          />
+        ) : (
+          <aside className="page-rail">
+            {Array.from({ length: pageCount }, (_, i) => (
+              <button
+                key={i}
+                type="button"
+                className={`page-thumb ${currentPage === i ? 'active' : ''}`}
+                onClick={() => onPageChange(i)}
+              >
+                {i + 1}
+              </button>
+            ))}
+            <button type="button" className="page-add" onClick={onAddPage} aria-label="Добавить страницу">
+              <img src={plusIcon} alt="" width={20} height={20} />
             </button>
-          ))}
-          <button type="button" className="page-add" onClick={onAddPage} aria-label="Добавить страницу">
-            <img src={plusIcon} alt="" width={20} height={20} />
-          </button>
-        </aside>
+          </aside>
+        )}
 
         <main className="ws-canvas">
           <div className={`ws-sheet ${isEdit ? 'editing' : ''} ${draft.print.orientation}`}>
@@ -237,8 +279,6 @@ export function WorksheetScreen({
                     dragging={dragBlockId === block.id}
                     onSelect={() => onSelectBlock?.(block.id)}
                     onRemove={() => onRemoveBlock?.(block.id)}
-                    onMoveUp={() => onMoveBlock?.(block.id, -1)}
-                    onMoveDown={() => onMoveBlock?.(block.id, 1)}
                     onDragStart={() => setDragBlockId(block.id)}
                     onDragEnd={() => {
                       setDragBlockId(null)
@@ -253,16 +293,6 @@ export function WorksheetScreen({
                 </div>
               ))}
 
-              {isEdit ? (
-                <div className="edit-actions-row">
-                  <button type="button" className="add-inline" onClick={onAddBlockOpen}>
-                    <Icon name="plus" size={20} /> Добавить блок
-                  </button>
-                  <button type="button" className="add-inline ghost" onClick={onGenerateTask}>
-                    <Icon name="refresh" size={20} /> Сгенерировать задание
-                  </button>
-                </div>
-              ) : null}
             </div>
           </div>
         </main>
@@ -313,15 +343,12 @@ export function WorksheetScreen({
               <span>Показывать сложность</span>
             </label>
             <div className="settings-actions">
-              <Button variant="secondary" size="sm" onClick={onUndo}>
+              <button type="button" className="history-btn" onClick={onUndo} aria-label="Отменить">
                 ↶
-              </Button>
-              <Button variant="secondary" size="sm" onClick={onRedo}>
+              </button>
+              <button type="button" className="history-btn" onClick={onRedo} aria-label="Повторить">
                 ↷
-              </Button>
-              <Button variant="brand" size="sm" onClick={onSave}>
-                Сохранить
-              </Button>
+              </button>
             </div>
           </aside>
         ) : null}
@@ -336,53 +363,87 @@ export function WorksheetScreen({
             onRemove={() => onRemoveBlock?.(selected.id)}
           />
         ) : null}
-
-        {mode === 'add-block' ? (
-          <aside className="ws-sidepanel">
-            <div className="side-head">
-              <h3>Добавить блок</h3>
-              <button type="button" className="icon-btn" onClick={onCloseAddBlock} aria-label="Закрыть">
-                <Icon name="close" size={18} />
-              </button>
-            </div>
-            <p className="side-section-label">Готовые блоки заданий</p>
-            <div className="add-grid">
-              {TASK_TYPE_META.filter((b) => b.category === 'task').map((b) => (
-                <button
-                  key={b.type}
-                  type="button"
-                  className="add-type"
-                  draggable
-                  onDragStart={() => setSidebarDragType(b.type)}
-                  onDragEnd={() => setSidebarDragType(null)}
-                  onClick={() => onAddBlock?.(b.type)}
-                >
-                  <strong>{b.label}</strong>
-                  <span>{b.hint}</span>
-                </button>
-              ))}
-            </div>
-            <p className="side-section-label">Инструменты</p>
-            <div className="add-grid">
-              {TASK_TYPE_META.filter((b) => b.category === 'element').map((b) => (
-                <button
-                  key={b.type}
-                  type="button"
-                  className="add-type"
-                  draggable
-                  onDragStart={() => setSidebarDragType(b.type)}
-                  onDragEnd={() => setSidebarDragType(null)}
-                  onClick={() => onAddBlock?.(b.type)}
-                >
-                  <strong>{b.label}</strong>
-                  <span>{b.hint}</span>
-                </button>
-              ))}
-            </div>
-          </aside>
-        ) : null}
       </div>
     </div>
+  )
+}
+
+function WorksheetToolsSidebar({
+  pageCount,
+  currentPage,
+  onPageChange,
+  onAddPage,
+  onAddBlock,
+  onGenerateTask,
+  onSoon,
+  sidebarDragType: _sidebarDragType,
+  setSidebarDragType,
+}: {
+  pageCount: number
+  currentPage: number
+  onPageChange: (page: number) => void
+  onAddPage?: () => void
+  onAddBlock: (type: TaskType) => void
+  onGenerateTask?: () => void
+  onSoon?: (message: string) => void
+  sidebarDragType: TaskType | null
+  setSidebarDragType: (type: TaskType | null) => void
+}) {
+  const handleClick = (type: TaskType | 'generate') => {
+    if (type === 'generate') {
+      onGenerateTask?.()
+      return
+    }
+    if (type === 'answer_field') {
+      onSoon?.('Медиа-задания скоро')
+      return
+    }
+    onAddBlock(type)
+  }
+
+  return (
+    <aside className="ws-tools-sidebar">
+      <div className="page-rail">
+        {Array.from({ length: pageCount }, (_, i) => (
+          <button
+            key={i}
+            type="button"
+            className={`page-thumb ${currentPage === i ? 'active' : ''}`}
+            onClick={() => onPageChange(i)}
+          >
+            {i + 1}
+          </button>
+        ))}
+        <button type="button" className="page-add" onClick={onAddPage} aria-label="Добавить страницу">
+          <img src={plusIcon} alt="" width={20} height={20} />
+        </button>
+      </div>
+      <div className="ws-tools-menu">
+        {TOOL_SECTIONS.map((section) => (
+          <div key={section.title} className="ws-tools-section">
+            <div className="ws-tools-section-title">{section.title}</div>
+            {section.items.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                className={`ws-tools-item ${item.ai ? 'ai' : ''}`}
+                draggable={item.type !== 'generate'}
+                onDragStart={() => {
+                  if (item.type !== 'generate') setSidebarDragType(item.type)
+                }}
+                onDragEnd={() => setSidebarDragType(null)}
+                onClick={() => handleClick(item.type)}
+              >
+                <span className="ws-tools-item-icon" aria-hidden>
+                  {item.icon}
+                </span>
+                {item.label}
+              </button>
+            ))}
+          </div>
+        ))}
+      </div>
+    </aside>
   )
 }
 
@@ -427,16 +488,14 @@ function BlockEditorPanel({
         </label>
       ) : null}
 
-      {block.type !== 'table' ? (
+      {block.type !== 'table' && block.type !== 'fill_gaps' ? (
         <label className="side-field">
           <span>{block.type === 'text' ? 'Текст' : 'Вопрос / текст'}</span>
           <Textarea
             rows={4}
-            value={block.question ?? block.body ?? block.gapsText ?? ''}
+            value={block.question ?? block.body ?? ''}
             onChange={(e) => {
-              if (block.type === 'fill_gaps') {
-                onChange({ ...block, gapsText: e.target.value, question: e.target.value })
-              } else if (block.type === 'text') {
+              if (block.type === 'text') {
                 onChange({ ...block, body: e.target.value })
               } else {
                 onChange({ ...block, question: e.target.value })
@@ -444,6 +503,27 @@ function BlockEditorPanel({
             }}
           />
         </label>
+      ) : null}
+
+      {block.type === 'fill_gaps' ? (
+        <>
+          <label className="side-field">
+            <span>Вопрос</span>
+            <Textarea
+              rows={2}
+              value={block.question ?? ''}
+              onChange={(e) => onChange({ ...block, question: e.target.value })}
+            />
+          </label>
+          <label className="side-field">
+            <span>Текст с пропусками (_______)</span>
+            <Textarea
+              rows={5}
+              value={block.gapsText ?? ''}
+              onChange={(e) => onChange({ ...block, gapsText: e.target.value })}
+            />
+          </label>
+        </>
       ) : null}
 
       {(block.type === 'single_choice' || block.type === 'multiple_choice') && (
@@ -806,8 +886,6 @@ function BlockCard({
   dragging,
   onSelect,
   onRemove,
-  onMoveUp,
-  onMoveDown,
   onDragStart,
   onDragEnd,
   onDragOver,
@@ -822,8 +900,6 @@ function BlockCard({
   dragging?: boolean
   onSelect: () => void
   onRemove: () => void
-  onMoveUp: () => void
-  onMoveDown: () => void
   onDragStart: () => void
   onDragEnd: () => void
   onDragOver: (e: DragEvent) => void
@@ -885,11 +961,11 @@ function BlockCard({
             >
               <img src={iconDrag} alt="" width={20} height={20} />
             </span>
-            <button type="button" className="icon-btn tiny" onClick={onMoveUp} aria-label="Выше">
-              ↑
+            <button type="button" className="icon-btn tiny" aria-label="Настройки блока">
+              <Icon name="gear" size={16} />
             </button>
-            <button type="button" className="icon-btn tiny" onClick={onMoveDown} aria-label="Ниже">
-              ↓
+            <button type="button" className="icon-btn tiny" aria-label="Перегенерировать">
+              <Icon name="refresh" size={16} />
             </button>
             <button type="button" className="icon-btn tiny" onClick={onRemove} aria-label="Удалить">
               <Icon name="trash" size={16} />
@@ -926,34 +1002,49 @@ function BlockCard({
       ) : null}
 
       {block.type === 'fill_gaps' ? (
-        <div className="ws-task-slot">
-          <p className="gaps-preview">
-            {(block.gapsText ?? '').split('___').map((part, i, arr) => (
-              <span key={i}>
-                <MathText text={part} />
-                {i < arr.length - 1 ? <span className="gap-blank">______</span> : null}
-              </span>
-            ))}
+        <div className="ws-task-slot gaps-slot">
+          <p className="gaps-text">
+            <MathText text={block.gapsText ?? ''} />
           </p>
+          {(block.gapsAnswers?.length ?? 0) > 0 ? (
+            <div className="gaps-words">
+              <span className="gaps-words-label">Пропущенные слова:</span>
+              {block.gapsAnswers!.map((word, i) => (
+                <span key={`${word}-${i}`} className="gaps-word">
+                  {word}
+                  {i < block.gapsAnswers!.length - 1 ? ',' : ''}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
 
       {block.type === 'matching' ? (
-        <div className="ws-task-slot match-grid">
-          <div>
-            {(block.leftItems ?? []).map((item) => (
-              <div key={item.id} className="match-item">
-                <MathText text={item.text} />
-              </div>
-            ))}
-          </div>
-          <div>
-            {(block.rightItems ?? []).map((item) => (
-              <div key={item.id} className="match-item">
-                <MathText text={item.text} />
-              </div>
-            ))}
-          </div>
+        <div className="ws-task-slot matching-slot">
+          {Array.from(
+            { length: Math.max(block.leftItems?.length ?? 0, block.rightItems?.length ?? 0, 3) },
+            (_, i) => {
+              const left = block.leftItems?.[i]
+              const right = block.rightItems?.[i]
+              return (
+                <div key={left?.id ?? right?.id ?? i} className="matching-row">
+                  <div className="match-col">
+                    <div className={`match-answer-box ${left?.text ? '' : 'placeholder'}`}>
+                      {left?.text ? <MathText text={left.text} /> : 'Ответ'}
+                    </div>
+                    <span className="match-dot" aria-hidden />
+                  </div>
+                  <div className="match-col">
+                    <span className="match-dot" aria-hidden />
+                    <div className={`match-answer-box ${right?.text ? '' : 'placeholder'}`}>
+                      {right?.text ? <MathText text={right.text} /> : 'Ответ'}
+                    </div>
+                  </div>
+                </div>
+              )
+            },
+          )}
         </div>
       ) : null}
 
