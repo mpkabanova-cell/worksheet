@@ -5,9 +5,9 @@ import { AnswerGridOverlay, type GridOverlayType } from '@/components/block/Answ
 
 type CellsMode = 'empty' | 'edit' | 'readonly'
 
-/** +1px so the bottom grid line is not clipped at exact multiples of cell size. */
-function gridHeightPx(rows: number): number {
-  return rows * ANSWER_CELL_SIZE + 1
+/** +1px so outer grid lines (right/bottom) are not clipped at cell multiples. */
+function gridSizePx(cells: number): number {
+  return cells * ANSWER_CELL_SIZE + 1
 }
 
 export function AnswerCellsGrid({
@@ -32,7 +32,7 @@ export function AnswerCellsGrid({
 
     const update = () => {
       const width = el.clientWidth
-      setCols(Math.max(1, Math.floor(width / ANSWER_CELL_SIZE)))
+      setCols(Math.max(1, Math.floor((width - 1) / ANSWER_CELL_SIZE)))
     }
 
     update()
@@ -41,8 +41,8 @@ export function AnswerCellsGrid({
     return () => observer.disconnect()
   }, [])
 
-  const gridWidth = cols > 0 ? cols * ANSWER_CELL_SIZE : undefined
-  const gridHeight = gridHeightPx(rows)
+  const gridWidth = cols > 0 ? gridSizePx(cols) : undefined
+  const gridHeight = gridSizePx(rows)
 
   return (
     <div ref={wrapRef} className="answer-cells-wrap">

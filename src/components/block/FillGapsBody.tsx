@@ -110,31 +110,14 @@ export function FillGapsEditor({
 
 interface FillGapsStudentProps {
   text: string
-  gapWords: string[]
-  showAnswer: boolean
 }
 
-export function FillGapsStudent({ text, gapWords, showAnswer }: FillGapsStudentProps) {
-  if (!showAnswer || !gapWords.length) {
-    return (
-      <p className="gaps-text">
-        <MathText text={text} />
-      </p>
-    )
-  }
+export function FillGapsStudent({ text }: FillGapsStudentProps) {
+  const displayText = text.trim() || 'Текст с пропусками'
 
   return (
-    <>
-      <p className="gaps-text">
-        <MathText text={text} />
-      </p>
-      <div className="gaps-answer-bank">
-        {gapWords.map((word) => (
-          <span key={word} className="gaps-chip gaps-chip--answer">
-            {word}
-          </span>
-        ))}
-      </div>
-    </>
+    <p className="gaps-text">
+      <MathText text={displayText} />
+    </p>
   )
 }

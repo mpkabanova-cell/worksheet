@@ -8,6 +8,11 @@ import {
   toggleCorrectOption,
 } from '@/data/blockUtils'
 import { MathText } from '@/components/MathText'
+import { FigmaIcon } from '@/components/ui'
+import choiceCheckboxChecked from '@/assets/worksheet/choice-checkbox-checked.svg'
+import choiceCheckboxCheckedLg from '@/assets/worksheet/choice-checkbox-checked-lg.svg'
+import choiceRadioChecked from '@/assets/worksheet/choice-radio-checked.svg'
+import choiceImagePlaceholder from '@/assets/worksheet/choice-image-placeholder.png'
 
 interface ChoiceOptionsViewProps {
   block: WorksheetBlock
@@ -22,16 +27,27 @@ interface ChoiceOptionsViewProps {
 function ChoiceMarker({
   block,
   correct,
+  large = false,
   onToggle,
 }: {
   block: WorksheetBlock
   correct: boolean
+  large?: boolean
   onToggle?: () => void
 }) {
   const isSingle = block.type === 'single_choice'
   const className = isSingle
     ? `choice-marker choice-marker--radio${correct ? ' is-correct' : ''}`
-    : `choice-marker choice-marker--checkbox${correct ? ' is-correct' : ''}`
+    : `choice-marker choice-marker--checkbox${correct ? ' is-correct' : ''}${large ? ' choice-marker--lg' : ''}`
+
+  const icon = isSingle
+    ? choiceRadioChecked
+    : large
+      ? choiceCheckboxCheckedLg
+      : choiceCheckboxChecked
+
+  const content =
+    correct ? <FigmaIcon src={icon} size={large ? 20 : 16} /> : null
 
   if (onToggle) {
     return (
@@ -44,11 +60,17 @@ function ChoiceMarker({
           e.stopPropagation()
           onToggle()
         }}
-      />
+      >
+        {content}
+      </button>
     )
   }
 
-  return <span className={className} aria-hidden />
+  return (
+    <span className={className} aria-hidden>
+      {content}
+    </span>
+  )
 }
 
 function ImageOptionCard({
@@ -72,7 +94,7 @@ function ImageOptionCard({
 }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const showCaption = format === 'text_image'
-  const highlight = showAnswer && correct
+  const showCorrectUi = correct && (isEditing || showAnswer)
 
   const onFile = (file: File | null) => {
     if (!file) return
@@ -88,17 +110,22 @@ function ImageOptionCard({
 
   return (
     <div
-      className={`choice-image-card${highlight ? ' correct' : ''}${isEditing ? ' choice-image-card--edit' : ''}`}
+      className={`choice-image-card${showCorrectUi ? ' is-correct' : ''}${isEditing ? ' choice-image-card--edit' : ''}${showCaption ? '' : ' choice-image-card--image-only'}`}
     >
       <div className="choice-image-card__media">
         {option.imageData ? (
           <img src={option.imageData} alt="" className="choice-image-card__img" />
         ) : (
-          <div className="choice-image-card__placeholder" aria-hidden />
+          <img
+            src={choiceImagePlaceholder}
+            alt=""
+            className="choice-image-card__placeholder-img"
+          />
         )}
         <ChoiceMarker
           block={block}
-          correct={correct}
+          correct={showCorrectUi}
+          large
           onToggle={isEditing ? onToggleCorrect : undefined}
         />
         {isEditing ? (
@@ -137,7 +164,7 @@ function ImageOptionCard({
           />
         ) : (
           <div className="choice-image-card__caption">
-            <MathText text={option.text || `Ответ`} />
+            <MathText text={option.text || 'Ответ'} />
           </div>
         )
       ) : null}
@@ -171,19 +198,18 @@ export function ChoiceOptionsView({
       <div className="ws-task-slot choice-options-grid">
         {options.map((opt, index) => {
           const correct = isOptionCorrect(block, opt.id)
-          const markedCorrect = isEditing ? correct : showAnswer && correct
           return (
-          <ImageOptionCard
-            key={opt.id}
-            option={opt}
-            format={format}
-            block={block}
-            isEditing={isEditing}
-            showAnswer={showAnswer}
-            correct={markedCorrect}
-            onToggleCorrect={() => toggleCorrect(opt.id)}
-            onChangeOption={(patch) => patchOption(index, patch)}
-          />
+            <ImageOptionCard
+              key={opt.id}
+              option={opt}
+              format={format}
+              block={block}
+              isEditing={isEditing}
+              showAnswer={showAnswer}
+              correct={correct}
+              onToggleCorrect={() => toggleCorrect(opt.id)}
+              onChangeOption={(patch) => patchOption(index, patch)}
+            />
           )
         })}
       </div>
@@ -194,15 +220,14 @@ export function ChoiceOptionsView({
     <div className="ws-task-slot options options--text">
       {options.map((opt, index) => {
         const correct = isOptionCorrect(block, opt.id)
-        const markedCorrect = isEditing ? correct : showAnswer && correct
-        const highlight = showAnswer && correct
+        const showCorrectUi = correct && (isEditing || showAnswer)
 
         if (isEditing) {
           return (
             <label key={opt.id} className="option option-edit option--text">
               <ChoiceMarker
                 block={block}
-                correct={markedCorrect}
+                correct={showCorrectUi}
                 onToggle={() => toggleCorrect(opt.id)}
               />
               <input
@@ -220,8 +245,8 @@ export function ChoiceOptionsView({
         }
 
         return (
-          <label key={opt.id} className={`option option--text${highlight ? ' correct' : ''}`}>
-            <ChoiceMarker block={block} correct={markedCorrect} />
+          <label key={opt.id} className="option option--text">
+            <ChoiceMarker block={block} correct={showCorrectUi} />
             <MathText text={opt.text} />
           </label>
         )

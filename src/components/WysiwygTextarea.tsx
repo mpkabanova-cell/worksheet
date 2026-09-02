@@ -1,10 +1,23 @@
 import { useRef, type RefObject } from 'react'
+import { FigmaIcon } from '@/components/ui'
+import iconBold from '@/assets/worksheet/tools/wysiwyg-bold.svg'
+import iconItalic from '@/assets/worksheet/tools/wysiwyg-italic.svg'
+import iconStrike from '@/assets/worksheet/tools/wysiwyg-strike.svg'
+import iconUnderline from '@/assets/worksheet/tools/wysiwyg-underline.svg'
+import iconMath from '@/assets/worksheet/tools/wysiwyg-math.svg'
+import iconCode from '@/assets/worksheet/tools/wysiwyg-code.svg'
+import iconSubscript from '@/assets/worksheet/tools/wysiwyg-subscript.svg'
+import iconSuperscript from '@/assets/worksheet/tools/wysiwyg-superscript.svg'
+import iconImage from '@/assets/worksheet/tools/wysiwyg-image.svg'
+import iconMore from '@/assets/worksheet/tools/wysiwyg-more.svg'
 
-type WrapMode = 'bold' | 'italic' | 'heading' | 'code'
+type WrapMode = 'bold' | 'italic' | 'strike' | 'underline' | 'heading' | 'code'
 
 const WRAP: Record<WrapMode, { before: string; after: string }> = {
   bold: { before: '**', after: '**' },
   italic: { before: '*', after: '*' },
+  strike: { before: '~~', after: '~~' },
+  underline: { before: '<u>', after: '</u>' },
   heading: { before: '### ', after: '' },
   code: { before: '`', after: '`' },
 }
@@ -21,30 +34,63 @@ interface WysiwygTextareaProps {
   onClick?: (e: React.MouseEvent) => void
 }
 
+function ToolButton({
+  floating,
+  label,
+  icon,
+  onClick,
+}: {
+  floating: boolean
+  label: string
+  icon: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className={floating ? 'wysiwyg-btn' : undefined}
+      onClick={onClick}
+      aria-label={label}
+    >
+      <FigmaIcon src={icon} size={18} />
+    </button>
+  )
+}
+
 function WysiwygToolbar({
   floating,
   onWrap,
+  onInert,
 }: {
   floating: boolean
   onWrap: (mode: WrapMode) => void
+  onInert: () => void
 }) {
-  const btnClass = floating ? 'wysiwyg-btn' : undefined
+  if (floating) {
+    return (
+      <>
+        <ToolButton floating icon={iconBold} label="Жирный" onClick={() => onWrap('bold')} />
+        <ToolButton floating icon={iconItalic} label="Курсив" onClick={() => onWrap('italic')} />
+        <ToolButton floating icon={iconStrike} label="Зачёркнутый" onClick={() => onWrap('strike')} />
+        <ToolButton floating icon={iconUnderline} label="Подчёркнутый" onClick={() => onWrap('underline')} />
+        <ToolButton floating icon={iconMath} label="Формула" onClick={onInert} />
+        <ToolButton floating icon={iconCode} label="Код" onClick={() => onWrap('code')} />
+        <ToolButton floating icon={iconSubscript} label="Подстрочный" onClick={onInert} />
+        <ToolButton floating icon={iconSuperscript} label="Надстрочный" onClick={onInert} />
+        <span className="wysiwyg-hr" aria-hidden />
+        <ToolButton floating icon={iconImage} label="Изображение" onClick={onInert} />
+        <span className="wysiwyg-divider" aria-hidden />
+        <ToolButton floating icon={iconMore} label="Ещё" onClick={onInert} />
+      </>
+    )
+  }
 
   return (
     <>
-      <button type="button" className={btnClass} onClick={() => onWrap('bold')} aria-label="Жирный">
-        Ж
-      </button>
-      <button type="button" className={btnClass} onClick={() => onWrap('italic')} aria-label="Курсив">
-        К
-      </button>
-      <button type="button" className={btnClass} onClick={() => onWrap('heading')} aria-label="Заголовок">
-        H
-      </button>
-      {floating ? <span className="wysiwyg-divider" aria-hidden /> : null}
-      <button type="button" className={btnClass} onClick={() => onWrap('code')} aria-label="Код">
-        {'{ }'}
-      </button>
+      <ToolButton floating={false} icon={iconBold} label="Жирный" onClick={() => onWrap('bold')} />
+      <ToolButton floating={false} icon={iconItalic} label="Курсив" onClick={() => onWrap('italic')} />
+      <ToolButton floating={false} icon={iconStrike} label="Зачёркнутый" onClick={() => onWrap('strike')} />
+      <ToolButton floating={false} icon={iconCode} label="Код" onClick={() => onWrap('code')} />
     </>
   )
 }
@@ -108,7 +154,7 @@ export function WysiwygTextarea({
       <div className="wysiwyg-field wysiwyg-field--block" onClick={onClick}>
         <div className="block-wysiwyg" onClick={(e) => e.stopPropagation()}>
           <div className="wysiwyg-tools">
-            <WysiwygToolbar floating onWrap={applyWrap} />
+            <WysiwygToolbar floating onWrap={applyWrap} onInert={() => undefined} />
           </div>
         </div>
         {textarea}
@@ -120,7 +166,7 @@ export function WysiwygTextarea({
   return (
     <div className="wysiwyg-field" onClick={onClick}>
       <div className="wysiwyg-mini-tools">
-        <WysiwygToolbar floating={false} onWrap={applyWrap} />
+        <WysiwygToolbar floating={false} onWrap={applyWrap} onInert={() => undefined} />
       </div>
       {textarea}
       {counter}

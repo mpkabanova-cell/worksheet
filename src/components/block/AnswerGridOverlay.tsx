@@ -29,11 +29,11 @@ export function AnswerGridOverlay({
 }) {
   if (cols < 1 || rows < 1) return null
 
-  const { cell, width, height, axisCol, axisRow, lineRow, originCol } = overlayGeometry(
+  const { cell, width, axisCol, axisRow, lineRow, originCol } = overlayGeometry(
     cols,
     rows,
   )
-  const lineWidth = cols * cell
+  const lineWidth = cols * cell + 1
   const lineHeight = rows * cell + 1
 
   const y = lineRow * cell
@@ -54,14 +54,14 @@ export function AnswerGridOverlay({
             x1={axisCol * cell}
             y1={0}
             x2={axisCol * cell}
-            y2={height}
+            y2={lineHeight}
             stroke={OVERLAY_STROKE}
             strokeWidth={1}
           />
           <line
             x1={0}
             y1={axisRow * cell}
-            x2={width}
+            x2={lineWidth}
             y2={axisRow * cell}
             stroke={OVERLAY_STROKE}
             strokeWidth={1}

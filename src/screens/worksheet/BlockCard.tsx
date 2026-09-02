@@ -370,9 +370,7 @@ export function BlockCard({
               />
             ) : (
               <FillGapsStudent
-                text={gapsStudentText}
-                gapWords={showAnswer ? (block.gapsAnswers ?? []) : []}
-                showAnswer={showAnswer}
+                text={showAnswer ? getGapsSourceText(block) : gapsStudentText}
               />
             )}
           </div>
