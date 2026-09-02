@@ -510,8 +510,7 @@
   font-family: inherit;
 }
 
-.answer-inline-input--block,
-.answer-inline-input--cells {
+.answer-inline-input--block {
   position: absolute;
   inset: 0;
   padding: 12px;
@@ -519,9 +518,7 @@
 }
 
 .answer-area-editable.lines .answer-inline-input,
-.answer-area-editable.answer-axes .answer-inline-input,
-.answer-area-readonly.lines .answer-inline-readonly,
-.answer-area-readonly.answer-axes .answer-inline-readonly {
+.answer-area-readonly.lines .answer-inline-readonly {
   position: absolute;
   inset: 0;
   padding: 8px 0 0;
@@ -536,8 +533,7 @@
   pointer-events: none;
 }
 
-.answer-inline-readonly--block,
-.answer-inline-readonly--cells {
+.answer-inline-readonly--block {
   position: absolute;
   inset: 0;
   padding: 12px;
@@ -1126,16 +1122,95 @@
   max-height: 70vh;
 }
 
-.answer-cells-grid {
+.answer-cells-wrap {
   width: 100%;
+}
+
+.answer-cells-slot {
+  padding-top: 8px;
+}
+
+.answer-cells-grid {
+  position: relative;
+  flex-shrink: 0;
+  box-sizing: border-box;
   --cell-size: 16px;
   --cell-color: #c8cce0;
   border: 1px solid var(--cell-color);
+  overflow: hidden;
+  background-color: var(--bg-white);
   background-image:
     linear-gradient(to right, var(--cell-color) 1px, transparent 1px),
     linear-gradient(to bottom, var(--cell-color) 1px, transparent 1px);
   background-size: var(--cell-size) var(--cell-size);
-  background-position: -1px -1px;
+  background-position: 0 0;
+}
+
+.answer-inline-input--cells {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--text-default);
+  font-size: 12px;
+  line-height: var(--cell-size);
+  font-family: inherit;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.answer-inline-readonly--cells {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-default);
+  font-size: 12px;
+  line-height: var(--cell-size);
+  pointer-events: none;
+}
+
+.answer-cells-grid .math-text {
+  display: block;
+  line-height: var(--cell-size);
+  font-size: 12px;
+}
+
+.answer-cells-grid .math-inline .katex {
+  font-size: 0.85em;
+  line-height: var(--cell-size);
+}
+
+.answer-cells-grid .math-display {
+  margin: 0;
+  line-height: var(--cell-size);
+}
+
+.answer-cells-grid .math-display .katex {
+  font-size: 0.9em;
+}
+
+.answer-grid-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.ws-task-text--clickable {
+  cursor: text;
+}
+
+.ws-task-text--clickable:hover {
+  color: var(--text-default);
 }
 
 .answer-block-area {
@@ -1153,24 +1228,6 @@
   font-size: 14px;
   line-height: 20px;
   pointer-events: none;
-}
-
-.answer-axes {
-  color: var(--text-default);
-}
-
-.axes-svg {
-  width: 100%;
-  max-width: 320px;
-  height: auto;
-  margin-bottom: 8px;
-}
-
-.answer-line-extra {
-  display: block;
-  height: 1px;
-  background: var(--border-secondary);
-  margin-top: 28px;
 }
 
 .order-list.ordered-student {

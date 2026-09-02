@@ -1,8 +1,9 @@
 import type { AnswerAreaStyle, WorksheetBlock } from '@/data/worksheet'
 import { MathText } from '@/components/MathText'
+import { AnswerCellsGrid } from '@/components/block/AnswerCellsGrid'
+import type { GridOverlayType } from '@/components/block/AnswerGridOverlay'
 import {
-  ANSWER_CELL_SIZE,
-  getCorrectAnswerText,
+  getDisplayAnswerText,
   getEffectiveAnswerLines,
 } from '@/data/blockUtils'
 
@@ -26,18 +27,13 @@ function AnswerInlineEditor({
   style: AnswerAreaStyle
   onChange?: (text: string) => void
 }) {
-  const minHeight =
-    style === 'cells'
-      ? lines * ANSWER_CELL_SIZE
-      : style === 'block'
-        ? lines * 28
-        : lines * 28
+  const minHeight = lines * 28
 
   return (
     <textarea
       className={`answer-inline-input answer-inline-input--${style}`}
       value={value}
-      placeholder="Введите текст"
+      placeholder={style === 'block' ? 'Введите текст' : undefined}
       rows={Math.max(1, lines)}
       style={{ minHeight: `${minHeight}px` }}
       onChange={(e) => onChange?.(e.target.value)}
@@ -55,87 +51,46 @@ function AnswerReadonlyOverlay({
 }) {
   return (
     <div className={`answer-inline-readonly answer-inline-readonly--${style}`}>
-      <MathText text={value} />
+      <MathText text={value} as="div" />
     </div>
   )
 }
 
-function GraphSvg({ style }: { style: 'axes' | 'number_line' | 'ray' }) {
-  if (style === 'axes') {
-    return (
-      <svg viewBox="0 0 320 120" className="axes-svg" aria-hidden>
-        <line x1="20" y1="100" x2="300" y2="100" stroke="currentColor" />
-        <line x1="20" y1="100" x2="20" y2="20" stroke="currentColor" />
-        <polygon points="300,100 292,96 292,104" fill="currentColor" />
-        <polygon points="20,20 16,28 24,28" fill="currentColor" />
-      </svg>
-    )
-  }
-
-  if (style === 'number_line') {
-    return (
-      <svg viewBox="0 0 320 80" className="axes-svg" aria-hidden>
-        <line x1="20" y1="60" x2="300" y2="60" stroke="currentColor" />
-        <line x1="160" y1="52" x2="160" y2="68" stroke="currentColor" strokeWidth="1.5" />
-        {[80, 120, 200, 240].map((x) => (
-          <line key={x} x1={x} y1="56" x2={x} y2="64" stroke="currentColor" />
-        ))}
-      </svg>
-    )
-  }
-
-  return (
-    <svg viewBox="0 0 320 80" className="axes-svg" aria-hidden>
-      <line x1="20" y1="60" x2="300" y2="60" stroke="currentColor" />
-      <polygon points="300,60 292,56 292,64" fill="currentColor" />
-    </svg>
-  )
+function gridOverlayForStyle(style: AnswerAreaStyle): GridOverlayType | undefined {
+  if (style === 'axes' || style === 'number_line' || style === 'ray') return style
+  return undefined
 }
 
-function graphExtraLines(style: 'axes' | 'number_line' | 'ray', lines: number) {
-  const extraCount =
-    style === 'axes' ? Math.max(1, lines - 1) : lines > 1 ? lines - 1 : 0
-  return Array.from({ length: extraCount }).map((_, i) => (
-    <i key={i} className="answer-line-extra" />
-  ))
+function isCellGridStyle(
+  style: AnswerAreaStyle,
+): style is 'cells' | 'axes' | 'number_line' | 'ray' {
+  return style === 'cells' || style === 'axes' || style === 'number_line' || style === 'ray'
 }
 
-function GraphAnswerSlot({
+function CellsAnswerSlot({
+  rows,
   style,
-  lines,
   mode,
-  answerText,
-  onChangeAnswer,
+  value,
+  onChange,
 }: {
-  style: 'axes' | 'number_line' | 'ray'
-  lines: number
-  mode: 'default' | 'edit' | 'readonly'
-  answerText: string
-  onChangeAnswer?: (text: string) => void
+  rows: number
+  style: 'cells' | 'axes' | 'number_line' | 'ray'
+  mode: 'empty' | 'edit' | 'readonly'
+  value: string
+  onChange?: (text: string) => void
 }) {
-  const className = `ws-task-slot answer-axes${
-    mode === 'edit' ? ' answer-area-editable' : mode === 'readonly' ? ' answer-area-readonly' : ''
-  }`
-
   return (
-    <div className={className}>
-      <GraphSvg style={style} />
-      {graphExtraLines(style, lines)}
-      {mode === 'edit' ? (
-        <AnswerInlineEditor
-          value={answerText}
-          lines={lines}
-          style={style}
-          onChange={onChangeAnswer}
-        />
-      ) : null}
-      {mode === 'readonly' ? <AnswerReadonlyOverlay value={answerText} style={style} /> : null}
+    <div className="ws-task-slot answer-cells-slot">
+      <AnswerCellsGrid
+        rows={rows}
+        overlay={gridOverlayForStyle(style)}
+        mode={mode}
+        value={value}
+        onChange={onChange}
+      />
     </div>
   )
-}
-
-function isGraphStyle(style: AnswerAreaStyle): style is 'axes' | 'number_line' | 'ray' {
-  return style === 'axes' || style === 'number_line' || style === 'ray'
 }
 
 export function AnswerArea({
@@ -148,76 +103,14 @@ export function AnswerArea({
 }: AnswerAreaProps) {
   const expandForAnswer = showAnswer || Boolean(isEditing)
   const lines = getEffectiveAnswerLines(block, subject, expandForAnswer)
-  const answerText = getCorrectAnswerText(block)
-  const cellStyle = {
-    height: `${lines * ANSWER_CELL_SIZE}px`,
-    ['--cell-size' as string]: `${ANSWER_CELL_SIZE}px`,
-    ['--rows' as string]: String(lines),
-  }
-
-  if (isEditing) {
-    if (style === 'cells') {
-      return (
-        <div className="ws-task-slot answer-cells-grid answer-area-editable" style={cellStyle}>
-          <AnswerInlineEditor
-            value={answerText}
-            lines={lines}
-            style={style}
-            onChange={onChangeAnswer}
-          />
-        </div>
-      )
-    }
-
-    if (style === 'block') {
-      return (
-        <div
-          className="ws-task-slot answer-block-area answer-area-editable"
-          style={{ minHeight: `${lines * 28}px` }}
-        >
-          <AnswerInlineEditor
-            value={answerText}
-            lines={lines}
-            style={style}
-            onChange={onChangeAnswer}
-          />
-        </div>
-      )
-    }
-
-    if (isGraphStyle(style)) {
-      return (
-        <GraphAnswerSlot
-          style={style}
-          lines={lines}
-          mode="edit"
-          answerText={answerText}
-          onChangeAnswer={onChangeAnswer}
-        />
-      )
-    }
-
-    return (
-      <div className="ws-task-slot lines answer-area-editable">
-        {Array.from({ length: lines }).map((_, i) => (
-          <i key={i} />
-        ))}
-        <AnswerInlineEditor
-          value={answerText}
-          lines={lines}
-          style={style}
-          onChange={onChangeAnswer}
-        />
-      </div>
-    )
-  }
+  const answerText = getDisplayAnswerText(block)
+  const rawAnswerText = block.correctAnswers?.[0] ?? answerText
+  const editingAnswer = Boolean(isEditing && onChangeAnswer)
 
   if (showAnswer && answerText) {
-    if (style === 'cells') {
+    if (isCellGridStyle(style)) {
       return (
-        <div className="ws-task-slot answer-cells-grid answer-area-readonly" style={cellStyle}>
-          <AnswerReadonlyOverlay value={answerText} style={style} />
-        </div>
+        <CellsAnswerSlot rows={lines} style={style} mode="readonly" value={answerText} />
       )
     }
 
@@ -232,17 +125,6 @@ export function AnswerArea({
       )
     }
 
-    if (isGraphStyle(style)) {
-      return (
-        <GraphAnswerSlot
-          style={style}
-          lines={lines}
-          mode="readonly"
-          answerText={answerText}
-        />
-      )
-    }
-
     return (
       <div className="ws-task-slot lines answer-area-readonly">
         {Array.from({ length: lines }).map((_, i) => (
@@ -253,8 +135,52 @@ export function AnswerArea({
     )
   }
 
-  if (style === 'cells') {
-    return <div className="ws-task-slot answer-cells-grid" style={cellStyle} aria-hidden />
+  if (editingAnswer) {
+    if (isCellGridStyle(style)) {
+      return (
+        <CellsAnswerSlot
+          rows={lines}
+          style={style}
+          mode="edit"
+          value={rawAnswerText}
+          onChange={onChangeAnswer}
+        />
+      )
+    }
+
+    if (style === 'block') {
+      return (
+        <div
+          className="ws-task-slot answer-block-area answer-area-editable"
+          style={{ minHeight: `${lines * 28}px` }}
+        >
+          <AnswerInlineEditor
+            value={rawAnswerText}
+            lines={lines}
+            style={style}
+            onChange={onChangeAnswer}
+          />
+        </div>
+      )
+    }
+
+    return (
+      <div className="ws-task-slot lines answer-area-editable">
+        {Array.from({ length: lines }).map((_, i) => (
+          <i key={i} />
+        ))}
+        <AnswerInlineEditor
+          value={rawAnswerText}
+          lines={lines}
+          style={style}
+          onChange={onChangeAnswer}
+        />
+      </div>
+    )
+  }
+
+  if (isCellGridStyle(style)) {
+    return <CellsAnswerSlot rows={lines} style={style} mode="empty" value="" />
   }
 
   if (style === 'block') {
@@ -263,10 +189,6 @@ export function AnswerArea({
         <span className="answer-placeholder">Введите текст</span>
       </div>
     )
-  }
-
-  if (isGraphStyle(style)) {
-    return <GraphAnswerSlot style={style} lines={lines} mode="default" answerText="" />
   }
 
   return (

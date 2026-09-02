@@ -144,6 +144,13 @@ export function getCorrectAnswerText(block: WorksheetBlock): string {
   return block.correctAnswers.join('\n')
 }
 
+/** Текст эталона для отображения (без служебного префикса «Ответ:»). */
+export function getDisplayAnswerText(block: WorksheetBlock): string {
+  return getCorrectAnswerText(block)
+    .replace(/^Ответ\s*:\s*/i, '')
+    .trim()
+}
+
 const ANSWER_CHARS_PER_LINE = 72
 
 function linesNeededForAnswerText(text: string, style: AnswerAreaStyle): number {
@@ -153,6 +160,13 @@ function linesNeededForAnswerText(text: string, style: AnswerAreaStyle): number 
     return paragraphs.reduce(
       (sum, paragraph) =>
         sum + Math.max(1, Math.ceil(paragraph.length / ANSWER_CHARS_PER_LINE)),
+      0,
+    )
+  }
+  if (style === 'cells') {
+    const charsPerRow = 48
+    return paragraphs.reduce(
+      (sum, paragraph) => sum + Math.max(1, Math.ceil(paragraph.length / charsPerRow)),
       0,
     )
   }
@@ -173,7 +187,7 @@ export function getEffectiveAnswerLines(
   const style = getBlockAnswerStyle(block, subject)
   const configured = getConfiguredAnswerLines(block, subject)
   if (!expandForAnswer) return configured
-  const needed = linesNeededForAnswerText(getCorrectAnswerText(block), style)
+  const needed = linesNeededForAnswerText(getDisplayAnswerText(block), style)
   if (!needed) return configured
   return clampAnswerHeight(style, Math.max(configured, needed))
 }

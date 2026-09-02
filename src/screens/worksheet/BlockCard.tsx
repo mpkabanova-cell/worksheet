@@ -1,4 +1,5 @@
 import type { DragEvent } from 'react'
+import { useEffect, useState } from 'react'
 import type { BlockPreviewState, WorksheetBlock } from '@/data/worksheet'
 import {
   clampText,
@@ -121,6 +122,11 @@ export function BlockCard({
 }) {
   const isIssued = block.issued === true || previewState === 'issued'
   const isEditing = editable && selected && !!onChangeBlock && !isIssued
+  const [editingQuestion, setEditingQuestion] = useState(false)
+
+  useEffect(() => {
+    if (!selected) setEditingQuestion(false)
+  }, [selected, block.id])
 
   const patchBlock = (patch: Partial<WorksheetBlock>) => {
     onChangeBlock?.({ ...block, ...patch })
@@ -224,7 +230,16 @@ export function BlockCard({
       ) : null}
       <article
         className={`ws-task ws-task--${visualState} ${selected && visualState === 'active' ? 'selected' : ''} ${editable && !isIssued ? 'editable' : ''} ${isIssued ? 'issued' : ''} ${isPlainText ? 'plain' : ''} ${isAnswerBlock ? 'answer-task' : ''} ${isEditing ? 'editing-inline' : ''} ${dragging ? 'dragging' : ''}`}
-        onClick={editable ? onSelect : undefined}
+        onClick={
+          editable
+            ? (e) => {
+                onSelect()
+                if (!(e.target as HTMLElement).closest('.ws-task-question-row')) {
+                  setEditingQuestion(false)
+                }
+              }
+            : undefined
+        }
         title={isIssued ? 'Задание выдано. Создайте копию для редактирования.' : undefined}
       >
         {isIssued && isAnswerBlock ? (
@@ -236,7 +251,7 @@ export function BlockCard({
             <span className="ws-task-num">{taskNumber}.</span>
             <div className="ws-task-main">
               <div className="ws-task-question-row">
-                {isEditing ? (
+                {isEditing && editingQuestion ? (
                   <WysiwygTextarea
                     className="ws-inline-textarea"
                     rows={2}
@@ -249,6 +264,20 @@ export function BlockCard({
                     }
                     onClick={(e) => e.stopPropagation()}
                   />
+                ) : isEditing ? (
+                  <p
+                    className={`ws-task-text ws-task-text--clickable ${isQuestionEmpty ? 'is-placeholder' : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setEditingQuestion(true)
+                    }}
+                  >
+                    {isQuestionEmpty ? (
+                      'Введите текст'
+                    ) : (
+                      <MathText text={block.question ?? question} as="span" />
+                    )}
+                  </p>
                 ) : (
                   <p className={`ws-task-text ${isQuestionEmpty ? 'is-placeholder' : ''}`}>
                     {isQuestionEmpty ? 'Введите текст' : <MathText text={question} />}
@@ -358,7 +387,11 @@ export function BlockCard({
             showAnswer={effectiveShowAnswer}
             isEditing={isEditing}
             onChangeAnswer={(text) =>
-              patchBlock({ correctAnswers: text ? [text] : [] })
+              patchBlock({
+                correctAnswers: text
+                  ? [text.replace(/^Ответ\s*:\s*/i, '').trim()]
+                  : [],
+              })
             }
           />
         ) : null}
