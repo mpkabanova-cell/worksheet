@@ -102,7 +102,7 @@ export function PrototypeNav({
         </div>
         {worksheetScreen ? (
           <>
-            <p>Блок «Ввод ответа»</p>
+            <p>Блок задания</p>
             <label className="proto-select-row">
               <span>Состояние</span>
               <select

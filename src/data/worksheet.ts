@@ -71,9 +71,13 @@ export interface MatchPair {
   text: string
 }
 
+export type ChoiceOptionFormat = 'text' | 'image' | 'text_image'
+
 export interface ChoiceOption {
   id: string
   text: string
+  imageData?: string
+  imageFileName?: string
 }
 
 export interface WorksheetBlock {
@@ -87,6 +91,14 @@ export interface WorksheetBlock {
   options?: ChoiceOption[]
   correctOptionId?: string
   correctOptionIds?: string[]
+  /** Формат вариантов: текст, картинка или текст+картинка. */
+  choiceOptionFormat?: ChoiceOptionFormat
+  /** Количество вариантов (по умолчанию 4). */
+  choiceOptionCount?: number
+  /** Перемешивать варианты при показе ученику. */
+  choiceShuffle?: boolean
+  /** Кэш порядка id для student view при shuffle. */
+  choiceDisplayOrder?: string[]
   correctAnswers?: string[]
   answerLines?: number
   leftItems?: MatchPair[]

@@ -4,7 +4,7 @@ import { GRADES, SUBJECTS, formatSavedAgo } from '@/data/worksheet'
 import { countTaskBlocksBefore, reconcileAnswerBlockStyle } from '@/data/blockUtils'
 import { Button, FigmaIcon, Icon, Select } from '@/components/ui'
 import { BlockCard } from '@/screens/worksheet/BlockCard'
-import { BlockEditorPanel, AnswerTaskSettingsPanel } from '@/screens/worksheet/blockEditors'
+import { BlockEditorPanel, AnswerTaskSettingsPanel, ChoiceTaskSettingsPanel } from '@/screens/worksheet/blockEditors'
 import { QUESTION_MAX_LENGTH } from '@/data/blockUtils'
 import pageAddIcon from '@/assets/worksheet/tools/page-add.svg'
 import toolText from '@/assets/worksheet/tools/tool-text.svg'
@@ -184,14 +184,17 @@ export function WorksheetScreen({
   const showToolsSidebar = isEdit
   const isAnswerBlockSelected =
     selected?.type === 'short_answer' || selected?.type === 'extended_answer'
+  const isChoiceBlockSelected =
+    selected?.type === 'single_choice' || selected?.type === 'multiple_choice'
   const [sheetSettingsOpen, setSheetSettingsOpen] = useState(true)
 
   useEffect(() => {
-    setSheetSettingsOpen(!isAnswerBlockSelected)
-  }, [selected?.id, isAnswerBlockSelected])
+    setSheetSettingsOpen(!isAnswerBlockSelected && !isChoiceBlockSelected)
+  }, [selected?.id, isAnswerBlockSelected, isChoiceBlockSelected])
   const showOtherBlockSettings =
     selected &&
     !isAnswerBlockSelected &&
+    !isChoiceBlockSelected &&
     selected.type !== 'text' &&
     selected.type !== 'page_break' &&
     selected.type !== 'answer_field'
@@ -438,6 +441,10 @@ export function WorksheetScreen({
               />
             ) : null}
 
+            {isChoiceBlockSelected && selected && onChangeBlock ? (
+              <ChoiceTaskSettingsPanel block={selected} onChange={onChangeBlock} />
+            ) : null}
+
             {showOtherBlockSettings && onChangeBlock ? (
               <BlockEditorPanel
                 block={selected}
@@ -448,10 +455,12 @@ export function WorksheetScreen({
               />
             ) : null}
 
-            {isAnswerBlockSelected ? <div className="ws-right-divider" aria-hidden /> : null}
+            {isAnswerBlockSelected || isChoiceBlockSelected ? (
+              <div className="ws-right-divider" aria-hidden />
+            ) : null}
 
             <aside
-              className={`ws-sidepanel ws-settings-panel ${sheetSettingsOpen ? 'is-open' : 'is-collapsed'} ${isAnswerBlockSelected ? 'has-task-settings' : ''}`}
+              className={`ws-sidepanel ws-settings-panel ${sheetSettingsOpen ? 'is-open' : 'is-collapsed'} ${isAnswerBlockSelected || isChoiceBlockSelected ? 'has-task-settings' : ''}`}
             >
             <button
               type="button"
@@ -464,7 +473,7 @@ export function WorksheetScreen({
             </button>
             {sheetSettingsOpen ? (
             <div className="ws-sidepanel-scroll">
-            {!isAnswerBlockSelected ? <h3>Настройки рабочего листа</h3> : null}
+            {!isAnswerBlockSelected && !isChoiceBlockSelected ? <h3>Настройки рабочего листа</h3> : null}
             <p className="side-section-label">Ограничения</p>
             <p className="side-field-hint side-field-hint--static">
               Количество символов в вопросе — {QUESTION_MAX_LENGTH}

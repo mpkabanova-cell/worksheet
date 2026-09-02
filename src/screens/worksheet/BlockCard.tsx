@@ -6,11 +6,13 @@ import {
   getBlockAnswerStyle,
   getConfiguredAnswerLines,
   getCorrectAnswerText,
+  getChoiceQuestionMaxLength,
   getGapsSourceText,
   getGapsStudentText,
   getOrderDisplayItems,
   getTableAnswerBank,
-  QUESTION_MAX_LENGTH,
+  hasValidChoiceCorrectAnswers,
+  isChoiceBlock,
   TEXT_BODY_MAX_LENGTH,
 } from '@/data/blockUtils'
 import { getBlockQuestion } from '@/data/taskContent'
@@ -18,6 +20,7 @@ import { MathText } from '@/components/MathText'
 import { WysiwygTextarea } from '@/components/WysiwygTextarea'
 import { FigmaIcon } from '@/components/ui'
 import { AnswerArea } from '@/components/block/AnswerArea'
+import { ChoiceOptionsView } from '@/components/block/ChoiceOptionsView'
 import { FillGapsEditor, FillGapsStudent } from '@/components/block/FillGapsBody'
 import { MatchingView } from '@/components/block/MatchingView'
 import { MediaBlockView } from '@/components/block/MediaBlockView'
@@ -197,22 +200,25 @@ export function BlockCard({
   const gapsStudentText = getGapsStudentText(block)
   const answerStyle = getBlockAnswerStyle(block, subject)
   const isAnswerBlock = block.type === 'short_answer' || block.type === 'extended_answer'
+  const isChoiceTask = isChoiceBlock(block)
+  const questionMaxLength = getChoiceQuestionMaxLength(block)
   const configuredHeight = isAnswerBlock ? getConfiguredAnswerLines(block, subject) : 0
   const effectiveShowAnswer = showAnswer || previewState === 'show-answer'
   const visualState: BlockPreviewState =
-    previewState && isAnswerBlock
+    previewState && (isAnswerBlock || isChoiceTask)
       ? previewState
-      : isIssued && isAnswerBlock
+      : isIssued && (isAnswerBlock || isChoiceTask)
         ? 'issued'
-        : effectiveShowAnswer && isAnswerBlock
+        : effectiveShowAnswer && (isAnswerBlock || isChoiceTask)
           ? 'show-answer'
           : selected
             ? 'active'
             : 'default'
+  const choiceFormat = block.choiceOptionFormat ?? 'text'
 
   return (
     <div
-      className={`ws-task-wrap ${selected ? 'selected' : ''} ${editable ? 'editable' : ''} ${previewState && isAnswerBlock ? 'has-preview-state' : ''} ${isIssued ? 'is-issued' : ''}`}
+      className={`ws-task-wrap ${selected ? 'selected' : ''} ${editable ? 'editable' : ''} ${previewState && (isAnswerBlock || isChoiceTask) ? 'has-preview-state' : ''} ${isIssued ? 'is-issued' : ''}`}
     >
       {editable && selected && !isIssued ? (
         <BlockTools
@@ -242,7 +248,7 @@ export function BlockCard({
         }
         title={isIssued ? 'Задание выдано. Создайте копию для редактирования.' : undefined}
       >
-        {isIssued && isAnswerBlock ? (
+        {isIssued && (isAnswerBlock || isChoiceTask) ? (
           <p className="ws-task-issued-label">Выдано — создайте копию для редактирования</p>
         ) : null}
 
@@ -256,11 +262,11 @@ export function BlockCard({
                     className="ws-inline-textarea"
                     rows={2}
                     value={block.question ?? question}
-                    maxLength={QUESTION_MAX_LENGTH}
+                    maxLength={questionMaxLength}
                     placeholder="Введите текст"
                     floatingToolbar
                     onChange={(value) =>
-                      patchBlock({ question: clampText(value, QUESTION_MAX_LENGTH) })
+                      patchBlock({ question: clampText(value, questionMaxLength) })
                     }
                     onClick={(e) => e.stopPropagation()}
                   />
@@ -341,42 +347,20 @@ export function BlockCard({
           </div>
         )}
 
-        {block.type === 'single_choice' || block.type === 'multiple_choice' ? (
-          <div className="ws-task-slot options">
-            {(block.options ?? []).map((opt, index) => {
-              const correct =
-                block.type === 'single_choice'
-                  ? opt.id === block.correctOptionId
-                  : (block.correctOptionIds ?? []).includes(opt.id)
+        {isChoiceTask && isEditing && !hasValidChoiceCorrectAnswers(block) ? (
+          <p className="ws-choice-validation-hint">Отметьте хотя бы один правильный вариант</p>
+        ) : null}
 
-              if (isEditing) {
-                return (
-                  <label key={opt.id} className="option option-edit">
-                    <span className="checkbox" />
-                    <input
-                      className="option-inline-input"
-                      value={opt.text}
-                      placeholder={`Вариант ${String.fromCharCode(65 + index)}`}
-                      onChange={(e) => {
-                        const options = (block.options ?? []).map((item, i) =>
-                          i === index ? { ...item, text: e.target.value } : item,
-                        )
-                        patchBlock({ options })
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </label>
-                )
-              }
-
-              return (
-                <label key={opt.id} className={`option ${showAnswer && correct ? 'correct' : ''}`}>
-                  <span className="checkbox" />
-                  <MathText text={opt.text} />
-                </label>
-              )
-            })}
-          </div>
+        {isChoiceTask ? (
+          <ChoiceOptionsView
+            block={block}
+            format={choiceFormat}
+            isEditing={isEditing}
+            editable={editable}
+            selected={selected}
+            showAnswer={effectiveShowAnswer}
+            onChangeBlock={onChangeBlock}
+          />
         ) : null}
 
         {isAnswerBlock ? (
@@ -491,6 +475,7 @@ export function BlockCard({
         {effectiveShowAnswer &&
         block.type !== 'matching' &&
         !isAnswerBlock &&
+        !isChoiceTask &&
         (block.correctAnswers?.length || block.correctOptionId) ? (
           <div className="ws-task-slot">
             <div className="answer-pill">

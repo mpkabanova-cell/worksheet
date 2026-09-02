@@ -1,5 +1,49 @@
-import type { AnswerAreaStyle, WorksheetBlock, WorksheetDraft } from './worksheet'
+import type {
+  AnswerAreaStyle,
+  ChoiceOption,
+  ChoiceOptionFormat,
+  WorksheetBlock,
+  WorksheetDraft,
+} from './worksheet'
 import { uid } from './worksheet'
+
+export const CHOICE_QUESTION_MAX = 500
+export const CHOICE_OPTION_MAX = 300
+export const CHOICE_OPTION_COUNT_DEFAULT = 4
+export const CHOICE_OPTION_COUNT_MIN = 2
+export const CHOICE_OPTION_COUNT_MAX = 10
+
+export const CHOICE_FORMAT_LABELS: Record<ChoiceOptionFormat, string> = {
+  text: 'Текст',
+  image: 'Изображение',
+  text_image: 'Текст и изображение',
+}
+
+export const CHOICE_FORMAT_OPTIONS = (Object.keys(CHOICE_FORMAT_LABELS) as ChoiceOptionFormat[]).map(
+  (key) => CHOICE_FORMAT_LABELS[key],
+)
+
+const LABEL_TO_CHOICE_FORMAT: Record<string, ChoiceOptionFormat> = {
+  Текст: 'text',
+  Изображение: 'image',
+  'Текст и изображение': 'text_image',
+}
+
+export function choiceFormatFromLabel(label: string): ChoiceOptionFormat {
+  return LABEL_TO_CHOICE_FORMAT[label] ?? 'text'
+}
+
+export function choiceLabelFromFormat(format: ChoiceOptionFormat): string {
+  return CHOICE_FORMAT_LABELS[format]
+}
+
+export function isChoiceBlock(block: WorksheetBlock): boolean {
+  return block.type === 'single_choice' || block.type === 'multiple_choice'
+}
+
+export function getChoiceQuestionMaxLength(block: WorksheetBlock): number {
+  return isChoiceBlock(block) ? CHOICE_QUESTION_MAX : QUESTION_MAX_LENGTH
+}
 
 export const QUESTION_MAX_LENGTH = 2000
 export const TEXT_BODY_MAX_LENGTH = 10_000
@@ -205,15 +249,39 @@ function asText(value: unknown): string | undefined {
 
 /** Приводит блок к безопасному виду после ответа модели (защита от падения UI). */
 export function sanitizeBlock(block: WorksheetBlock): WorksheetBlock {
+  const baseOptions = block.options?.map((option, index) => ({
+    id: option.id || `option_${index + 1}`,
+    text: clampText(asText(option.text) ?? '', CHOICE_OPTION_MAX),
+    imageData: option.imageData,
+    imageFileName: asText(option.imageFileName),
+  }))
+
+  const choiceExtras = isChoiceBlock(block)
+    ? (() => {
+        const normalized: WorksheetBlock = {
+          ...block,
+          choiceOptionFormat: block.choiceOptionFormat ?? 'text',
+          choiceOptionCount: clampChoiceOptionCount(
+            block.choiceOptionCount ?? block.options?.length ?? CHOICE_OPTION_COUNT_DEFAULT,
+          ),
+          choiceShuffle: block.choiceShuffle ?? false,
+        }
+        return {
+          choiceOptionFormat: normalized.choiceOptionFormat,
+          choiceOptionCount: normalized.choiceOptionCount,
+          choiceShuffle: normalized.choiceShuffle,
+          options: resizeChoiceOptions(normalized, baseOptions ?? []),
+        }
+      })()
+    : {}
+
   return {
     ...block,
     question: asText(block.question),
     body: asText(block.body),
     instruction: asText(block.instruction) ?? '',
-    options: block.options?.map((option, index) => ({
-      id: option.id || `option_${index + 1}`,
-      text: asText(option.text) ?? '',
-    })),
+    options: baseOptions,
+    ...choiceExtras,
     leftItems: block.leftItems?.map((item, index) => ({
       id: item.id || `left_${index + 1}`,
       text: asText(item.text) ?? '',
@@ -275,6 +343,7 @@ export function cloneBlock(block: WorksheetBlock): WorksheetBlock {
     gapsAnswers: block.gapsAnswers ? [...block.gapsAnswers] : block.gapsAnswers,
     correctAnswers: block.correctAnswers ? [...block.correctAnswers] : block.correctAnswers,
     correctOptionIds: block.correctOptionIds ? [...block.correctOptionIds] : block.correctOptionIds,
+    choiceDisplayOrder: block.choiceDisplayOrder ? [...block.choiceDisplayOrder] : block.choiceDisplayOrder,
     tableCells: block.tableCells?.map((row) => [...row]),
     tableHeaders: block.tableHeaders ? [...block.tableHeaders] : block.tableHeaders,
     tableAnswerBank: block.tableAnswerBank ? [...block.tableAnswerBank] : block.tableAnswerBank,
@@ -537,4 +606,79 @@ export function clampOrderCount(n: number): number {
 
 export function clampMatchingCount(n: number): number {
   return Math.max(MATCHING_PAIRS_MIN, Math.min(MATCHING_PAIRS_MAX, n))
+}
+
+export function clampChoiceOptionCount(n: number): number {
+  return Math.max(CHOICE_OPTION_COUNT_MIN, Math.min(CHOICE_OPTION_COUNT_MAX, n))
+}
+
+export function defaultChoiceOptionText(index: number): string {
+  return `Ответ ${index + 1}`
+}
+
+export function resizeChoiceOptions(
+  block: WorksheetBlock,
+  current: ChoiceOption[],
+): ChoiceOption[] {
+  const count = clampChoiceOptionCount(
+    block.choiceOptionCount ?? current.length ?? CHOICE_OPTION_COUNT_DEFAULT,
+  )
+  const next = [...current]
+  while (next.length < count) {
+    const i = next.length
+    next.push({ id: uid('option'), text: defaultChoiceOptionText(i) })
+  }
+  return next.slice(0, count)
+}
+
+export function getChoiceDisplayOptions(
+  block: WorksheetBlock,
+  editable: boolean,
+  selected: boolean,
+): ChoiceOption[] {
+  const options = resizeChoiceOptions(block, block.options ?? [])
+  if (editable && selected) return options
+  if (!block.choiceShuffle) return options
+  if (block.choiceDisplayOrder?.length === options.length) {
+    const byId = new Map(options.map((o) => [o.id, o]))
+    const ordered = block.choiceDisplayOrder
+      .map((id) => byId.get(id))
+      .filter((o): o is ChoiceOption => Boolean(o))
+    if (ordered.length === options.length) return ordered
+  }
+  return stableShuffle(options, block.id)
+}
+
+export function toggleCorrectOption(
+  block: WorksheetBlock,
+  optionId: string,
+): WorksheetBlock {
+  if (block.type === 'single_choice') {
+    const nextId = block.correctOptionId === optionId ? undefined : optionId
+    return { ...block, correctOptionId: nextId }
+  }
+  if (block.type === 'multiple_choice') {
+    const current = block.correctOptionIds ?? []
+    const next = current.includes(optionId)
+      ? current.filter((id) => id !== optionId)
+      : [...current, optionId]
+    return { ...block, correctOptionIds: next }
+  }
+  return block
+}
+
+export function isOptionCorrect(block: WorksheetBlock, optionId: string): boolean {
+  if (block.type === 'single_choice') return block.correctOptionId === optionId
+  if (block.type === 'multiple_choice') {
+    return (block.correctOptionIds ?? []).includes(optionId)
+  }
+  return false
+}
+
+export function hasValidChoiceCorrectAnswers(block: WorksheetBlock): boolean {
+  if (block.type === 'single_choice') return Boolean(block.correctOptionId)
+  if (block.type === 'multiple_choice') {
+    return (block.correctOptionIds?.length ?? 0) >= 1
+  }
+  return true
 }

@@ -5,7 +5,16 @@ import {
   answerLabelFromStyle,
   answerStyleFromLabel,
   answerStyleOptionsForSubject,
+  CHOICE_FORMAT_OPTIONS,
+  CHOICE_OPTION_COUNT_DEFAULT,
+  CHOICE_OPTION_COUNT_MAX,
+  CHOICE_OPTION_COUNT_MIN,
+  CHOICE_OPTION_MAX,
+  CHOICE_QUESTION_MAX,
+  choiceFormatFromLabel,
+  choiceLabelFromFormat,
   clampAnswerHeight,
+  clampChoiceOptionCount,
   clampMatchingCount,
   clampOrderCount,
   clampTableCols,
@@ -16,6 +25,7 @@ import {
   MATCHING_PAIRS_MIN,
   ORDER_ITEMS_MAX,
   ORDER_ITEMS_MIN,
+  resizeChoiceOptions,
   shuffleArray,
 } from '@/data/blockUtils'
 import { Button, Input, Select } from '@/components/ui'
@@ -75,6 +85,79 @@ export function AnswerTaskSettingsPanel({
           Высота от {range.min} до {range.max}
         </span>
       </label>
+    </section>
+  )
+}
+
+export function ChoiceTaskSettingsPanel({
+  block,
+  onChange,
+}: {
+  block: WorksheetBlock
+  onChange: (block: WorksheetBlock) => void
+}) {
+  const format = block.choiceOptionFormat ?? 'text'
+  const count = block.choiceOptionCount ?? block.options?.length ?? CHOICE_OPTION_COUNT_DEFAULT
+
+  return (
+    <section className="ws-task-settings-panel">
+      <p className="side-section-heading">Настройки задания</p>
+      <label className="side-field">
+        <span>Формат вариантов ответа</span>
+        <Select
+          options={CHOICE_FORMAT_OPTIONS}
+          value={choiceLabelFromFormat(format)}
+          onChange={(e) => {
+            const nextFormat = choiceFormatFromLabel(e.target.value)
+            onChange({ ...block, choiceOptionFormat: nextFormat, choiceDisplayOrder: undefined })
+          }}
+        />
+      </label>
+      <label className="side-field">
+        <span>Количество вариантов</span>
+        <Input
+          type="number"
+          min={CHOICE_OPTION_COUNT_MIN}
+          max={CHOICE_OPTION_COUNT_MAX}
+          value={count}
+          onChange={(e) => {
+            const nextCount = clampChoiceOptionCount(Number(e.target.value) || CHOICE_OPTION_COUNT_DEFAULT)
+            const nextBlock = {
+              ...block,
+              choiceOptionCount: nextCount,
+              choiceDisplayOrder: undefined,
+            }
+            onChange({
+              ...nextBlock,
+              options: resizeChoiceOptions(nextBlock, block.options ?? []),
+            })
+          }}
+        />
+        <span className="side-field-hint">
+          От {CHOICE_OPTION_COUNT_MIN} до {CHOICE_OPTION_COUNT_MAX}
+        </span>
+      </label>
+      <div className="side-switch-row">
+        <span>Перемешивание вариантов</span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={block.choiceShuffle ?? false}
+          className={`switch ${block.choiceShuffle ? 'on' : ''}`}
+          onClick={() =>
+            onChange({
+              ...block,
+              choiceShuffle: !block.choiceShuffle,
+              choiceDisplayOrder: undefined,
+            })
+          }
+        >
+          <span className="knob" />
+        </button>
+      </div>
+      <p className="side-field-hint side-field-hint--static">
+        Вопрос — до {CHOICE_QUESTION_MAX} символов, вариант — до {CHOICE_OPTION_MAX}
+      </p>
     </section>
   )
 }
@@ -155,6 +238,10 @@ export function BlockEditorPanel({
   }
 
   if (block.type === 'short_answer' || block.type === 'extended_answer') {
+    return null
+  }
+
+  if (block.type === 'single_choice' || block.type === 'multiple_choice') {
     return null
   }
 

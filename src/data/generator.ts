@@ -61,6 +61,9 @@ function blockForType(
           'Вариант D',
         ]),
         correctOptionId: 'option_1',
+        choiceOptionFormat: 'text',
+        choiceOptionCount: 4,
+        choiceShuffle: false,
       }
     case 'multiple_choice':
       return {
@@ -74,6 +77,9 @@ function blockForType(
           'Неверное утверждение 2',
         ]),
         correctOptionIds: ['option_1', 'option_3'],
+        choiceOptionFormat: 'text',
+        choiceOptionCount: 4,
+        choiceShuffle: false,
       }
     case 'fill_gaps':
       return {
@@ -227,6 +233,9 @@ export function createEmptyBlock(type: TaskType, page = 0, subject = ''): Worksh
         question: 'Введите вопрос…',
         options: makeOptions(['Вариант 1', 'Вариант 2', 'Вариант 3', 'Вариант 4']),
         correctOptionId: 'option_1',
+        choiceOptionFormat: 'text',
+        choiceOptionCount: 4,
+        choiceShuffle: false,
       }
     case 'multiple_choice':
       return {
@@ -235,6 +244,9 @@ export function createEmptyBlock(type: TaskType, page = 0, subject = ''): Worksh
         question: 'Введите вопрос…',
         options: makeOptions(['Вариант 1', 'Вариант 2', 'Вариант 3', 'Вариант 4']),
         correctOptionIds: ['option_1'],
+        choiceOptionFormat: 'text',
+        choiceOptionCount: 4,
+        choiceShuffle: false,
       }
     case 'fill_gaps':
       return {
