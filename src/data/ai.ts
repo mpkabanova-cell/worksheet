@@ -6,7 +6,7 @@ import {
   generateSingleTask as mockSingle,
 } from './generator'
 import { promptsForPlan, promptsForSingleTask, promptsForWorksheet } from './aiPrompts'
-import { sanitizeBlock } from './blockUtils'
+import { sanitizeBlock, clampAnswerHeight, defaultAnswerHeight, defaultAnswerStyle } from './blockUtils'
 import { normalizeAiTask } from './taskContent'
 
 export type GenerateMode = 'create' | 'regenerate'
@@ -86,6 +86,15 @@ function toBlock(
       (left, i) => `${left.text} → ${rightItems[i]?.text ?? ''}`.trim(),
     )
   }
+  const subject = draft.subject || ''
+  const answerStyle = defaultAnswerStyle(subject)
+  const answerLines =
+    type === 'short_answer' || type === 'extended_answer'
+      ? clampAnswerHeight(
+          answerStyle,
+          task.answer_lines ?? defaultAnswerHeight(answerStyle),
+        )
+      : task.answer_lines
   return sanitizeBlock({
     id: uid('task'),
     type,
@@ -101,7 +110,9 @@ function toBlock(
         : undefined,
     correctOptionIds: task.correct_option_indexes?.map((i) => `option_${i + 1}`),
     correctAnswers,
-    answerLines: task.answer_lines,
+    answerLines,
+    answerAreaStyle:
+      type === 'short_answer' || type === 'extended_answer' ? answerStyle : undefined,
     gapsText: normalized.gaps_text,
     gapsAnswers: task.gaps_answers,
     leftItems,

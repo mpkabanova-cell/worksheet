@@ -1,6 +1,6 @@
 import type { AnswerAreaStyle, WorksheetBlock, WorksheetDraft } from './worksheet'
 
-export const QUESTION_MAX_LENGTH = 250
+export const QUESTION_MAX_LENGTH = 2000
 export const TEXT_BODY_MAX_LENGTH = 10_000
 
 export const TABLE_ROWS_MIN = 2
@@ -16,14 +16,99 @@ export const MATCHING_PAIRS_MAX = 10
 
 export const ANSWER_CELL_SIZE = 20
 
+/** Клетки: 10–20 строк; линии / блок / оси / луч: 5–10. */
+export const ANSWER_HEIGHT_CELLS_MIN = 10
+export const ANSWER_HEIGHT_CELLS_MAX = 20
+export const ANSWER_HEIGHT_LINES_MIN = 5
+export const ANSWER_HEIGHT_LINES_MAX = 10
+
+export const ANSWER_STYLE_LABELS: Record<AnswerAreaStyle, string> = {
+  lines: 'Линии',
+  cells: 'Клетки',
+  block: 'Блок ответа',
+  axes: 'Оси',
+  ray: 'Луч',
+}
+
+export const ANSWER_STYLE_OPTIONS = Object.values(ANSWER_STYLE_LABELS)
+
+const LABEL_TO_STYLE: Record<string, AnswerAreaStyle> = {
+  Линии: 'lines',
+  Клетки: 'cells',
+  'Блок ответа': 'block',
+  Блок: 'block',
+  Оси: 'axes',
+  Луч: 'ray',
+}
+
+/** Предметы с клеточной областью ответа (макет PDF). */
 const GRID_SUBJECTS = new Set([
   'Математика',
-  'Физика',
-  'Химия',
-  'Информатика',
   'Алгебра',
+  'Алгебра и начала математического анализа',
+  'Вероятность и статистика',
   'Геометрия',
+  'Информатика',
+  'Физика',
+  'Экономика',
 ])
+
+export function answerStyleFromLabel(label: string): AnswerAreaStyle {
+  return LABEL_TO_STYLE[label] ?? 'lines'
+}
+
+export function answerLabelFromStyle(style: AnswerAreaStyle): string {
+  return ANSWER_STYLE_LABELS[style]
+}
+
+export function answerHeightRange(style: AnswerAreaStyle): { min: number; max: number } {
+  if (style === 'cells') {
+    return { min: ANSWER_HEIGHT_CELLS_MIN, max: ANSWER_HEIGHT_CELLS_MAX }
+  }
+  return { min: ANSWER_HEIGHT_LINES_MIN, max: ANSWER_HEIGHT_LINES_MAX }
+}
+
+export function clampAnswerHeight(style: AnswerAreaStyle, value: number): number {
+  const { min, max } = answerHeightRange(style)
+  const n = Number.isFinite(value) ? value : min
+  return Math.max(min, Math.min(max, Math.round(n)))
+}
+
+export function defaultAnswerHeight(style: AnswerAreaStyle): number {
+  return style === 'cells' ? ANSWER_HEIGHT_CELLS_MIN : ANSWER_HEIGHT_LINES_MIN
+}
+
+export function getBlockAnswerStyle(block: WorksheetBlock, subject: string): AnswerAreaStyle {
+  return block.answerAreaStyle ?? defaultAnswerStyle(subject)
+}
+
+export function getCorrectAnswerText(block: WorksheetBlock): string {
+  if (!block.correctAnswers?.length) return ''
+  if (block.correctAnswers.length === 1) return block.correctAnswers[0]
+  return block.correctAnswers.join('\n')
+}
+
+function linesNeededForAnswerText(text: string): number {
+  if (!text.trim()) return 0
+  return text.split(/\n/).length
+}
+
+/** Высота области ответа с учётом эталона в режиме «Показать ответы». */
+export function getEffectiveAnswerLines(
+  block: WorksheetBlock,
+  subject: string,
+  showAnswer: boolean,
+): number {
+  const style = getBlockAnswerStyle(block, subject)
+  const configured = clampAnswerHeight(
+    style,
+    block.answerLines ?? defaultAnswerHeight(style),
+  )
+  if (!showAnswer) return configured
+  const needed = linesNeededForAnswerText(getCorrectAnswerText(block))
+  if (!needed) return configured
+  return clampAnswerHeight(style, Math.max(configured, needed))
+}
 
 export function clampText(value: string, max: number): string {
   return value.length > max ? value.slice(0, max) : value
@@ -73,6 +158,14 @@ export function sanitizeBlock(block: WorksheetBlock): WorksheetBlock {
     correctAnswers: Array.isArray(block.correctAnswers)
       ? block.correctAnswers.map((item) => asText(item) ?? '').filter(Boolean)
       : block.correctAnswers,
+    ...(block.type === 'short_answer' || block.type === 'extended_answer'
+      ? {
+          answerLines: clampAnswerHeight(
+            getBlockAnswerStyle(block, ''),
+            block.answerLines ?? defaultAnswerHeight(getBlockAnswerStyle(block, '')),
+          ),
+        }
+      : {}),
   }
 }
 

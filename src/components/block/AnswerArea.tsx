@@ -1,13 +1,18 @@
 import type { AnswerAreaStyle, WorksheetBlock } from '@/data/worksheet'
-import { ANSWER_CELL_SIZE } from '@/data/blockUtils'
+import {
+  ANSWER_CELL_SIZE,
+  getEffectiveAnswerLines,
+} from '@/data/blockUtils'
 
 interface AnswerAreaProps {
   block: WorksheetBlock
   style: AnswerAreaStyle
+  subject: string
+  showAnswer: boolean
 }
 
-export function AnswerArea({ block, style }: AnswerAreaProps) {
-  const lines = block.answerLines ?? (block.type === 'extended_answer' ? 5 : 1)
+export function AnswerArea({ block, style, subject, showAnswer }: AnswerAreaProps) {
+  const lines = getEffectiveAnswerLines(block, subject, showAnswer)
 
   if (style === 'cells') {
     return (
@@ -23,7 +28,14 @@ export function AnswerArea({ block, style }: AnswerAreaProps) {
   }
 
   if (style === 'block') {
-    return <div className="ws-task-slot answer-block-area" style={{ minHeight: `${lines * 28}px` }} />
+    return (
+      <div
+        className="ws-task-slot answer-block-area"
+        style={{ minHeight: `${lines * 28}px` }}
+      >
+        {!showAnswer ? <span className="answer-placeholder">Введите текст</span> : null}
+      </div>
+    )
   }
 
   if (style === 'axes') {
@@ -49,6 +61,11 @@ export function AnswerArea({ block, style }: AnswerAreaProps) {
           <line x1="20" y1="60" x2="300" y2="60" stroke="currentColor" />
           <polygon points="300,60 292,56 292,64" fill="currentColor" />
         </svg>
+        {lines > 1
+          ? Array.from({ length: lines - 1 }).map((_, i) => (
+              <i key={i} className="answer-line-extra" />
+            ))
+          : null}
       </div>
     )
   }

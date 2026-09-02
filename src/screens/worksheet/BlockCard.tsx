@@ -1,8 +1,9 @@
 import type { DragEvent } from 'react'
-import type { WorksheetBlock } from '@/data/worksheet'
+import type { BlockPreviewState, WorksheetBlock } from '@/data/worksheet'
 import {
   clampText,
-  defaultAnswerStyle,
+  getBlockAnswerStyle,
+  getCorrectAnswerText,
   getGapsSourceText,
   getGapsStudentText,
   getOrderDisplayItems,
@@ -52,6 +53,7 @@ export function BlockCard({
   selected,
   showAnswer,
   showDifficulty,
+  previewState,
   dragging,
   onSelect,
   onChangeBlock,
@@ -70,6 +72,7 @@ export function BlockCard({
   selected: boolean
   showAnswer: boolean
   showDifficulty: boolean
+  previewState?: BlockPreviewState | null
   dragging?: boolean
   onSelect: () => void
   onChangeBlock?: (block: WorksheetBlock) => void
@@ -148,10 +151,22 @@ export function BlockCard({
   const cells = block.tableCells
   const headers = block.tableHeaders ?? Array.from({ length: cols }, (_, i) => `Группа ${i + 1}`)
   const gapsStudentText = getGapsStudentText(block)
-  const answerStyle = block.answerAreaStyle ?? defaultAnswerStyle(subject)
+  const answerStyle = getBlockAnswerStyle(block, subject)
+  const isAnswerBlock = block.type === 'short_answer' || block.type === 'extended_answer'
+  const effectiveShowAnswer = showAnswer || previewState === 'show-answer'
+  const visualState: BlockPreviewState =
+    previewState && isAnswerBlock
+      ? previewState
+      : effectiveShowAnswer && isAnswerBlock
+        ? 'show-answer'
+        : selected
+          ? 'active'
+          : 'default'
 
   return (
-    <div className={`ws-task-wrap ${selected ? 'selected' : ''} ${editable ? 'editable' : ''}`}>
+    <div
+      className={`ws-task-wrap ${selected ? 'selected' : ''} ${editable ? 'editable' : ''} ${previewState && isAnswerBlock ? 'has-preview-state' : ''}`}
+    >
       {editable && selected ? (
         <BlockTools
           onMoveUp={onMoveUp}
@@ -164,7 +179,7 @@ export function BlockCard({
         />
       ) : null}
       <article
-        className={`ws-task ${selected ? 'selected' : ''} ${editable ? 'editable' : ''} ${isPlainText ? 'plain' : ''} ${isEditing ? 'editing-inline' : ''} ${dragging ? 'dragging' : ''}`}
+        className={`ws-task ws-task--${visualState} ${selected && visualState === 'active' ? 'selected' : ''} ${editable ? 'editable' : ''} ${isPlainText ? 'plain' : ''} ${isEditing ? 'editing-inline' : ''} ${dragging ? 'dragging' : ''}`}
         onClick={editable ? onSelect : undefined}
       >
         {!isPlainText ? (
@@ -258,8 +273,13 @@ export function BlockCard({
           </div>
         ) : null}
 
-        {block.type === 'short_answer' || block.type === 'extended_answer' ? (
-          <AnswerArea block={block} style={answerStyle} />
+        {isAnswerBlock ? (
+          <AnswerArea
+            block={block}
+            style={answerStyle}
+            subject={subject}
+            showAnswer={effectiveShowAnswer}
+          />
         ) : null}
 
         {block.type === 'fill_gaps' ? (
@@ -354,7 +374,7 @@ export function BlockCard({
           </div>
         ) : null}
 
-        {showAnswer &&
+        {effectiveShowAnswer &&
         block.type !== 'matching' &&
         (block.correctAnswers?.length || block.correctOptionId) ? (
           <div className="ws-task-slot">
@@ -362,7 +382,7 @@ export function BlockCard({
               Ответ:{' '}
               <MathText
                 text={
-                  block.correctAnswers?.join(', ') ||
+                  (isAnswerBlock ? getCorrectAnswerText(block) : block.correctAnswers?.join(', ')) ||
                   block.options?.find((o) => o.id === block.correctOptionId)?.text ||
                   (block.correctOptionIds ?? [])
                     .map((id) => block.options?.find((o) => o.id === id)?.text)

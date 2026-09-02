@@ -1,4 +1,4 @@
-import type { Modal, Screen } from '@/data/worksheet'
+import type { BlockPreviewState, Modal, Screen } from '@/data/worksheet'
 import './PrototypeNav.css'
 
 const SCREENS: { id: Screen; label: string }[] = [
@@ -7,7 +7,7 @@ const SCREENS: { id: Screen; label: string }[] = [
   { id: 'coming-soon', label: 'Coming soon' },
   { id: 'create', label: 'Создание' },
   { id: 'create-advanced', label: 'Создание · расширенные' },
-  { id: 'create-filled', label: 'Создание · заполнено' },
+  { id: 'create-filled', label: 'Создание · заполненное' },
   { id: 'loader', label: 'Лоадер' },
   { id: 'preview', label: 'Предпросмотр' },
   { id: 'edit', label: 'Редактирование' },
@@ -31,15 +31,38 @@ const MODALS: { id: Exclude<Modal, null>; label: string }[] = [
   { id: 'regenerate-empty-topic', label: 'Переген. без темы' },
 ]
 
+const BLOCK_PREVIEW_STATES: { id: BlockPreviewState; label: string }[] = [
+  { id: 'default', label: 'Default' },
+  { id: 'hover', label: 'Hover' },
+  { id: 'active', label: 'Active' },
+  { id: 'show-answer', label: 'Show answer' },
+]
+
 interface PrototypeNavProps {
   screen: Screen
   onScreen: (screen: Screen) => void
   onModal: (modal: Modal) => void
+  blockPreviewState: BlockPreviewState | null
+  onBlockPreviewState: (state: BlockPreviewState | null) => void
   hidden?: boolean
 }
 
-export function PrototypeNav({ screen, onScreen, onModal, hidden = false }: PrototypeNavProps) {
+export function PrototypeNav({
+  screen,
+  onScreen,
+  onModal,
+  blockPreviewState,
+  onBlockPreviewState,
+  hidden = false,
+}: PrototypeNavProps) {
   if (hidden) return null
+
+  const worksheetScreen =
+    screen === 'preview' ||
+    screen === 'edit' ||
+    screen === 'edit-widget' ||
+    screen === 'add-block' ||
+    screen === 'show-answers'
 
   return (
     <details className="proto-nav">
@@ -76,6 +99,29 @@ export function PrototypeNav({ screen, onScreen, onModal, hidden = false }: Prot
             </button>
           ))}
         </div>
+        {worksheetScreen ? (
+          <>
+            <p>Блок «Ввод ответа»</p>
+            <label className="proto-select-row">
+              <span>Состояние</span>
+              <select
+                value={blockPreviewState ?? ''}
+                onChange={(e) =>
+                  onBlockPreviewState(
+                    e.target.value ? (e.target.value as BlockPreviewState) : null,
+                  )
+                }
+              >
+                <option value="">Авто</option>
+                {BLOCK_PREVIEW_STATES.map((state) => (
+                  <option key={state.id} value={state.id}>
+                    {state.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        ) : null}
       </div>
     </details>
   )

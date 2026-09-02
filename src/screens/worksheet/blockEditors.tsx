@@ -1,10 +1,18 @@
-import type { AnswerAreaStyle, WorksheetBlock } from '@/data/worksheet'
+import type { WorksheetBlock } from '@/data/worksheet'
 import {
+  ANSWER_STYLE_OPTIONS,
+  answerHeightRange,
+  answerLabelFromStyle,
+  answerStyleFromLabel,
+  clampAnswerHeight,
   clampMatchingCount,
   clampOrderCount,
   clampTableCols,
   clampTableRows,
+  defaultAnswerHeight,
   defaultAnswerStyle,
+  getBlockAnswerStyle,
+  getCorrectAnswerText,
   MATCHING_PAIRS_MAX,
   MATCHING_PAIRS_MIN,
   ORDER_ITEMS_MAX,
@@ -110,7 +118,11 @@ export function BlockEditorPanel({
   return (
     <aside className="ws-sidepanel">
       <div className="side-head ws-sidepanel-head">
-        <h3>Настройки блока</h3>
+        <h3>
+          {block.type === 'short_answer' || block.type === 'extended_answer'
+            ? 'Настройки задания'
+            : 'Настройки блока'}
+        </h3>
         <button type="button" className="icon-btn" onClick={onClose} aria-label="Закрыть">
           ×
         </button>
@@ -120,55 +132,42 @@ export function BlockEditorPanel({
       {(block.type === 'short_answer' || block.type === 'extended_answer') && (
         <>
           <label className="side-field">
-            <span>Количество строк для ответа</span>
-            <Input
-              type="number"
-              min={1}
-              max={block.type === 'extended_answer' ? 6 : 2}
-              value={block.answerLines ?? 1}
-              onChange={(e) =>
+            <span>Тип ответов</span>
+            <Select
+              options={ANSWER_STYLE_OPTIONS}
+              value={answerLabelFromStyle(block.answerAreaStyle ?? defaultAnswerStyle(subject))}
+              onChange={(e) => {
+                const nextStyle = answerStyleFromLabel(e.target.value)
                 onChange({
                   ...block,
-                  answerLines: Math.max(
-                    1,
-                    Math.min(
-                      block.type === 'extended_answer' ? 6 : 2,
-                      Number(e.target.value) || 1,
-                    ),
+                  answerAreaStyle: nextStyle,
+                  answerLines: clampAnswerHeight(
+                    nextStyle,
+                    block.answerLines ?? defaultAnswerHeight(nextStyle),
                   ),
                 })
-              }
+              }}
             />
           </label>
-          {block.type === 'short_answer' ? (
-            <label className="side-field">
-              <span>Тип ответа</span>
-              <Select
-                options={['Линии', 'Клетки', 'Блок', 'Оси', 'Луч']}
-                value={
-                  (
-                    {
-                      lines: 'Линии',
-                      cells: 'Клетки',
-                      block: 'Блок',
-                      axes: 'Оси',
-                      ray: 'Луч',
-                    } as Record<AnswerAreaStyle, string>
-                  )[block.answerAreaStyle ?? defaultAnswerStyle(subject)]
-                }
-                onChange={(e) => {
-                  const map: Record<string, AnswerAreaStyle> = {
-                    Линии: 'lines',
-                    Клетки: 'cells',
-                    Блок: 'block',
-                    Оси: 'axes',
-                    Луч: 'ray',
-                  }
-                  onChange({ ...block, answerAreaStyle: map[e.target.value] ?? 'lines' })
-                }}
-              />
-            </label>
-          ) : null}
+          <label className="side-field">
+            <span>Высота блока</span>
+            <Input
+              type="number"
+              min={answerHeightRange(getBlockAnswerStyle(block, subject)).min}
+              max={answerHeightRange(getBlockAnswerStyle(block, subject)).max}
+              value={
+                block.answerLines ??
+                defaultAnswerHeight(getBlockAnswerStyle(block, subject))
+              }
+              onChange={(e) => {
+                const style = getBlockAnswerStyle(block, subject)
+                onChange({
+                  ...block,
+                  answerLines: clampAnswerHeight(style, Number(e.target.value) || defaultAnswerHeight(style)),
+                })
+              }}
+            />
+          </label>
         </>
       )}
 
@@ -176,9 +175,26 @@ export function BlockEditorPanel({
       {block.type === 'ordering' ? <OrderingEditor block={block} onChange={onChange} /> : null}
       {block.type === 'table' ? <TableEditor block={block} onChange={onChange} /> : null}
 
-      {(block.correctAnswers || block.type === 'short_answer' || block.type === 'extended_answer') &&
-      block.type !== 'single_choice' &&
-      block.type !== 'multiple_choice' ? (
+      {(block.type === 'short_answer' || block.type === 'extended_answer') ? (
+        <label className="side-field">
+          <span>Правильный ответ</span>
+          <textarea
+            className="side-field-textarea"
+            rows={6}
+            value={getCorrectAnswerText(block)}
+            placeholder="Эталонный ответ для учителя…"
+            onChange={(e) =>
+              onChange({
+                ...block,
+                correctAnswers: e.target.value ? [e.target.value] : [],
+              })
+            }
+          />
+        </label>
+      ) : block.type === 'grouping' ||
+        block.type === 'ordering' ||
+        block.type === 'matching' ||
+        block.type === 'table' ? (
         <label className="side-field">
           <span>Правильный ответ</span>
           <Input

@@ -15,7 +15,7 @@ import {
   uid,
 } from '@/data/worksheet'
 import { isPageEmpty, removePageFromDraft, syncPagesFromBreaks } from '@/data/blockUtils'
-import type { Modal, NavId, Screen, TaskType, WorksheetBlock, WorksheetDraft } from '@/data/worksheet'
+import type { BlockPreviewState, Modal, NavId, Screen, TaskType, WorksheetBlock, WorksheetDraft } from '@/data/worksheet'
 import { Home } from '@/screens/Home'
 import { Create } from '@/screens/Create'
 import { Loader } from '@/screens/Loader'
@@ -58,6 +58,7 @@ export default function App() {
   const [generateTaskType, setGenerateTaskType] = useState<TaskType>('short_answer')
   const [generateTaskHint, setGenerateTaskHint] = useState('')
   const [generateTaskBusy, setGenerateTaskBusy] = useState(false)
+  const [blockPreviewState, setBlockPreviewState] = useState<BlockPreviewState | null>(null)
   const [toastMessage, setToastMessage] = useState('')
   const [listRefresh, setListRefresh] = useState(0)
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -585,6 +586,7 @@ export default function App() {
           onUndo={undo}
           onRedo={redo}
           onSoon={showToast}
+          blockPreviewState={blockPreviewState}
         />
         </ErrorBoundary>
       ) : null}
@@ -654,6 +656,8 @@ export default function App() {
         screen={screen}
         onScreen={goScreen}
         onModal={setModal}
+        blockPreviewState={blockPreviewState}
+        onBlockPreviewState={setBlockPreviewState}
         hidden={showCreateOverlay}
       />
     </>

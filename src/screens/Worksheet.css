@@ -250,6 +250,34 @@
   box-shadow: 0 0 0 2px rgba(80, 58, 224, 0.08);
 }
 
+.ws-task-wrap.has-preview-state .ws-task.editable:hover:not(.ws-task--hover) {
+  border-color: transparent;
+  background: var(--bg-white);
+  box-shadow: none;
+}
+
+.ws-task.ws-task--hover {
+  border: 1px solid var(--border-brand);
+  background: #fafaff;
+  box-shadow: 0 0 0 2px rgba(80, 58, 224, 0.08);
+}
+
+.ws-task.ws-task--active {
+  border: 1px solid var(--border-brand);
+  background: #fafaff;
+  box-shadow: 0 0 0 2px rgba(80, 58, 224, 0.08);
+}
+
+.ws-task.ws-task--show-answer {
+  border: 1px solid var(--border-secondary);
+  background: var(--bg-white);
+  box-shadow: none;
+}
+
+.ws-task.ws-task--default.editable {
+  border: 1px solid transparent;
+}
+
 .ws-task-wrap {
   position: relative;
   width: 100%;
@@ -811,6 +839,17 @@
   border: 1px solid var(--border-secondary);
   border-radius: 8px;
   min-height: 80px;
+  position: relative;
+}
+
+.answer-placeholder {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 20px;
+  pointer-events: none;
 }
 
 .answer-axes {

@@ -1,6 +1,6 @@
 import type { DifficultyMode, PlanTask, TaskType, WorksheetBlock, WorksheetDraft } from './worksheet'
 import { createPlan, labelForType, uid } from './worksheet'
-import { defaultAnswerStyle } from './blockUtils'
+import { defaultAnswerHeight, defaultAnswerStyle } from './blockUtils'
 import { expectationToQuestion } from './taskContent'
 
 function starsForIndex(i: number, mode: DifficultyMode, total: number): 1 | 2 | 3 {
@@ -46,7 +46,8 @@ function blockForType(
             ? `Вычисли значение выражения по теме «${topic}».`
             : `Кратко ответь: что главное нужно запомнить по теме «${topic}»?`),
         correctAnswers: subject === 'Математика' ? ['2/3'] : ['Правило / термин'],
-        answerLines: 1,
+        answerAreaStyle: defaultAnswerStyle(subject),
+        answerLines: defaultAnswerHeight(defaultAnswerStyle(subject)),
       }
     case 'single_choice':
       return {
@@ -128,7 +129,8 @@ function blockForType(
         question:
           expectation ||
           `Как применять знания по теме «${topic}». Привести пример.`,
-        answerLines: 5,
+        answerAreaStyle: defaultAnswerStyle(subject),
+        answerLines: defaultAnswerHeight(defaultAnswerStyle(subject)),
         correctAnswers: ['Образец рассуждения преподавателя'],
       }
     case 'text':
@@ -157,7 +159,7 @@ function blockForType(
       return {
         ...base,
         question: `Задание по теме «${topic}»`,
-        answerLines: 2,
+        answerLines: defaultAnswerHeight('lines'),
       }
   }
 }
@@ -215,8 +217,8 @@ export function createEmptyBlock(type: TaskType, page = 0, subject = ''): Worksh
         instruction: '',
         question: 'Введите условие…',
         correctAnswers: [''],
-        answerLines: 1,
         answerAreaStyle: defaultAnswerStyle(subject),
+        answerLines: defaultAnswerHeight(defaultAnswerStyle(subject)),
       }
     case 'single_choice':
       return {
@@ -280,8 +282,8 @@ export function createEmptyBlock(type: TaskType, page = 0, subject = ''): Worksh
         ...base,
         instruction: '',
         question: 'Введите вопрос…',
-        answerLines: 5,
         answerAreaStyle: defaultAnswerStyle(subject),
+        answerLines: defaultAnswerHeight(defaultAnswerStyle(subject)),
       }
     case 'text':
       return { ...base, body: 'Введите текст…' }

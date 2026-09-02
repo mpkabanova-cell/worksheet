@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { TaskType, WorksheetBlock, WorksheetDraft } from '@/data/worksheet'
+import type { BlockPreviewState, TaskType, WorksheetBlock, WorksheetDraft } from '@/data/worksheet'
 import { GRADES, SUBJECTS, formatSavedAgo } from '@/data/worksheet'
 import { countTaskBlocksBefore } from '@/data/blockUtils'
 import { Button, FigmaIcon, Icon, Select } from '@/components/ui'
@@ -116,6 +116,7 @@ interface WorksheetScreenProps {
   onUndo?: () => void
   onRedo?: () => void
   onSoon?: (message: string) => void
+  blockPreviewState?: BlockPreviewState | null
 }
 
 export function WorksheetScreen({
@@ -149,6 +150,7 @@ export function WorksheetScreen({
   onUndo,
   onRedo,
   onSoon,
+  blockPreviewState,
 }: WorksheetScreenProps) {
   const selected = draft.blocks.find((b) => b.id === selectedBlockId) ?? null
   const isEdit = mode === 'edit' || mode === 'edit-widget' || mode === 'add-block'
@@ -360,6 +362,7 @@ export function WorksheetScreen({
                     selected={selectedBlockId === block.id}
                     showAnswer={showAnswers}
                     showDifficulty={draft.showDifficulty}
+                    previewState={blockPreviewState}
                     dragging={dragBlockId === block.id}
                     onSelect={() => onSelectBlock?.(block.id)}
                     onChangeBlock={isEdit ? onChangeBlock : undefined}
