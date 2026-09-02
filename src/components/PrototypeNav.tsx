@@ -26,6 +26,7 @@ const MODALS: { id: Exclude<Modal, null>; label: string }[] = [
   { id: 'generate-task', label: 'Сгенерировать задание' },
   { id: 'duplicate', label: 'Дублировать' },
   { id: 'delete', label: 'Удалить' },
+  { id: 'delete-page', label: 'Удалить страницу' },
   { id: 'regenerate', label: 'Перегенерация' },
   { id: 'regenerate-empty-topic', label: 'Переген. без темы' },
 ]

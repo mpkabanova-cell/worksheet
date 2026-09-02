@@ -13,6 +13,7 @@ import {
   loadWorksheet,
   uid,
 } from '@/data/worksheet'
+import { isPageEmpty, removePageFromDraft } from '@/data/blockUtils'
 import type { Modal, NavId, Screen, TaskType, WorksheetBlock, WorksheetDraft } from '@/data/worksheet'
 import { Home } from '@/screens/Home'
 import { Create } from '@/screens/Create'
@@ -50,6 +51,7 @@ export default function App() {
   const [modal, setModal] = useState<Modal>(null)
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(0)
+  const [deletePageIndex, setDeletePageIndex] = useState<number | null>(null)
   const [pendingGenerate, setPendingGenerate] = useState(false)
   const [generateMode, setGenerateMode] = useState<GenerateMode>('create')
   const [generateTaskType, setGenerateTaskType] = useState<TaskType>('short_answer')
@@ -208,7 +210,7 @@ export default function App() {
   const addBlock = (type: TaskType, insertBeforeId?: string | null) => {
     if (type === 'page_break') {
       const nextPage = draft.pages
-      const block = createEmptyBlock('page_break', currentPage)
+      const block = createEmptyBlock('page_break', currentPage, draft.subject)
       setDraft((d) => ({
         ...d,
         pages: d.pages + 1,
@@ -219,7 +221,7 @@ export default function App() {
       setScreen('edit')
       return
     }
-    const block = createEmptyBlock(type, currentPage)
+    const block = createEmptyBlock(type, currentPage, draft.subject)
     setDraft((d) => ({
       ...d,
       blocks: insertBlockInPage(d.blocks, block, currentPage, insertBeforeId),
@@ -269,6 +271,30 @@ export default function App() {
   const addPage = () => {
     setDraft((d) => ({ ...d, pages: d.pages + 1 }))
     setCurrentPage(draft.pages)
+  }
+
+  const confirmRemovePage = (page: number) => {
+    setDraft((d) => removePageFromDraft(d, page))
+    setCurrentPage((prev) => {
+      if (prev > page) return prev - 1
+      if (prev === page) return Math.max(0, page - 1)
+      return prev
+    })
+    setSelectedBlockId(null)
+    setScreen('edit')
+    setDeletePageIndex(null)
+    setModal(null)
+    showToast('Страница удалена')
+  }
+
+  const requestRemovePage = (page: number) => {
+    if (draft.pages <= 1) return
+    if (isPageEmpty(draft.blocks, page)) {
+      confirmRemovePage(page)
+      return
+    }
+    setDeletePageIndex(page)
+    setModal('delete-page')
   }
 
   const confirmGenerateTask = async () => {
@@ -509,6 +535,7 @@ export default function App() {
           onMoveBlock={moveBlock}
           onReorderBlock={reorderBlock}
           onAddPage={addPage}
+          onRemovePage={requestRemovePage}
           onBack={() => setScreen('home')}
           onMaterials={() => setScreen('worksheets-list')}
           onEdit={() => setScreen('edit')}
@@ -549,7 +576,11 @@ export default function App() {
         generateTaskHint={generateTaskHint}
         generateTaskBusy={generateTaskBusy}
         toastMessage={toastMessage}
-        onClose={() => setModal(null)}
+        deletePageIndex={deletePageIndex}
+        onClose={() => {
+          setModal(null)
+          setDeletePageIndex(null)
+        }}
         onOpen={setModal}
         onChangeDraft={setDraft}
         onGenerateTaskType={setGenerateTaskType}
@@ -569,6 +600,9 @@ export default function App() {
           setDraft(emptyDraft())
           setScreen('home')
           showToast('Рабочий лист удалён')
+        }}
+        onConfirmDeletePage={() => {
+          if (deletePageIndex !== null) confirmRemovePage(deletePageIndex)
         }}
         onConfirmRegenerate={() => {
           if (!draft.topic.trim()) {

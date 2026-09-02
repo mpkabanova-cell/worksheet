@@ -39,6 +39,7 @@ export type Modal =
   | 'regenerate'
   | 'regenerate-empty-topic'
   | 'generate-task'
+  | 'delete-page'
   | 'toast'
 
 /** Типы заданий из спецификации */
@@ -57,6 +58,10 @@ export type TaskType =
   | 'page_break'
 
 export type DifficultyMode = 'starter' | 'basic' | 'advanced' | 'differentiated'
+
+export type AnswerAreaStyle = 'lines' | 'cells' | 'block' | 'axes' | 'ray'
+
+export type MediaKind = 'link' | 'audio' | 'video' | 'image'
 
 export interface MatchPair {
   id: string
@@ -86,10 +91,23 @@ export interface WorksheetBlock {
   groups?: { id: string; title: string; items: string[] }[]
   orderItems?: string[]
   gapsText?: string
+  gapsSourceText?: string
   gapsAnswers?: string[]
+  gapsShuffleAnswers?: boolean
   tableRows?: number
   tableCols?: number
   tableCells?: string[][]
+  tableHeaders?: string[]
+  tableAnswerBank?: string[]
+  tableShowAnswerBank?: boolean
+  tableShuffleAnswers?: boolean
+  orderDisplayItems?: string[]
+  matchingDisplayRight?: MatchPair[]
+  answerAreaStyle?: AnswerAreaStyle
+  mediaUrl?: string
+  mediaFileData?: string
+  mediaFileName?: string
+  mediaKind?: MediaKind
   difficulty?: 1 | 2 | 3
 }
 

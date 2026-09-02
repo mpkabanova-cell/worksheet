@@ -1,5 +1,6 @@
 import type { DifficultyMode, PlanTask, TaskType, WorksheetBlock, WorksheetDraft } from './worksheet'
 import { createPlan, labelForType, uid } from './worksheet'
+import { defaultAnswerStyle } from './blockUtils'
 import { expectationToQuestion } from './taskContent'
 
 function starsForIndex(i: number, mode: DifficultyMode, total: number): 1 | 2 | 3 {
@@ -202,10 +203,10 @@ export function generateSingleTask(
   return blockForType(taskType, index, draft, expectation)
 }
 
-export function createEmptyBlock(type: TaskType, page = 0): WorksheetBlock {
+export function createEmptyBlock(type: TaskType, page = 0, subject = ''): WorksheetBlock {
   const label = labelForType(type)
   const id = uid('block')
-  const base: WorksheetBlock = { id, type, page, title: label, difficulty: 1 }
+  const base: WorksheetBlock = { id, type, page, title: label }
 
   switch (type) {
     case 'short_answer':
@@ -215,6 +216,7 @@ export function createEmptyBlock(type: TaskType, page = 0): WorksheetBlock {
         question: 'Введите условие…',
         correctAnswers: [''],
         answerLines: 1,
+        answerAreaStyle: defaultAnswerStyle(subject),
       }
     case 'single_choice':
       return {
@@ -237,9 +239,10 @@ export function createEmptyBlock(type: TaskType, page = 0): WorksheetBlock {
         ...base,
         instruction: '',
         question: 'Приведите линейное уравнение к виду y = kx + b, заполнив пропуски:',
-        gapsText:
-          'Наступило теплое _______. Яркое солнце согревает _______ своими лучами. В лесу громко поют _______, а на полянах распускаются дикие _______. Дети весело бегут к _______, чтобы искупаться в прохладной _______. Они строят большие замки из _______ и собирают красивые ракушки у берега.',
+        gapsSourceText:
+          'Наступило теплое лето. Яркое солнце согревает землю своими лучами. В лесу громко поют птицы, а на полянах распускаются дикие цветы. Дети весело бегут к реке, чтобы искупаться в прохладной воде. Они строят большие замки из песка и собирают красивые ракушки у берега.',
         gapsAnswers: ['лето', 'землю', 'птицы', 'цветы', 'реке', 'воде', 'песка'],
+        gapsShuffleAnswers: false,
       }
     case 'matching':
       return {
@@ -278,11 +281,15 @@ export function createEmptyBlock(type: TaskType, page = 0): WorksheetBlock {
         instruction: '',
         question: 'Введите вопрос…',
         answerLines: 5,
+        answerAreaStyle: defaultAnswerStyle(subject),
       }
     case 'text':
       return { ...base, body: 'Введите текст…' }
     case 'answer_field':
-      return { ...base, question: 'Поле для ответа ученика', answerLines: 4 }
+      return {
+        ...base,
+        mediaKind: 'link',
+      }
     case 'table':
       return {
         ...base,
@@ -290,6 +297,10 @@ export function createEmptyBlock(type: TaskType, page = 0): WorksheetBlock {
         tableRows: 3,
         tableCols: 3,
         tableCells: Array.from({ length: 3 }, () => Array.from({ length: 3 }, () => '')),
+        tableHeaders: ['Группа 1', 'Группа 2', 'Группа 3'],
+        tableAnswerBank: [],
+        tableShowAnswerBank: false,
+        tableShuffleAnswers: false,
       }
     case 'page_break':
       return { ...base, title: 'Разрыв страницы' }
@@ -304,7 +315,10 @@ export function createManualWorksheet(draft: WorksheetDraft): WorksheetDraft {
     id: draft.id || uid('ws'),
     title: draft.topic || 'Новый рабочий лист',
     intro: '',
-    blocks: [createEmptyBlock('text', 0), createEmptyBlock('short_answer', 0)],
+    blocks: [
+      createEmptyBlock('text', 0, draft.subject),
+      createEmptyBlock('short_answer', 0, draft.subject),
+    ],
     pages: 1,
   }
 }

@@ -11,9 +11,11 @@ interface ModalsProps {
   generateTaskHint: string
   generateTaskBusy?: boolean
   toastMessage?: string
+  deletePageIndex?: number | null
   onClose: () => void
   onConfirmConvert: () => void
   onConfirmDelete: () => void
+  onConfirmDeletePage: () => void
   onConfirmDuplicate: () => void
   onConfirmRegenerate: () => void
   onConfirmGenerateTask: () => void
@@ -33,9 +35,11 @@ export function Modals({
   generateTaskHint,
   generateTaskBusy,
   toastMessage,
+  deletePageIndex,
   onClose,
   onConfirmConvert,
   onConfirmDelete,
+  onConfirmDeletePage,
   onConfirmDuplicate,
   onConfirmRegenerate,
   onConfirmGenerateTask,
@@ -317,6 +321,28 @@ export function Modals({
             </Button>
             <Button variant="danger" size="lg" onClick={onConfirmDelete}>
               Удалить
+            </Button>
+          </div>
+        </div>
+      </ModalShell>
+
+      <ModalShell open={modal === 'delete-page'} onClose={onClose} width={440}>
+        <div className="modal-pad">
+          <div className="modal-title-row">
+            <h2>Удалить страницу {deletePageIndex !== null && deletePageIndex !== undefined ? deletePageIndex + 1 : ''}?</h2>
+            <button type="button" className="icon-btn" onClick={onClose} aria-label="Закрыть">
+              <Icon name="close" />
+            </button>
+          </div>
+          <p className="modal-desc">
+            На странице есть блоки. Страница и всё её содержимое будут удалены безвозвратно.
+          </p>
+          <div className="modal-actions">
+            <Button variant="secondary" size="lg" onClick={onClose}>
+              Отмена
+            </Button>
+            <Button variant="danger" size="lg" onClick={onConfirmDeletePage}>
+              Удалить страницу
             </Button>
           </div>
         </div>
