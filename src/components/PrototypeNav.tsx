@@ -36,6 +36,7 @@ const BLOCK_PREVIEW_STATES: { id: BlockPreviewState; label: string }[] = [
   { id: 'hover', label: 'Hover' },
   { id: 'active', label: 'Active' },
   { id: 'show-answer', label: 'Show answer' },
+  { id: 'issued', label: 'Выдано' },
 ]
 
 interface PrototypeNavProps {

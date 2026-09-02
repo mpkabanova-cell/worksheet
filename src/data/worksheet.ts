@@ -27,8 +27,8 @@ export type Screen =
   | 'show-answers'
   | 'print'
 
-/** Состояния блока «Ввод ответа» для прототипа / превью макета. */
-export type BlockPreviewState = 'default' | 'hover' | 'active' | 'show-answer'
+/** Состояния блока «Ввод ответа» для UI и прототипа. */
+export type BlockPreviewState = 'default' | 'hover' | 'active' | 'show-answer' | 'issued'
 
 export type Modal =
   | null
@@ -62,7 +62,7 @@ export type TaskType =
 
 export type DifficultyMode = 'starter' | 'basic' | 'advanced' | 'differentiated'
 
-export type AnswerAreaStyle = 'lines' | 'cells' | 'block' | 'axes' | 'ray'
+export type AnswerAreaStyle = 'lines' | 'cells' | 'block' | 'axes' | 'number_line' | 'ray'
 
 export type MediaKind = 'link' | 'audio' | 'video' | 'image'
 
@@ -112,6 +112,8 @@ export interface WorksheetBlock {
   mediaFileName?: string
   mediaKind?: MediaKind
   difficulty?: 1 | 2 | 3
+  /** Задание выдано ученику — блок только для чтения. */
+  issued?: boolean
 }
 
 export interface PlanTask {

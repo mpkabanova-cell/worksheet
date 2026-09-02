@@ -3,6 +3,7 @@ import type { BlockPreviewState, WorksheetBlock } from '@/data/worksheet'
 import {
   clampText,
   getBlockAnswerStyle,
+  getConfiguredAnswerLines,
   getCorrectAnswerText,
   getGapsSourceText,
   getGapsStudentText,
@@ -41,6 +42,40 @@ function Stars({ value }: { value: number }) {
           className={n <= value ? 'filled' : ''}
         />
       ))}
+    </span>
+  )
+}
+
+function DifficultyPicker({
+  value,
+  onChange,
+  onClear,
+}: {
+  value?: number
+  onChange: (value: 1 | 2 | 3) => void
+  onClear: () => void
+}) {
+  return (
+    <span className="diff-picker diff-picker--inline" onClick={(e) => e.stopPropagation()}>
+      {([1, 2, 3] as const).map((n) => (
+        <button
+          key={n}
+          type="button"
+          className={(value ?? 0) >= n ? 'on' : ''}
+          onClick={() => onChange(n)}
+          aria-label={`Сложность ${n}`}
+        >
+          <img
+            src={(value ?? 0) >= n ? starFilled : starEmpty}
+            alt=""
+            width={16}
+            height={16}
+          />
+        </button>
+      ))}
+      <button type="button" className="diff-clear" onClick={onClear}>
+        Сбросить
+      </button>
     </span>
   )
 }
@@ -84,7 +119,8 @@ export function BlockCard({
   onDragStart: (e: DragEvent) => void
   onDragEnd: () => void
 }) {
-  const isEditing = editable && selected && !!onChangeBlock
+  const isIssued = block.issued === true || previewState === 'issued'
+  const isEditing = editable && selected && !!onChangeBlock && !isIssued
 
   const patchBlock = (patch: Partial<WorksheetBlock>) => {
     onChangeBlock?.({ ...block, ...patch })
@@ -145,6 +181,8 @@ export function BlockCard({
   }
 
   const question = getBlockQuestion(block)
+  const questionText = block.question?.trim() ?? question.trim()
+  const isQuestionEmpty = !questionText
   const isPlainText = block.type === 'text'
   const rows = block.tableRows ?? 3
   const cols = block.tableCols ?? 3
@@ -153,21 +191,24 @@ export function BlockCard({
   const gapsStudentText = getGapsStudentText(block)
   const answerStyle = getBlockAnswerStyle(block, subject)
   const isAnswerBlock = block.type === 'short_answer' || block.type === 'extended_answer'
+  const configuredHeight = isAnswerBlock ? getConfiguredAnswerLines(block, subject) : 0
   const effectiveShowAnswer = showAnswer || previewState === 'show-answer'
   const visualState: BlockPreviewState =
     previewState && isAnswerBlock
       ? previewState
-      : effectiveShowAnswer && isAnswerBlock
-        ? 'show-answer'
-        : selected
-          ? 'active'
-          : 'default'
+      : isIssued && isAnswerBlock
+        ? 'issued'
+        : effectiveShowAnswer && isAnswerBlock
+          ? 'show-answer'
+          : selected
+            ? 'active'
+            : 'default'
 
   return (
     <div
-      className={`ws-task-wrap ${selected ? 'selected' : ''} ${editable ? 'editable' : ''} ${previewState && isAnswerBlock ? 'has-preview-state' : ''}`}
+      className={`ws-task-wrap ${selected ? 'selected' : ''} ${editable ? 'editable' : ''} ${previewState && isAnswerBlock ? 'has-preview-state' : ''} ${isIssued ? 'is-issued' : ''}`}
     >
-      {editable && selected ? (
+      {editable && selected && !isIssued ? (
         <BlockTools
           onMoveUp={onMoveUp}
           onMoveDown={onMoveDown}
@@ -178,39 +219,75 @@ export function BlockCard({
           onDragEnd={onDragEnd}
         />
       ) : null}
+      {editable && selected && isIssued ? (
+        <BlockTools duplicateOnly onDuplicate={onDuplicate} />
+      ) : null}
       <article
-        className={`ws-task ws-task--${visualState} ${selected && visualState === 'active' ? 'selected' : ''} ${editable ? 'editable' : ''} ${isPlainText ? 'plain' : ''} ${isEditing ? 'editing-inline' : ''} ${dragging ? 'dragging' : ''}`}
+        className={`ws-task ws-task--${visualState} ${selected && visualState === 'active' ? 'selected' : ''} ${editable && !isIssued ? 'editable' : ''} ${isIssued ? 'issued' : ''} ${isPlainText ? 'plain' : ''} ${isAnswerBlock ? 'answer-task' : ''} ${isEditing ? 'editing-inline' : ''} ${dragging ? 'dragging' : ''}`}
         onClick={editable ? onSelect : undefined}
+        title={isIssued ? 'Задание выдано. Создайте копию для редактирования.' : undefined}
       >
+        {isIssued && isAnswerBlock ? (
+          <p className="ws-task-issued-label">Выдано — создайте копию для редактирования</p>
+        ) : null}
+
         {!isPlainText ? (
-          <div className="ws-task-head">
+          <div className={`ws-task-head ${isAnswerBlock ? 'ws-task-head--answer' : ''}`}>
             <span className="ws-task-num">{taskNumber}.</span>
             <div className="ws-task-main">
-              {isEditing ? (
-                <WysiwygTextarea
-                  className="ws-inline-textarea"
-                  rows={2}
-                  value={block.question ?? question}
-                  maxLength={QUESTION_MAX_LENGTH}
-                  placeholder="Текст вопроса…"
-                  floatingToolbar
-                  onChange={(value) =>
-                    patchBlock({ question: clampText(value, QUESTION_MAX_LENGTH) })
-                  }
-                  onClick={(e) => e.stopPropagation()}
-                />
-              ) : (
-                <p className="ws-task-text">
-                  <MathText text={question} />
-                </p>
-              )}
-              {showDifficulty && block.difficulty ? (
+              <div className="ws-task-question-row">
+                {isEditing ? (
+                  <WysiwygTextarea
+                    className="ws-inline-textarea"
+                    rows={2}
+                    value={block.question ?? question}
+                    maxLength={QUESTION_MAX_LENGTH}
+                    placeholder="Введите текст"
+                    floatingToolbar
+                    onChange={(value) =>
+                      patchBlock({ question: clampText(value, QUESTION_MAX_LENGTH) })
+                    }
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ) : (
+                  <p className={`ws-task-text ${isQuestionEmpty ? 'is-placeholder' : ''}`}>
+                    {isQuestionEmpty ? 'Введите текст' : <MathText text={question} />}
+                  </p>
+                )}
+              </div>
+              {isAnswerBlock ? (
                 <div className="ws-task-meta">
                   <span className="diff-label">Сложность:</span>
-                  <Stars value={block.difficulty} />
+                  {isEditing ? (
+                    <DifficultyPicker
+                      value={block.difficulty}
+                      onChange={(n) => patchBlock({ difficulty: n })}
+                      onClear={() => patchBlock({ difficulty: undefined })}
+                    />
+                  ) : (
+                    <Stars value={block.difficulty ?? 0} />
+                  )}
+                </div>
+              ) : isEditing || (showDifficulty && block.difficulty) ? (
+                <div className="ws-task-meta">
+                  <span className="diff-label">Сложность:</span>
+                  {isEditing ? (
+                    <DifficultyPicker
+                      value={block.difficulty}
+                      onChange={(n) => patchBlock({ difficulty: n })}
+                      onClear={() => patchBlock({ difficulty: undefined })}
+                    />
+                  ) : block.difficulty ? (
+                    <Stars value={block.difficulty} />
+                  ) : null}
                 </div>
               ) : null}
             </div>
+            {isAnswerBlock && selected ? (
+              <span className="ws-task-height-badge" aria-label={`Высота блока ${configuredHeight}`}>
+                {configuredHeight}
+              </span>
+            ) : null}
           </div>
         ) : (
           <div className="ws-task-main plain-body">
@@ -279,6 +356,10 @@ export function BlockCard({
             style={answerStyle}
             subject={subject}
             showAnswer={effectiveShowAnswer}
+            isEditing={isEditing}
+            onChangeAnswer={(text) =>
+              patchBlock({ correctAnswers: text ? [text] : [] })
+            }
           />
         ) : null}
 
@@ -376,6 +457,7 @@ export function BlockCard({
 
         {effectiveShowAnswer &&
         block.type !== 'matching' &&
+        !isAnswerBlock &&
         (block.correctAnswers?.length || block.correctOptionId) ? (
           <div className="ws-task-slot">
             <div className="answer-pill">
@@ -400,6 +482,7 @@ export function BlockCard({
 }
 
 function BlockTools({
+  duplicateOnly = false,
   onMoveUp,
   onMoveDown,
   onRemove,
@@ -408,41 +491,52 @@ function BlockTools({
   onDragStart,
   onDragEnd,
 }: {
-  onMoveUp: () => void
-  onMoveDown: () => void
-  onRemove: () => void
+  duplicateOnly?: boolean
+  onMoveUp?: () => void
+  onMoveDown?: () => void
+  onRemove?: () => void
   onDuplicate: () => void
-  onRegenerateBlock: () => void
-  onDragStart: (e: DragEvent) => void
-  onDragEnd: () => void
+  onRegenerateBlock?: () => void
+  onDragStart?: (e: DragEvent) => void
+  onDragEnd?: () => void
 }) {
   return (
     <>
-      <span
-        className="block-drag-side"
-        draggable
-        onDragStart={onDragStart}
-        onDragEnd={onDragEnd}
-        aria-label="Перетащить"
-      >
-        <FigmaIcon src={widgetDragHandle} size={20} />
-      </span>
+      {!duplicateOnly && onDragStart && onDragEnd ? (
+        <span
+          className="block-drag-side"
+          draggable
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+          aria-label="Перетащить"
+        >
+          <FigmaIcon src={widgetDragHandle} size={20} />
+        </span>
+      ) : null}
       <div className="block-tools" onClick={(e) => e.stopPropagation()}>
-        <button type="button" className="block-tool-btn" onClick={onMoveUp} aria-label="Вверх">
-          <FigmaIcon src={widgetArrowUp} size={16} />
-        </button>
-        <button type="button" className="block-tool-btn" onClick={onMoveDown} aria-label="Вниз">
-          <FigmaIcon src={widgetArrowDown} size={16} />
-        </button>
-        <button type="button" className="block-tool-btn" onClick={onRegenerateBlock} aria-label="Перегенерировать">
-          <FigmaIcon src={widgetRegenerate} size={16} />
-        </button>
+        {!duplicateOnly && onMoveUp ? (
+          <button type="button" className="block-tool-btn" onClick={onMoveUp} aria-label="Вверх">
+            <FigmaIcon src={widgetArrowUp} size={16} />
+          </button>
+        ) : null}
+        {!duplicateOnly && onMoveDown ? (
+          <button type="button" className="block-tool-btn" onClick={onMoveDown} aria-label="Вниз">
+            <FigmaIcon src={widgetArrowDown} size={16} />
+          </button>
+        ) : null}
+        {!duplicateOnly && onRegenerateBlock ? (
+          <button type="button" className="block-tool-btn" onClick={onRegenerateBlock} aria-label="Перегенерировать">
+            <FigmaIcon src={widgetRegenerate} size={16} />
+          </button>
+        ) : null}
         <button type="button" className="block-tool-btn" onClick={onDuplicate} aria-label="Дублировать">
           <FigmaIcon src={widgetDuplicate} size={16} />
         </button>
-        <button type="button" className="block-tool-btn" onClick={onRemove} aria-label="Удалить">
-          <FigmaIcon src={widgetTrash} size={16} />
-        </button>
+        {!duplicateOnly && onRemove ? (
+          <button type="button" className="block-tool-btn" onClick={onRemove} aria-label="Удалить">
+            <FigmaIcon src={widgetTrash} size={16} />
+          </button>
+        ) : null}
       </div>
     </>
   )

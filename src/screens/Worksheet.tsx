@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { BlockPreviewState, TaskType, WorksheetBlock, WorksheetDraft } from '@/data/worksheet'
 import { GRADES, SUBJECTS, formatSavedAgo } from '@/data/worksheet'
-import { countTaskBlocksBefore } from '@/data/blockUtils'
+import { countTaskBlocksBefore, reconcileAnswerBlockStyle } from '@/data/blockUtils'
 import { Button, FigmaIcon, Icon, Select } from '@/components/ui'
 import { BlockCard } from '@/screens/worksheet/BlockCard'
-import { BlockEditorPanel } from '@/screens/worksheet/blockEditors'
+import { BlockEditorPanel, AnswerTaskSettingsPanel } from '@/screens/worksheet/blockEditors'
+import { QUESTION_MAX_LENGTH } from '@/data/blockUtils'
 import pageAddIcon from '@/assets/worksheet/tools/page-add.svg'
 import toolText from '@/assets/worksheet/tools/tool-text.svg'
 import toolMedia from '@/assets/worksheet/tools/tool-media.svg'
@@ -21,6 +22,7 @@ import iconUndo from '@/assets/worksheet/tools/undo.svg'
 import iconRedo from '@/assets/worksheet/tools/redo.svg'
 import iconThumbUp from '@/assets/worksheet/tools/thumb-up.svg'
 import iconThumbDown from '@/assets/worksheet/tools/thumb-down.svg'
+import iconSettings from '@/assets/icon-settings.svg'
 import { MathText } from '@/components/MathText'
 import './Worksheet.css'
 import './Loader.css'
@@ -95,6 +97,7 @@ interface WorksheetScreenProps {
   onChangeDraft?: (draft: WorksheetDraft) => void
   onAddBlock?: (type: TaskType, insertBeforeId?: string | null) => void
   onRemoveBlock?: (id: string) => void
+  onDuplicateBlock?: (id: string) => void
   onMoveBlock?: (id: string, dir: -1 | 1) => void
   onReorderBlock?: (fromId: string, toId: string, position?: 'before' | 'after') => void
   onAddPage?: () => void
@@ -130,6 +133,7 @@ export function WorksheetScreen({
   onChangeDraft,
   onAddBlock,
   onRemoveBlock,
+  onDuplicateBlock,
   onMoveBlock,
   onReorderBlock,
   onAddPage,
@@ -178,6 +182,19 @@ export function WorksheetScreen({
   const pageCount = Math.max(draft.pages, 1)
   const hasSidePanel = mode === 'edit' || mode === 'edit-widget' || mode === 'add-block'
   const showToolsSidebar = isEdit
+  const isAnswerBlockSelected =
+    selected?.type === 'short_answer' || selected?.type === 'extended_answer'
+  const [sheetSettingsOpen, setSheetSettingsOpen] = useState(true)
+
+  useEffect(() => {
+    setSheetSettingsOpen(!isAnswerBlockSelected)
+  }, [selected?.id, isAnswerBlockSelected])
+  const showOtherBlockSettings =
+    selected &&
+    !isAnswerBlockSelected &&
+    selected.type !== 'text' &&
+    selected.type !== 'page_break' &&
+    selected.type !== 'answer_field'
 
   const handleDropOnBlock = (targetId: string) => {
     if (sidebarDragType) {
@@ -369,7 +386,7 @@ export function WorksheetScreen({
                     onRemove={() => onRemoveBlock?.(block.id)}
                     onMoveUp={() => onMoveBlock?.(block.id, -1)}
                     onMoveDown={() => onMoveBlock?.(block.id, 1)}
-                    onDuplicate={() => onSoon?.('Дублирование блока в разработке')}
+                    onDuplicate={() => onDuplicateBlock?.(block.id)}
                     onRegenerateBlock={() => onGenerateTask?.()}
                     onDragStart={(e) => {
                       e.dataTransfer.effectAllowed = 'move'
@@ -411,17 +428,65 @@ export function WorksheetScreen({
           </div>
         </main>
 
-        {mode === 'edit' ? (
-          <aside className="ws-sidepanel ws-settings-panel">
+        {hasSidePanel ? (
+          <div className="ws-right-column">
+            {isAnswerBlockSelected && selected && onChangeBlock ? (
+              <AnswerTaskSettingsPanel
+                block={selected}
+                subject={draft.subject}
+                onChange={onChangeBlock}
+              />
+            ) : null}
+
+            {showOtherBlockSettings && onChangeBlock ? (
+              <BlockEditorPanel
+                block={selected}
+                subject={draft.subject}
+                onChange={onChangeBlock}
+                onClose={() => onSelectBlock?.(null)}
+                embedded
+              />
+            ) : null}
+
+            {isAnswerBlockSelected ? <div className="ws-right-divider" aria-hidden /> : null}
+
+            <aside
+              className={`ws-sidepanel ws-settings-panel ${sheetSettingsOpen ? 'is-open' : 'is-collapsed'} ${isAnswerBlockSelected ? 'has-task-settings' : ''}`}
+            >
+            <button
+              type="button"
+              className="ws-sheet-settings-toggle"
+              aria-expanded={sheetSettingsOpen}
+              onClick={() => setSheetSettingsOpen((open) => !open)}
+            >
+              <span>Настройки рабочего листа</span>
+              <FigmaIcon src={iconSettings} size={20} />
+            </button>
+            {sheetSettingsOpen ? (
             <div className="ws-sidepanel-scroll">
-            <h3>Настройки рабочего листа</h3>
+            {!isAnswerBlockSelected ? <h3>Настройки рабочего листа</h3> : null}
+            <p className="side-section-label">Ограничения</p>
+            <p className="side-field-hint side-field-hint--static">
+              Количество символов в вопросе — {QUESTION_MAX_LENGTH}
+            </p>
             <label className="side-field">
               <span>Предмет</span>
               <Select
                 options={SUBJECTS}
                 placeholder="Выберите предмет"
                 value={draft.subject}
-                onChange={(e) => onChangeDraft?.({ ...draft, subject: e.target.value })}
+                onChange={(e) => {
+                  const subject = e.target.value
+                  onChangeDraft?.({
+                    ...draft,
+                    subject,
+                    blocks: draft.blocks.map((block) =>
+                      block.type === 'short_answer' || block.type === 'extended_answer'
+                        ? reconcileAnswerBlockStyle(block, subject)
+                        : block,
+                    ),
+                  })
+                }}
               />
             </label>
             <label className="side-field">
@@ -483,16 +548,9 @@ export function WorksheetScreen({
               </button>
             </div>
             </div>
+            ) : null}
           </aside>
-        ) : null}
-
-        {mode === 'edit-widget' && selected ? (
-          <BlockEditorPanel
-            block={selected}
-            subject={draft.subject}
-            onChange={onChangeBlock!}
-            onClose={() => onSelectBlock?.(null)}
-          />
+          </div>
         ) : null}
       </div>
     </div>

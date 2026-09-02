@@ -240,32 +240,38 @@
 
 .ws-task.editable {
   cursor: pointer;
-  border: 1px solid transparent;
+  border: 1px solid var(--border-secondary);
 }
 
-.ws-task.editable:hover,
-.ws-task.selected {
+.ws-task.editable:hover:not(.selected):not(.ws-task--active),
+.ws-task.ws-task--hover {
+  border-color: var(--border-brand);
+  background: #fafaff;
+  box-shadow: 0 0 0 2px rgba(80, 58, 224, 0.08);
+}
+
+.ws-task.selected,
+.ws-task.ws-task--active {
   border-color: var(--border-brand);
   background: #fafaff;
   box-shadow: 0 0 0 2px rgba(80, 58, 224, 0.08);
 }
 
 .ws-task-wrap.has-preview-state .ws-task.editable:hover:not(.ws-task--hover) {
-  border-color: transparent;
+  border-color: var(--border-secondary);
   background: var(--bg-white);
   box-shadow: none;
 }
 
-.ws-task.ws-task--hover {
-  border: 1px solid var(--border-brand);
+.ws-task-wrap.has-preview-state .ws-task.ws-task--hover {
+  border-color: var(--border-brand);
   background: #fafaff;
   box-shadow: 0 0 0 2px rgba(80, 58, 224, 0.08);
 }
 
-.ws-task.ws-task--active {
-  border: 1px solid var(--border-brand);
-  background: #fafaff;
-  box-shadow: 0 0 0 2px rgba(80, 58, 224, 0.08);
+.ws-task.ws-task--active,
+.ws-task.editing-inline {
+  gap: 12px;
 }
 
 .ws-task.ws-task--show-answer {
@@ -274,8 +280,268 @@
   box-shadow: none;
 }
 
+.ws-task.ws-task--issued {
+  border: 1px solid var(--border-secondary);
+  background: var(--bg-secondary);
+  opacity: 0.92;
+  cursor: not-allowed;
+}
+
 .ws-task.ws-task--default.editable {
-  border: 1px solid transparent;
+  border: 1px solid var(--border-secondary);
+  background: var(--bg-white);
+  box-shadow: none;
+}
+
+.ws-right-divider {
+  height: 24px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.ws-task-settings-panel,
+.ws-block-settings-panel {
+  flex-shrink: 0;
+  padding: 8px 0 0;
+}
+
+.ws-task-settings-panel h3,
+.ws-block-settings-panel h3 {
+  font-size: 18px;
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+.side-section-heading {
+  margin: 0;
+  padding: 12px 20px 2px;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
+.ws-task-settings-panel .side-field {
+  padding: 8px 20px;
+  gap: 8px;
+}
+
+.ws-task-settings-panel .side-field > span {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  color: var(--text-default);
+}
+
+.ws-task-settings-panel .side-field input,
+.ws-task-settings-panel .select-wrap .input.select {
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.ws-task-settings-panel .side-field-hint {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.ws-sheet-settings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  margin: 0;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  color: var(--text-default);
+  cursor: pointer;
+}
+
+.ws-sheet-settings-toggle:hover {
+  background: var(--bg-secondary);
+  border-radius: 6px;
+}
+
+.ws-settings-panel.is-collapsed .ws-sidepanel-scroll {
+  display: none;
+}
+
+.ws-settings-panel.is-open:not(.has-task-settings) .ws-sheet-settings-toggle {
+  display: none;
+}
+
+.ws-settings-panel.is-collapsed {
+  flex: 0 0 auto;
+}
+
+.ws-settings-panel.has-task-settings .ws-sheet-settings-toggle {
+  margin: 0 8px;
+  width: calc(100% - 16px);
+}
+
+.ws-settings-panel.has-task-settings.is-collapsed .ws-sheet-settings-toggle {
+  margin: 8px 8px 0;
+}
+
+.ws-task-settings-panel .ws-sidepanel-scroll,
+.ws-block-settings-panel .ws-sidepanel-scroll {
+  padding: 0;
+  overflow: visible;
+}
+
+.ws-right-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  width: 280px;
+  border-left: 1px solid var(--border-secondary);
+  background: var(--bg-white);
+}
+
+.ws-right-column .ws-settings-panel {
+  flex: 1;
+  min-height: 0;
+  border-left: none;
+  width: 100%;
+}
+
+.side-field-hint {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-tertiary);
+}
+
+.side-field-hint--static {
+  margin: -8px 0 4px;
+}
+
+.ws-task-question-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+
+.ws-task-head--answer {
+  padding-right: 80px;
+}
+
+.ws-task-head--answer .ws-task-height-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.ws-task-question-row .ws-task-text,
+.ws-task-question-row .ws-inline-textarea {
+  flex: 1;
+  min-width: 0;
+}
+
+.ws-task-height-badge {
+  flex-shrink: 0;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  display: grid;
+  place-items: center;
+}
+
+.ws-task-issued-label {
+  align-self: flex-start;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+.diff-picker--inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.diff-picker--inline button {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+}
+
+.diff-picker--inline button.on {
+  background: var(--bg-brand-soft);
+}
+
+.diff-picker--inline .diff-clear {
+  margin-left: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.answer-area-editable {
+  position: relative;
+}
+
+.answer-inline-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-default);
+  font-size: 14px;
+  line-height: 28px;
+  resize: none;
+  font-family: inherit;
+}
+
+.answer-inline-input--block,
+.answer-inline-input--cells {
+  position: absolute;
+  inset: 0;
+  padding: 12px;
+  line-height: 20px;
+}
+
+.answer-area-editable.lines .answer-inline-input,
+.answer-area-editable.answer-axes .answer-inline-input,
+.answer-area-readonly.lines .answer-inline-readonly,
+.answer-area-readonly.answer-axes .answer-inline-readonly {
+  position: absolute;
+  inset: 0;
+  padding: 8px 0 0;
+  background: transparent;
+}
+
+.answer-inline-readonly {
+  width: 100%;
+  color: var(--text-default);
+  font-size: 14px;
+  line-height: 28px;
+  pointer-events: none;
+}
+
+.answer-inline-readonly--block,
+.answer-inline-readonly--cells {
+  position: absolute;
+  inset: 0;
+  padding: 12px;
+  line-height: 20px;
 }
 
 .ws-task-wrap {
@@ -381,6 +647,16 @@
   text-align: center;
 }
 
+.ws-task.answer-task .ws-task-num {
+  color: var(--text-secondary);
+}
+
+.ws-task.answer-task.ws-task--active .ws-task-num,
+.ws-task.answer-task.editing-inline .ws-task-num {
+  font-size: 16px;
+  line-height: 24px;
+}
+
 .ws-task-main {
   flex: 1;
   min-width: 0;
@@ -396,6 +672,28 @@
   line-height: 24px;
   letter-spacing: -0.1px;
   color: var(--text-default);
+}
+
+.ws-task.answer-task .ws-task-text.is-placeholder {
+  color: var(--text-secondary);
+}
+
+.ws-task.answer-task.ws-task--active .ws-task-text,
+.ws-task.answer-task.editing-inline .ws-inline-textarea {
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.ws-task.answer-task.editing-inline .ws-inline-textarea {
+  border: none;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+  color: var(--text-secondary);
+}
+
+.ws-task.answer-task.editing-inline .ws-inline-textarea:focus {
+  box-shadow: none;
 }
 
 .ws-task.plain .ws-task-text {
@@ -430,9 +728,13 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 14px;
-  line-height: 20px;
+  font-size: 12px;
+  line-height: 16px;
   color: var(--text-secondary);
+}
+
+.ws-task.answer-task .ws-task-main {
+  gap: 8px;
 }
 
 .diff-label {
@@ -521,20 +823,21 @@
   margin-top: 0;
 }
 
-/* Answer lines — shorter than sheet, full width of slot only */
+/* Answer lines — Figma: 28px row, 4px gap, pl 32 / pr 24 / pt 8 */
 .ws-task-slot.lines {
-  gap: 0;
+  gap: 4px;
   padding-top: 8px;
 }
 
 .ws-task-slot.lines i {
   display: block;
   width: 100%;
-  height: 0;
+  height: 28px;
   border: none;
   border-bottom: 1px solid var(--border-secondary);
-  margin: 12px 0 16px;
+  margin: 0;
   padding: 0;
+  flex-shrink: 0;
 }
 
 .gaps-preview {
@@ -825,7 +1128,7 @@
 
 .answer-cells-grid {
   width: 100%;
-  --cell-size: 20px;
+  --cell-size: 16px;
   --cell-color: #c8cce0;
   border: 1px solid var(--cell-color);
   background-image:

@@ -1,4 +1,5 @@
 import type { AnswerAreaStyle, WorksheetBlock, WorksheetDraft } from './worksheet'
+import { uid } from './worksheet'
 
 export const QUESTION_MAX_LENGTH = 2000
 export const TEXT_BODY_MAX_LENGTH = 10_000
@@ -14,23 +15,34 @@ export const ORDER_ITEMS_MAX = 10
 export const MATCHING_PAIRS_MIN = 2
 export const MATCHING_PAIRS_MAX = 10
 
-export const ANSWER_CELL_SIZE = 20
+export const ANSWER_CELL_SIZE = 16
 
-/** Клетки: 10–20 строк; линии / блок / оси / луч: 5–10. */
-export const ANSWER_HEIGHT_CELLS_MIN = 10
-export const ANSWER_HEIGHT_CELLS_MAX = 20
-export const ANSWER_HEIGHT_LINES_MIN = 5
-export const ANSWER_HEIGHT_LINES_MAX = 10
+/** Линии: 10–20 строк. */
+export const ANSWER_HEIGHT_LINES_MIN = 10
+export const ANSWER_HEIGHT_LINES_MAX = 20
+/** Клетки, блок, оси, координатная прямая, луч: 5–10. */
+export const ANSWER_HEIGHT_COMPACT_MIN = 5
+export const ANSWER_HEIGHT_COMPACT_MAX = 10
 
 export const ANSWER_STYLE_LABELS: Record<AnswerAreaStyle, string> = {
   lines: 'Линии',
   cells: 'Клетки',
   block: 'Блок ответа',
   axes: 'Оси',
+  number_line: 'Координатная прямая',
   ray: 'Луч',
 }
 
-export const ANSWER_STYLE_OPTIONS = Object.values(ANSWER_STYLE_LABELS)
+const ANSWER_STYLE_ORDER: AnswerAreaStyle[] = [
+  'lines',
+  'cells',
+  'block',
+  'axes',
+  'number_line',
+  'ray',
+]
+
+export const ANSWER_STYLE_OPTIONS = ANSWER_STYLE_ORDER.map((s) => ANSWER_STYLE_LABELS[s])
 
 const LABEL_TO_STYLE: Record<string, AnswerAreaStyle> = {
   Линии: 'lines',
@@ -38,11 +50,12 @@ const LABEL_TO_STYLE: Record<string, AnswerAreaStyle> = {
   'Блок ответа': 'block',
   Блок: 'block',
   Оси: 'axes',
+  'Координатная прямая': 'number_line',
   Луч: 'ray',
 }
 
-/** Предметы с клеточной областью ответа (макет PDF). */
-const GRID_SUBJECTS = new Set([
+/** Предметы с клеточной областью (математика, информатика, физика, экономика). */
+const STEM_GRID_SUBJECTS = new Set([
   'Математика',
   'Алгебра',
   'Алгебра и начала математического анализа',
@@ -51,6 +64,15 @@ const GRID_SUBJECTS = new Set([
   'Информатика',
   'Физика',
   'Экономика',
+])
+
+/** Математические предметы для осей, координатной прямой и луча. */
+const MATH_GRAPH_SUBJECTS = new Set([
+  'Математика',
+  'Алгебра',
+  'Алгебра и начала математического анализа',
+  'Вероятность и статистика',
+  'Геометрия',
 ])
 
 export function answerStyleFromLabel(label: string): AnswerAreaStyle {
@@ -62,10 +84,10 @@ export function answerLabelFromStyle(style: AnswerAreaStyle): string {
 }
 
 export function answerHeightRange(style: AnswerAreaStyle): { min: number; max: number } {
-  if (style === 'cells') {
-    return { min: ANSWER_HEIGHT_CELLS_MIN, max: ANSWER_HEIGHT_CELLS_MAX }
+  if (style === 'lines') {
+    return { min: ANSWER_HEIGHT_LINES_MIN, max: ANSWER_HEIGHT_LINES_MAX }
   }
-  return { min: ANSWER_HEIGHT_LINES_MIN, max: ANSWER_HEIGHT_LINES_MAX }
+  return { min: ANSWER_HEIGHT_COMPACT_MIN, max: ANSWER_HEIGHT_COMPACT_MAX }
 }
 
 export function clampAnswerHeight(style: AnswerAreaStyle, value: number): number {
@@ -75,11 +97,45 @@ export function clampAnswerHeight(style: AnswerAreaStyle, value: number): number
 }
 
 export function defaultAnswerHeight(style: AnswerAreaStyle): number {
-  return style === 'cells' ? ANSWER_HEIGHT_CELLS_MIN : ANSWER_HEIGHT_LINES_MIN
+  return answerHeightRange(style).min
+}
+
+export function getAvailableAnswerStyles(subject: string): AnswerAreaStyle[] {
+  if (!subject) return [...ANSWER_STYLE_ORDER]
+  const available = new Set<AnswerAreaStyle>(['block'])
+  if (!STEM_GRID_SUBJECTS.has(subject)) {
+    available.add('lines')
+  }
+  if (STEM_GRID_SUBJECTS.has(subject)) {
+    available.add('cells')
+  }
+  if (MATH_GRAPH_SUBJECTS.has(subject)) {
+    available.add('axes')
+    available.add('number_line')
+    available.add('ray')
+  }
+  return ANSWER_STYLE_ORDER.filter((style) => available.has(style))
+}
+
+export function answerStyleOptionsForSubject(subject: string): string[] {
+  return getAvailableAnswerStyles(subject).map(answerLabelFromStyle)
 }
 
 export function getBlockAnswerStyle(block: WorksheetBlock, subject: string): AnswerAreaStyle {
-  return block.answerAreaStyle ?? defaultAnswerStyle(subject)
+  const available = getAvailableAnswerStyles(subject)
+  const stored = block.answerAreaStyle
+  if (stored && available.includes(stored)) return stored
+  const fallback = defaultAnswerStyle(subject)
+  return available.includes(fallback) ? fallback : available[0] ?? 'block'
+}
+
+export function reconcileAnswerBlockStyle(block: WorksheetBlock, subject: string): WorksheetBlock {
+  const style = getBlockAnswerStyle(block, subject)
+  return {
+    ...block,
+    answerAreaStyle: style,
+    answerLines: clampAnswerHeight(style, block.answerLines ?? defaultAnswerHeight(style)),
+  }
 }
 
 export function getCorrectAnswerText(block: WorksheetBlock): string {
@@ -88,24 +144,36 @@ export function getCorrectAnswerText(block: WorksheetBlock): string {
   return block.correctAnswers.join('\n')
 }
 
-function linesNeededForAnswerText(text: string): number {
+const ANSWER_CHARS_PER_LINE = 72
+
+function linesNeededForAnswerText(text: string, style: AnswerAreaStyle): number {
   if (!text.trim()) return 0
-  return text.split(/\n/).length
+  const paragraphs = text.split(/\n/)
+  if (style === 'lines' || style === 'block') {
+    return paragraphs.reduce(
+      (sum, paragraph) =>
+        sum + Math.max(1, Math.ceil(paragraph.length / ANSWER_CHARS_PER_LINE)),
+      0,
+    )
+  }
+  return paragraphs.reduce((sum, paragraph) => sum + Math.max(1, paragraph.length > 0 ? 1 : 0), 0)
 }
 
-/** Высота области ответа с учётом эталона в режиме «Показать ответы». */
+export function getConfiguredAnswerLines(block: WorksheetBlock, subject: string): number {
+  const style = getBlockAnswerStyle(block, subject)
+  return clampAnswerHeight(style, block.answerLines ?? defaultAnswerHeight(style))
+}
+
+/** Высота области ответа с учётом эталона (show answer / inline-редактирование). */
 export function getEffectiveAnswerLines(
   block: WorksheetBlock,
   subject: string,
-  showAnswer: boolean,
+  expandForAnswer: boolean,
 ): number {
   const style = getBlockAnswerStyle(block, subject)
-  const configured = clampAnswerHeight(
-    style,
-    block.answerLines ?? defaultAnswerHeight(style),
-  )
-  if (!showAnswer) return configured
-  const needed = linesNeededForAnswerText(getCorrectAnswerText(block))
+  const configured = getConfiguredAnswerLines(block, subject)
+  if (!expandForAnswer) return configured
+  const needed = linesNeededForAnswerText(getCorrectAnswerText(block), style)
   if (!needed) return configured
   return clampAnswerHeight(style, Math.max(configured, needed))
 }
@@ -174,7 +242,31 @@ export function sanitizeBlocks(blocks: WorksheetBlock[]): WorksheetBlock[] {
 }
 
 export function defaultAnswerStyle(subject: string): AnswerAreaStyle {
-  return GRID_SUBJECTS.has(subject) ? 'cells' : 'lines'
+  return STEM_GRID_SUBJECTS.has(subject) ? 'cells' : 'lines'
+}
+
+export function cloneBlock(block: WorksheetBlock): WorksheetBlock {
+  return {
+    ...block,
+    id: uid(),
+    issued: false,
+    options: block.options?.map((option) => ({ ...option })),
+    leftItems: block.leftItems?.map((item) => ({ ...item })),
+    rightItems: block.rightItems?.map((item) => ({ ...item })),
+    groups: block.groups?.map((group) => ({
+      ...group,
+      items: [...group.items],
+    })),
+    orderItems: block.orderItems ? [...block.orderItems] : block.orderItems,
+    gapsAnswers: block.gapsAnswers ? [...block.gapsAnswers] : block.gapsAnswers,
+    correctAnswers: block.correctAnswers ? [...block.correctAnswers] : block.correctAnswers,
+    correctOptionIds: block.correctOptionIds ? [...block.correctOptionIds] : block.correctOptionIds,
+    tableCells: block.tableCells?.map((row) => [...row]),
+    tableHeaders: block.tableHeaders ? [...block.tableHeaders] : block.tableHeaders,
+    tableAnswerBank: block.tableAnswerBank ? [...block.tableAnswerBank] : block.tableAnswerBank,
+    orderDisplayItems: block.orderDisplayItems ? [...block.orderDisplayItems] : block.orderDisplayItems,
+    matchingDisplayRight: block.matchingDisplayRight?.map((item) => ({ ...item })),
+  }
 }
 
 export function shuffleArray<T>(items: T[]): T[] {

@@ -14,7 +14,7 @@ import {
   loadWorksheet,
   uid,
 } from '@/data/worksheet'
-import { isPageEmpty, removePageFromDraft, syncPagesFromBreaks } from '@/data/blockUtils'
+import { cloneBlock, isPageEmpty, removePageFromDraft, syncPagesFromBreaks } from '@/data/blockUtils'
 import type { BlockPreviewState, Modal, NavId, Screen, TaskType, WorksheetBlock, WorksheetDraft } from '@/data/worksheet'
 import { Home } from '@/screens/Home'
 import { Create } from '@/screens/Create'
@@ -244,13 +244,29 @@ export default function App() {
       }),
     )
     setSelectedBlockId(block.id)
-    setScreen('edit-widget')
+    setScreen('edit')
   }
 
   const removeBlock = (id: string) => {
     setDraft((d) => syncPagesFromBreaks({ ...d, blocks: d.blocks.filter((b) => b.id !== id) }))
     setSelectedBlockId(null)
     setScreen('edit')
+  }
+
+  const duplicateBlock = (id: string) => {
+    const source = draft.blocks.find((b) => b.id === id)
+    if (!source) return
+    const copy = cloneBlock(source)
+    setDraft((d) => {
+      const idx = d.blocks.findIndex((b) => b.id === id)
+      if (idx < 0) return d
+      const blocks = [...d.blocks]
+      blocks.splice(idx + 1, 0, copy)
+      return syncPagesFromBreaks({ ...d, blocks })
+    })
+    setSelectedBlockId(copy.id)
+    setScreen('edit')
+    showToast(source.issued ? 'Создана копия выданного задания' : 'Блок скопирован')
   }
 
   const moveBlock = (id: string, dir: -1 | 1) => {
@@ -336,7 +352,7 @@ export default function App() {
       setSelectedBlockId(block.id)
       setModal(null)
       setGenerateTaskHint('')
-      setScreen('edit-widget')
+      setScreen('edit')
       showToast('Задание добавлено')
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Ошибка генерации задания')
@@ -556,12 +572,15 @@ export default function App() {
           onPageChange={setCurrentPage}
           onSelectBlock={(id) => {
             setSelectedBlockId(id)
-            setScreen(id ? 'edit-widget' : 'edit')
+            if (screen !== 'edit' && screen !== 'add-block') {
+              setScreen('edit')
+            }
           }}
           onChangeBlock={updateBlock}
           onChangeDraft={setDraft}
           onAddBlock={addBlock}
           onRemoveBlock={removeBlock}
+          onDuplicateBlock={duplicateBlock}
           onMoveBlock={moveBlock}
           onReorderBlock={reorderBlock}
           onAddPage={addPage}

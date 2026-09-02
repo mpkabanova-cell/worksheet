@@ -1,18 +1,17 @@
+import type { ReactNode } from 'react'
 import type { WorksheetBlock } from '@/data/worksheet'
 import {
-  ANSWER_STYLE_OPTIONS,
   answerHeightRange,
   answerLabelFromStyle,
   answerStyleFromLabel,
+  answerStyleOptionsForSubject,
   clampAnswerHeight,
   clampMatchingCount,
   clampOrderCount,
   clampTableCols,
   clampTableRows,
   defaultAnswerHeight,
-  defaultAnswerStyle,
   getBlockAnswerStyle,
-  getCorrectAnswerText,
   MATCHING_PAIRS_MAX,
   MATCHING_PAIRS_MIN,
   ORDER_ITEMS_MAX,
@@ -24,177 +23,152 @@ import { uid } from '@/data/worksheet'
 import starFilled from '@/assets/worksheet/star-filled.svg'
 import starEmpty from '@/assets/worksheet/star-empty.svg'
 
-export function BlockEditorPanel({
+export function AnswerTaskSettingsPanel({
   block,
   subject,
   onChange,
+}: {
+  block: WorksheetBlock
+  subject: string
+  onChange: (block: WorksheetBlock) => void
+}) {
+  const style = getBlockAnswerStyle(block, subject)
+  const range = answerHeightRange(style)
+  const styleOptions = answerStyleOptionsForSubject(subject)
+
+  return (
+    <section className="ws-task-settings-panel">
+      <p className="side-section-heading">Настройки задания</p>
+      <label className="side-field">
+        <span>Тип ответов</span>
+        <Select
+          options={styleOptions}
+          value={answerLabelFromStyle(style)}
+          onChange={(e) => {
+            const nextStyle = answerStyleFromLabel(e.target.value)
+            onChange({
+              ...block,
+              answerAreaStyle: nextStyle,
+              answerLines: clampAnswerHeight(
+                nextStyle,
+                block.answerLines ?? defaultAnswerHeight(nextStyle),
+              ),
+            })
+          }}
+        />
+      </label>
+      <label className="side-field">
+        <span>Высота блока</span>
+        <Input
+          type="number"
+          min={range.min}
+          max={range.max}
+          value={block.answerLines ?? defaultAnswerHeight(style)}
+          onChange={(e) =>
+            onChange({
+              ...block,
+              answerLines: clampAnswerHeight(style, Number(e.target.value) || defaultAnswerHeight(style)),
+            })
+          }
+        />
+        <span className="side-field-hint">
+          Высота от {range.min} до {range.max}
+        </span>
+      </label>
+    </section>
+  )
+}
+
+export function BlockEditorPanel({
+  block,
+  subject: _subject,
+  onChange,
   onClose,
+  embedded = false,
 }: {
   block: WorksheetBlock
   subject: string
   onChange: (block: WorksheetBlock) => void
   onClose: () => void
+  embedded?: boolean
 }) {
-  if (block.type === 'text') {
-    return (
-      <aside className="ws-sidepanel">
+  const shell = (title: string, children: ReactNode) =>
+    embedded ? (
+      <section className="ws-block-settings-panel">
+        <h3>{title}</h3>
+        <div className="ws-sidepanel-scroll">{children}</div>
+      </section>
+    ) : (
+      <aside className="ws-sidepanel ws-block-settings-panel">
         <div className="side-head ws-sidepanel-head">
-          <h3>Текстовый блок</h3>
+          <h3>{title}</h3>
           <button type="button" className="icon-btn" onClick={onClose} aria-label="Закрыть">
             ×
           </button>
         </div>
-        <div className="ws-sidepanel-scroll">
-          <p className="side-hint">Редактируйте текст прямо на листе.</p>
-        </div>
+        <div className="ws-sidepanel-scroll">{children}</div>
       </aside>
     )
+
+  if (block.type === 'text') {
+    return shell('Текстовый блок', <p className="side-hint">Редактируйте текст прямо на листе.</p>)
   }
 
   if (block.type === 'page_break') {
-    return (
-      <aside className="ws-sidepanel">
-        <div className="side-head">
-          <h3>Разрыв страницы</h3>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="Закрыть">
-            ×
-          </button>
-        </div>
-        <p className="side-hint">Добавляет перенос на следующую страницу. Виден только в режиме редактирования.</p>
-      </aside>
+    return shell(
+      'Разрыв страницы',
+      <p className="side-hint">Добавляет перенос на следующую страницу. Виден только в режиме редактирования.</p>,
     )
   }
 
   if (block.type === 'answer_field') {
-    return (
-      <aside className="ws-sidepanel">
-        <div className="side-head">
-          <h3>Медиа / QR</h3>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="Закрыть">
-            ×
-          </button>
-        </div>
-        <p className="side-hint">Введите ссылку или загрузите файл в блоке на листе.</p>
-      </aside>
-    )
+    return shell('Медиа / QR', <p className="side-hint">Введите ссылку или загрузите файл в блоке на листе.</p>)
   }
 
   if (block.type === 'fill_gaps') {
-    return (
-      <aside className="ws-sidepanel">
-        <div className="side-head ws-sidepanel-head">
-          <h3>Заполнение пропусков</h3>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="Закрыть">
-            ×
+    return shell(
+      'Заполнение пропусков',
+      <>
+        <p className="side-hint">Текст и пропуски редактируются на листе.</p>
+        <div className="side-switch-row">
+          <span>Перемешать ответы</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={block.gapsShuffleAnswers ?? false}
+            className={`switch ${block.gapsShuffleAnswers ? 'on' : ''}`}
+            onClick={() =>
+              onChange({
+                ...block,
+                gapsShuffleAnswers: !block.gapsShuffleAnswers,
+                gapsAnswers: block.gapsShuffleAnswers
+                  ? block.gapsAnswers
+                  : shuffleArray(block.gapsAnswers ?? []),
+              })
+            }
+          >
+            <span className="knob" />
           </button>
         </div>
-        <div className="ws-sidepanel-scroll">
-          <p className="side-hint">Текст и пропуски редактируются на листе.</p>
-          <div className="side-switch-row">
-            <span>Перемешать ответы</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={block.gapsShuffleAnswers ?? false}
-              className={`switch ${block.gapsShuffleAnswers ? 'on' : ''}`}
-              onClick={() =>
-                onChange({
-                  ...block,
-                  gapsShuffleAnswers: !block.gapsShuffleAnswers,
-                  gapsAnswers: block.gapsShuffleAnswers
-                    ? block.gapsAnswers
-                    : shuffleArray(block.gapsAnswers ?? []),
-                })
-              }
-            >
-              <span className="knob" />
-            </button>
-          </div>
-        </div>
-      </aside>
+      </>,
     )
   }
 
-  return (
-    <aside className="ws-sidepanel">
-      <div className="side-head ws-sidepanel-head">
-        <h3>
-          {block.type === 'short_answer' || block.type === 'extended_answer'
-            ? 'Настройки задания'
-            : 'Настройки блока'}
-        </h3>
-        <button type="button" className="icon-btn" onClick={onClose} aria-label="Закрыть">
-          ×
-        </button>
-      </div>
+  if (block.type === 'short_answer' || block.type === 'extended_answer') {
+    return null
+  }
 
-      <div className="ws-sidepanel-scroll">
-      {(block.type === 'short_answer' || block.type === 'extended_answer') && (
-        <>
-          <label className="side-field">
-            <span>Тип ответов</span>
-            <Select
-              options={ANSWER_STYLE_OPTIONS}
-              value={answerLabelFromStyle(block.answerAreaStyle ?? defaultAnswerStyle(subject))}
-              onChange={(e) => {
-                const nextStyle = answerStyleFromLabel(e.target.value)
-                onChange({
-                  ...block,
-                  answerAreaStyle: nextStyle,
-                  answerLines: clampAnswerHeight(
-                    nextStyle,
-                    block.answerLines ?? defaultAnswerHeight(nextStyle),
-                  ),
-                })
-              }}
-            />
-          </label>
-          <label className="side-field">
-            <span>Высота блока</span>
-            <Input
-              type="number"
-              min={answerHeightRange(getBlockAnswerStyle(block, subject)).min}
-              max={answerHeightRange(getBlockAnswerStyle(block, subject)).max}
-              value={
-                block.answerLines ??
-                defaultAnswerHeight(getBlockAnswerStyle(block, subject))
-              }
-              onChange={(e) => {
-                const style = getBlockAnswerStyle(block, subject)
-                onChange({
-                  ...block,
-                  answerLines: clampAnswerHeight(style, Number(e.target.value) || defaultAnswerHeight(style)),
-                })
-              }}
-            />
-          </label>
-        </>
-      )}
-
+  return shell(
+    'Настройки блока',
+    <>
       {block.type === 'matching' ? <MatchingEditor block={block} onChange={onChange} /> : null}
       {block.type === 'ordering' ? <OrderingEditor block={block} onChange={onChange} /> : null}
       {block.type === 'table' ? <TableEditor block={block} onChange={onChange} /> : null}
 
-      {(block.type === 'short_answer' || block.type === 'extended_answer') ? (
-        <label className="side-field">
-          <span>Правильный ответ</span>
-          <textarea
-            className="side-field-textarea"
-            rows={6}
-            value={getCorrectAnswerText(block)}
-            placeholder="Эталонный ответ для учителя…"
-            onChange={(e) =>
-              onChange({
-                ...block,
-                correctAnswers: e.target.value ? [e.target.value] : [],
-              })
-            }
-          />
-        </label>
-      ) : block.type === 'grouping' ||
-        block.type === 'ordering' ||
-        block.type === 'matching' ||
-        block.type === 'table' ? (
+      {block.type === 'grouping' ||
+      block.type === 'ordering' ||
+      block.type === 'matching' ||
+      block.type === 'table' ? (
         <label className="side-field">
           <span>Правильный ответ</span>
           <Input
@@ -232,8 +206,7 @@ export function BlockEditorPanel({
           </button>
         </div>
       </label>
-      </div>
-    </aside>
+    </>,
   )
 }
 
