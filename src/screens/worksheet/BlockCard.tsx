@@ -9,7 +9,6 @@ import {
   getGapsSourceText,
   getGapsStudentText,
   getOrderDisplayItems,
-  getTableAnswerBank,
   hasValidChoiceCorrectAnswers,
   isChoiceBlock,
   TEXT_BODY_MAX_LENGTH,
@@ -22,7 +21,10 @@ import { AnswerArea } from '@/components/block/AnswerArea'
 import { ChoiceOptionsView } from '@/components/block/ChoiceOptionsView'
 import { FillGapsEditor, FillGapsStudent } from '@/components/block/FillGapsBody'
 import { MatchingView } from '@/components/block/MatchingView'
+import { GroupingView } from '@/components/block/GroupingView'
 import { MediaBlockView } from '@/components/block/MediaBlockView'
+import { OrderingView } from '@/components/block/OrderingView'
+import { TableView } from '@/components/block/TableView'
 import starFilled from '@/assets/worksheet/star-filled.svg'
 import starEmpty from '@/assets/worksheet/star-empty.svg'
 import widgetArrowUp from '@/assets/worksheet/tools/widget-arrow-up.svg'
@@ -192,22 +194,29 @@ export function BlockCard({
   const questionText = block.question?.trim() ?? question.trim()
   const isQuestionEmpty = !questionText
   const isPlainText = block.type === 'text'
-  const rows = block.tableRows ?? 3
-  const cols = block.tableCols ?? 3
-  const cells = block.tableCells
-  const headers = block.tableHeaders ?? Array.from({ length: cols }, (_, i) => `Группа ${i + 1}`)
   const gapsStudentText = getGapsStudentText(block)
+  const orderItems = isEditing
+    ? (block.orderItems ?? [])
+    : getOrderDisplayItems(block, editable, selected)
   const answerStyle = getBlockAnswerStyle(block, subject)
   const isAnswerBlock = block.type === 'short_answer' || block.type === 'extended_answer'
   const isChoiceTask = isChoiceBlock(block)
+  const supportsPreviewState =
+    isAnswerBlock ||
+    isChoiceTask ||
+    block.type === 'matching' ||
+    block.type === 'ordering' ||
+    block.type === 'table' ||
+    block.type === 'fill_gaps' ||
+    block.type === 'grouping'
   const questionMaxLength = getChoiceQuestionMaxLength(block)
   const effectiveShowAnswer = showAnswer || previewState === 'show-answer'
   const visualState: BlockPreviewState =
-    previewState && (isAnswerBlock || isChoiceTask)
+    previewState && supportsPreviewState
       ? previewState
-      : isIssued && (isAnswerBlock || isChoiceTask)
+      : isIssued && supportsPreviewState
         ? 'issued'
-        : effectiveShowAnswer && (isAnswerBlock || isChoiceTask)
+        : effectiveShowAnswer && supportsPreviewState
           ? 'show-answer'
           : editable && selected
             ? 'active'
@@ -216,7 +225,7 @@ export function BlockCard({
 
   return (
     <div
-      className={`ws-task-wrap ${selected ? 'selected' : ''} ${editable ? 'editable' : ''} ${previewState && (isAnswerBlock || isChoiceTask) ? 'has-preview-state' : ''} ${isIssued ? 'is-issued' : ''}`}
+      className={`ws-task-wrap ${selected ? 'selected' : ''} ${editable ? 'editable' : ''} ${previewState && supportsPreviewState ? 'has-preview-state' : ''} ${isIssued ? 'is-issued' : ''}`}
     >
       {editable && selected && !isIssued ? (
         <BlockTools
@@ -382,71 +391,68 @@ export function BlockCard({
               block={block}
               editable={editable}
               selected={selected}
-              showAnswer={showAnswer}
+              showAnswer={effectiveShowAnswer}
+              isEditing={isEditing}
+              onChangeLeft={(index, text) =>
+                patchBlock({
+                  leftItems: (block.leftItems ?? []).map((item, i) =>
+                    i === index ? { ...item, text } : item,
+                  ),
+                })
+              }
+              onChangeRight={(index, text) =>
+                patchBlock({
+                  rightItems: (block.rightItems ?? []).map((item, i) =>
+                    i === index ? { ...item, text } : item,
+                  ),
+                })
+              }
             />
           </div>
         ) : null}
 
         {block.type === 'grouping' ? (
-          <div className="ws-task-slot group-grid">
-            {(block.groups ?? []).map((g) => (
-              <div key={g.id} className="group-card">
-                <strong>
-                  <MathText text={g.title} />
-                </strong>
-                <ul>
-                  {(g.items ?? []).map((item) => (
-                    <li key={item}>
-                      <MathText text={item} />
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+          <div className="ws-task-slot">
+            <GroupingView
+              groups={block.groups ?? []}
+              isEditing={isEditing}
+              onChangeGroup={
+                isEditing
+                  ? (groupId, patch) =>
+                      patchBlock({
+                        groups: (block.groups ?? []).map((group) =>
+                          group.id === groupId ? { ...group, ...patch } : group,
+                        ),
+                      })
+                  : undefined
+              }
+            />
           </div>
         ) : null}
 
         {block.type === 'ordering' ? (
-          <ol
-            className={`ws-task-slot order-list ${editable && selected ? 'ordered-edit' : 'ordered-student'}`}
-          >
-            {getOrderDisplayItems(block, editable, selected).map((item) => (
-              <li key={item}>
-                <MathText text={item} />
-              </li>
-            ))}
-          </ol>
+          <div className="ws-task-slot order-slot">
+            <OrderingView
+              items={orderItems}
+              isEditing={isEditing}
+              onChangeItems={
+                isEditing
+                  ? (items) => patchBlock({ orderItems: items, orderDisplayItems: undefined })
+                  : undefined
+              }
+            />
+          </div>
         ) : null}
 
         {block.type === 'table' ? (
           <div className="ws-task-slot table-slot">
-            <table className="ws-table">
-              <thead>
-                <tr>
-                  {headers.slice(0, cols).map((h, i) => (
-                    <th key={i}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {Array.from({ length: rows }).map((_, r) => (
-                  <tr key={r}>
-                    {Array.from({ length: cols }).map((_, c) => (
-                      <td key={c}>{cells?.[r]?.[c] ?? ''}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {getTableAnswerBank(block, editable, selected).length > 0 ? (
-              <div className="table-answer-bank">
-                {getTableAnswerBank(block, editable, selected).map((word) => (
-                  <span key={word} className="table-answer-chip">
-                    {word}
-                  </span>
-                ))}
-              </div>
-            ) : null}
+            <TableView
+              block={block}
+              editable={editable}
+              selected={selected}
+              isEditing={isEditing}
+              onChange={isEditing ? patchBlock : undefined}
+            />
           </div>
         ) : null}
 

@@ -144,6 +144,16 @@ export function defaultAnswerHeight(style: AnswerAreaStyle): number {
   return answerHeightRange(style).min
 }
 
+export function getDefaultBlockAnswerLines(block: WorksheetBlock, subject: string): number {
+  const style = getBlockAnswerStyle(block, subject)
+  const base = defaultAnswerHeight(style)
+  if (block.type === 'extended_answer') {
+    if (style === 'lines') return clampAnswerHeight(style, ANSWER_HEIGHT_LINES_MIN)
+    return clampAnswerHeight(style, Math.min(ANSWER_HEIGHT_COMPACT_MAX, base + 3))
+  }
+  return base
+}
+
 export function getAvailableAnswerStyles(subject: string): AnswerAreaStyle[] {
   if (!subject) return [...ANSWER_STYLE_ORDER]
   const available = new Set<AnswerAreaStyle>(['block'])
@@ -219,7 +229,10 @@ function linesNeededForAnswerText(text: string, style: AnswerAreaStyle): number 
 
 export function getConfiguredAnswerLines(block: WorksheetBlock, subject: string): number {
   const style = getBlockAnswerStyle(block, subject)
-  return clampAnswerHeight(style, block.answerLines ?? defaultAnswerHeight(style))
+  return clampAnswerHeight(
+    style,
+    block.answerLines ?? getDefaultBlockAnswerLines(block, subject),
+  )
 }
 
 /** Высота области ответа с учётом эталона (show answer / inline-редактирование). */

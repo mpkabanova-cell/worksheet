@@ -571,9 +571,59 @@
 
 .wysiwyg-divider {
   width: 1px;
-  height: 16px;
+  height: 24px;
   background: var(--border-secondary);
   flex-shrink: 0;
+}
+
+.wysiwyg-format {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.wysiwyg-format-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px 8px 8px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-default);
+}
+
+.wysiwyg-format-btn:hover {
+  background: var(--bg-secondary);
+}
+
+.wysiwyg-format-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 10;
+  min-width: 148px;
+  padding: 4px;
+  border-radius: 8px;
+  background: var(--bg-white);
+  box-shadow:
+    0 8px 8px rgba(38, 52, 96, 0.05),
+    0 10px 14px rgba(38, 52, 96, 0.05),
+    0 12px 27px rgba(38, 52, 96, 0.05);
+}
+
+.wysiwyg-format-option {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 6px;
+  text-align: left;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-default);
+}
+
+.wysiwyg-format-option:hover {
+  background: var(--bg-secondary);
 }
 
 .wysiwyg-hr {
@@ -1421,7 +1471,103 @@
   content: none;
 }
 
-.table-slot .ws-table th {
+.order-slot {
+  padding-top: 0;
+}
+
+.order-list-stack {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  border: 1px solid var(--text-tertiary);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-white);
+}
+
+.order-row {
+  display: flex;
+  align-items: stretch;
+  border-top: 1px solid var(--text-tertiary);
+}
+
+.order-row:first-child {
+  border-top: none;
+}
+
+.order-row.dragging {
+  opacity: 0.72;
+}
+
+.order-row-num {
+  width: 48px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 8px;
+  border-right: 1px solid var(--text-tertiary);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-default);
+  text-align: center;
+}
+
+.order-row-body {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 10px 44px 10px 12px;
+}
+
+.order-row-text {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-default);
+}
+
+.order-row.is-empty .order-row-text {
+  color: var(--text-secondary);
+}
+
+.order-row-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-default);
+}
+
+.order-row-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.order-row-drag {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: grid;
+  place-items: center;
+  padding: 10px;
+  color: var(--text-default);
+  cursor: grab;
+}
+
+.order-row-drag:active {
+  cursor: grabbing;
+}
+
+.table-widget {
+  width: 100%;
+}
+
+.table-slot .ws-table:not(.ws-table--widget) th {
   background: var(--bg-page);
   font-weight: 600;
   text-align: center;
@@ -1458,10 +1604,42 @@
 
 .matching-board {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  width: 100%;
+}
+
+.matching-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.matching-row {
+  display: flex;
+  align-items: center;
   gap: 48px;
   width: 100%;
+}
+
+.matching-side {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.matching-side-left {
+  justify-content: flex-end;
+}
+
+.matching-side-right {
+  justify-content: flex-start;
+}
+
+.matching-side .match-answer-box {
+  flex: 1;
+  min-width: 0;
 }
 
 .matching-lines {
@@ -1522,9 +1700,24 @@
   color: var(--text-tertiary);
 }
 
+.match-answer-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-default);
+}
+
+.match-answer-input::placeholder {
+  color: var(--text-tertiary);
+}
+
 .match-dot {
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   border: 1px solid var(--text-tertiary);
   border-radius: 50%;
   flex-shrink: 0;
@@ -1676,12 +1869,75 @@
   font-size: 14px;
 }
 
+.group-title-input,
+.group-item-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  color: var(--text-default);
+}
+
+.group-title-input {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.group-title-input::placeholder,
+.group-item-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.group-items-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+  font-size: 14px;
+}
+
+.group-items-edit li {
+  list-style: disc;
+}
+
 .order-list {
   margin: 0;
   padding-left: 20px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.table-header-input,
+.table-cell-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  padding: 0;
+}
+
+.table-header-input {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 24px;
+  color: var(--text-secondary);
+}
+
+.table-header-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.table-cell-input {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-default);
 }
 
 .grid-field {
@@ -2243,7 +2499,7 @@
   grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
 }
 
-.table-cell-input {
+.table-editor-grid .table-cell-input {
   border: 1px solid var(--border-secondary);
   border-radius: 8px;
   padding: 8px;
@@ -2256,11 +2512,49 @@
   border-collapse: collapse;
 }
 
+.ws-table--widget {
+  border: 1px solid var(--text-tertiary);
+  border-radius: 8px;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+}
+
+.ws-table--widget th {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 24px;
+  color: var(--text-secondary);
+  background: transparent;
+  text-align: left;
+  padding: 8px 12px;
+  border-right: 1px solid var(--text-tertiary);
+  border-bottom: 1px solid var(--text-tertiary);
+}
+
+.ws-table--widget th:last-child {
+  border-right: none;
+}
+
 .ws-table td {
   border: 1px solid var(--border-secondary);
   padding: 10px 12px;
   min-width: 64px;
   min-height: 36px;
+}
+
+.ws-table--widget td {
+  height: 32px;
+  padding: 8px;
+  border: none;
+  border-right: 1px solid var(--text-tertiary);
+  border-top: 1px solid var(--text-tertiary);
+  min-height: 32px;
+  vertical-align: middle;
+}
+
+.ws-table--widget td:last-child {
+  border-right: none;
 }
 
 @media print {

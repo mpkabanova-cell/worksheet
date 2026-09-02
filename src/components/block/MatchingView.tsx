@@ -8,6 +8,9 @@ interface MatchingViewProps {
   editable: boolean
   selected: boolean
   showAnswer: boolean
+  isEditing?: boolean
+  onChangeLeft?: (index: number, text: string) => void
+  onChangeRight?: (index: number, text: string) => void
 }
 
 interface MatchLine {
@@ -30,7 +33,51 @@ function linesEqual(a: MatchLine[], b: MatchLine[]): boolean {
   )
 }
 
-export function MatchingView({ block, editable, selected, showAnswer }: MatchingViewProps) {
+function MatchAnswerBox({
+  text,
+  isEditing,
+  highlighted,
+  onChange,
+}: {
+  text: string
+  isEditing: boolean
+  highlighted: boolean
+  onChange?: (value: string) => void
+}) {
+  const isEmpty = !text.trim()
+
+  return (
+    <div
+      className={`match-answer-box ${isEmpty ? 'placeholder' : ''} ${
+        highlighted ? 'correct-match' : ''
+      }`}
+    >
+      {isEditing ? (
+        <input
+          className="match-answer-input"
+          value={text}
+          placeholder="Ответ"
+          onChange={(e) => onChange?.(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+        />
+      ) : isEmpty ? (
+        'Ответ'
+      ) : (
+        <MathText text={text} />
+      )}
+    </div>
+  )
+}
+
+export function MatchingView({
+  block,
+  editable,
+  selected,
+  showAnswer,
+  isEditing = false,
+  onChangeLeft,
+  onChangeRight,
+}: MatchingViewProps) {
   const boardRef = useRef<HTMLDivElement>(null)
   const leftDotRefs = useRef<Array<HTMLSpanElement | null>>([])
   const rightDotRefs = useRef<Array<HTMLSpanElement | null>>([])
@@ -45,6 +92,8 @@ export function MatchingView({ block, editable, selected, showAnswer }: Matching
     () => getMatchingCorrectLinks(block, right),
     [block, right],
   )
+
+  const rowCount = Math.max(left.length, right.length)
 
   const highlightedLeft = useMemo(
     () => new Set(showAnswer ? links.map((link) => link.leftIndex) : []),
@@ -93,64 +142,67 @@ export function MatchingView({ block, editable, selected, showAnswer }: Matching
       observer?.disconnect()
       window.removeEventListener('resize', measure)
     }
-  }, [links, showAnswer, left.length, right.length])
+  }, [links, showAnswer, rowCount])
 
   return (
     <div className="matching-board" ref={boardRef}>
       {showAnswer && lines.length > 0 ? (
         <svg className="matching-lines" aria-hidden>
           {lines.map((line, index) => (
-            <line
-              key={index}
-              x1={line.x1}
-              y1={line.y1}
-              x2={line.x2}
-              y2={line.y2}
-            />
+            <line key={index} x1={line.x1} y1={line.y1} x2={line.x2} y2={line.y2} />
           ))}
         </svg>
       ) : null}
 
-      <div className="matching-col matching-col-left">
-        {left.map((item, index) => (
-          <div key={item.id} className="matching-item">
-            <div
-              className={`match-answer-box ${item.text ? '' : 'placeholder'} ${
-                highlightedLeft.has(index) ? 'correct-match' : ''
-              }`}
-            >
-              {item.text ? <MathText text={item.text} /> : 'Ответ'}
-            </div>
-            <span
-              className={`match-dot ${highlightedLeft.has(index) ? 'correct-match' : ''}`}
-              ref={(node) => {
-                leftDotRefs.current[index] = node
-              }}
-              aria-hidden
-            />
-          </div>
-        ))}
-      </div>
+      <div className="matching-rows">
+        {Array.from({ length: rowCount }).map((_, index) => {
+          const leftItem = left[index]
+          const rightItem = right[index]
 
-      <div className="matching-col matching-col-right">
-        {right.map((item, index) => (
-          <div key={item.id} className="matching-item">
-            <span
-              className={`match-dot ${highlightedRight.has(index) ? 'correct-match' : ''}`}
-              ref={(node) => {
-                rightDotRefs.current[index] = node
-              }}
-              aria-hidden
-            />
-            <div
-              className={`match-answer-box ${item.text ? '' : 'placeholder'} ${
-                highlightedRight.has(index) ? 'correct-match' : ''
-              }`}
-            >
-              {item.text ? <MathText text={item.text} /> : 'Ответ'}
+          return (
+            <div key={leftItem?.id ?? rightItem?.id ?? index} className="matching-row">
+              <div className="matching-side matching-side-left">
+                <MatchAnswerBox
+                  text={leftItem?.text ?? ''}
+                  isEditing={isEditing}
+                  highlighted={highlightedLeft.has(index)}
+                  onChange={
+                    isEditing && onChangeLeft
+                      ? (value) => onChangeLeft(index, value)
+                      : undefined
+                  }
+                />
+                <span
+                  className={`match-dot ${highlightedLeft.has(index) ? 'correct-match' : ''}`}
+                  ref={(node) => {
+                    leftDotRefs.current[index] = node
+                  }}
+                  aria-hidden
+                />
+              </div>
+
+              <div className="matching-side matching-side-right">
+                <span
+                  className={`match-dot ${highlightedRight.has(index) ? 'correct-match' : ''}`}
+                  ref={(node) => {
+                    rightDotRefs.current[index] = node
+                  }}
+                  aria-hidden
+                />
+                <MatchAnswerBox
+                  text={rightItem?.text ?? ''}
+                  isEditing={isEditing}
+                  highlighted={highlightedRight.has(index)}
+                  onChange={
+                    isEditing && onChangeRight
+                      ? (value) => onChangeRight(index, value)
+                      : undefined
+                  }
+                />
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
