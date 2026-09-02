@@ -225,7 +225,9 @@ ${CONTENT_RULES}
 - Если add_intro=false — верни intro как "".
 - question и options с дробями/выражениями — только LaTeX ($\\frac{a}{b}$, $\\cdot$). Не давай заданий вида «Вспомни правило… и запиши».
 - order_items: дай перемешанный порядок; correct_answers — правильная последовательность.
-- matching: right_items перемешай относительно left_items; в correct_answers укажи пары «лево → право».`
+- matching: right_items перемешай относительно left_items; в correct_answers укажи пары «лево → право».
+- fill_gaps: question — короткая формулировка задания (1 предложение: что сделать). gaps_text — только текст с пропусками ___; не дублируй question и gaps_text. Правила и теорию не помещай в question — только в gaps_text, если они нужны как контекст перед строками с пропусками.
+- matching: question обязателен — ясно укажи, что нужно сопоставить (например, «Сопоставьте слова с значениями приставок»). Не оставляй question пустым.`
 
   const user = JSON.stringify(
     {
@@ -260,7 +262,9 @@ ${CONTENT_RULES}
 
 - Не повторяй формулировки из existing_tasks.
 - Поле instruction — всегда "".
-- Если есть teacher_expectation — это установка вида «Решить квадратное уравнение» / «Сопоставить…». Разверни в question без служебных преамбул и без местоимений; не копируй expectation дословно.`
+- Если есть teacher_expectation — это установка вида «Решить квадратное уравнение» / «Сопоставить…». Разверни в question без служебных преамбул и без местоимений; не копируй expectation дословно.
+- fill_gaps: question — короткое задание; gaps_text — упражнение с пропусками, без дублирования question.
+- matching: question обязателен и понятен ученику.`
 
   const user = JSON.stringify(
     {

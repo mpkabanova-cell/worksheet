@@ -6,6 +6,7 @@ import {
   generateSingleTask as mockSingle,
 } from './generator'
 import { promptsForPlan, promptsForSingleTask, promptsForWorksheet } from './aiPrompts'
+import { normalizeAiTask } from './taskContent'
 
 export type GenerateMode = 'create' | 'regenerate'
 
@@ -59,8 +60,14 @@ function normalizeType(raw: string, fallback: TaskType = 'short_answer'): TaskTy
   return byLabel?.type ?? fallback
 }
 
-function toBlock(task: AiTaskPayload, index: number, draft: WorksheetDraft): WorksheetBlock {
+function toBlock(
+  task: AiTaskPayload,
+  index: number,
+  draft: WorksheetDraft,
+  planExpectation?: string,
+): WorksheetBlock {
   const type = normalizeType(task.type)
+  const normalized = normalizeAiTask(task, type, planExpectation)
   const options = (task.options ?? []).map((text, i) => ({
     id: `option_${i + 1}`,
     text,
@@ -71,7 +78,7 @@ function toBlock(task: AiTaskPayload, index: number, draft: WorksheetDraft): Wor
     page: 0,
     title: `Задание ${index + 1}`,
     instruction: '',
-    question: task.question,
+    question: normalized.question,
     body: task.body,
     options: options.length ? options : undefined,
     correctOptionId:
@@ -81,7 +88,7 @@ function toBlock(task: AiTaskPayload, index: number, draft: WorksheetDraft): Wor
     correctOptionIds: task.correct_option_indexes?.map((i) => `option_${i + 1}`),
     correctAnswers: task.correct_answers,
     answerLines: task.answer_lines,
-    gapsText: task.gaps_text,
+    gapsText: normalized.gaps_text,
     gapsAnswers: task.gaps_answers,
     leftItems: task.left_items?.map((text, i) => ({ id: `left_${i + 1}`, text })),
     rightItems: task.right_items?.map((text, i) => ({ id: `right_${i + 1}`, text })),
@@ -160,7 +167,7 @@ export async function generateWorksheetAI(
       })
     }
 
-    const blocks = aligned.map((t, i) => toBlock(t, i, prepared))
+    const blocks = aligned.map((t, i) => toBlock(t, i, prepared, plan[i]?.userExpectation))
 
     return {
       ...prepared,
@@ -188,7 +195,7 @@ export async function generateSingleTaskAI(
     if (!payload.task) throw new AiError('Модель не вернула задание')
 
     const index = draft.blocks.filter((b) => b.type !== 'page_break' && b.type !== 'text').length
-    return toBlock({ ...payload.task, type: taskType }, index, draft)
+    return toBlock({ ...payload.task, type: taskType }, index, draft, expectation)
   } catch (err) {
     if (isAiUnavailable(err)) return mockSingle(draft, taskType, expectation)
     throw err

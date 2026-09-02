@@ -2,6 +2,7 @@ import type { DragEvent } from 'react'
 import { useMemo, useState } from 'react'
 import type { TaskType, WorksheetBlock, WorksheetDraft } from '@/data/worksheet'
 import { GRADES, SUBJECTS, formatSavedAgo, labelForType, uid } from '@/data/worksheet'
+import { getBlockQuestion } from '@/data/taskContent'
 import { Button, FigmaIcon, Icon, Input, Select, Textarea } from '@/components/ui'
 import { MathText } from '@/components/MathText'
 import starFilled from '@/assets/worksheet/star-filled.svg'
@@ -161,7 +162,7 @@ interface WorksheetScreenProps {
   onAddBlock?: (type: TaskType, insertBeforeId?: string | null) => void
   onRemoveBlock?: (id: string) => void
   onMoveBlock?: (id: string, dir: -1 | 1) => void
-  onReorderBlock?: (fromId: string, toId: string) => void
+  onReorderBlock?: (fromId: string, toId: string, position?: 'before' | 'after') => void
   onAddPage?: () => void
   onBack: () => void
   onMaterials?: () => void
@@ -231,13 +232,20 @@ export function WorksheetScreen({
 
   const handleDropOnBlock = (targetId: string) => {
     if (sidebarDragType) {
-      onAddBlock?.(sidebarDragType, targetId)
+      onAddBlock?.(sidebarDragType, targetId === '__end__' ? null : targetId)
       setSidebarDragType(null)
       setDropTargetId(null)
       return
     }
-    if (dragBlockId && dragBlockId !== targetId) {
-      onReorderBlock?.(dragBlockId, targetId)
+    if (dragBlockId) {
+      if (targetId === '__end__') {
+        const last = pageBlocks[pageBlocks.length - 1]
+        if (last && dragBlockId !== last.id) {
+          onReorderBlock?.(dragBlockId, last.id, 'after')
+        }
+      } else if (dragBlockId !== targetId) {
+        onReorderBlock?.(dragBlockId, targetId, 'before')
+      }
     }
     setDragBlockId(null)
     setDropTargetId(null)
@@ -349,12 +357,8 @@ export function WorksheetScreen({
 
             <div
               className={`sheet-content ${isEdit ? 'editing' : ''}`}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={() => {
-                if (sidebarDragType) {
-                  onAddBlock?.(sidebarDragType)
-                  setSidebarDragType(null)
-                }
+              onDragOver={(e) => {
+                if (sidebarDragType || dragBlockId) e.preventDefault()
               }}
             >
               {isEdit ? (
@@ -374,7 +378,19 @@ export function WorksheetScreen({
               ) : null}
 
               {pageBlocks.map((block, index) => (
-                <div key={block.id}>
+                <div
+                  key={block.id}
+                  className="block-drop-zone"
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    setDropTargetId(block.id)
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    handleDropOnBlock(block.id)
+                  }}
+                >
                   {dropTargetId === block.id && (sidebarDragType || dragBlockId) ? (
                     <div className="drop-indicator" aria-hidden />
                   ) : null}
@@ -387,12 +403,8 @@ export function WorksheetScreen({
                     showDifficulty={draft.showDifficulty}
                     dragging={dragBlockId === block.id}
                     onSelect={() => onSelectBlock?.(block.id)}
+                    onChangeBlock={isEdit ? onChangeBlock : undefined}
                     onRemove={() => onRemoveBlock?.(block.id)}
-                    onDragOver={(e) => {
-                      e.preventDefault()
-                      setDropTargetId(block.id)
-                    }}
-                    onDrop={() => handleDropOnBlock(block.id)}
                     onMoveUp={() => onMoveBlock?.(block.id, -1)}
                     onMoveDown={() => onMoveBlock?.(block.id, 1)}
                     onDuplicate={() => onSoon?.('Дублирование блока в разработке')}
@@ -410,6 +422,23 @@ export function WorksheetScreen({
                   />
                 </div>
               ))}
+
+              {isEdit && (sidebarDragType || dragBlockId) ? (
+                <div
+                  className="block-drop-zone block-drop-zone--end"
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    setDropTargetId('__end__')
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    handleDropOnBlock('__end__')
+                  }}
+                >
+                  {dropTargetId === '__end__' ? <div className="drop-indicator" aria-hidden /> : null}
+                </div>
+              ) : null}
 
             </div>
           </div>
@@ -1035,6 +1064,7 @@ function BlockCard({
   showDifficulty,
   dragging,
   onSelect,
+  onChangeBlock,
   onRemove,
   onMoveUp,
   onMoveDown,
@@ -1043,8 +1073,6 @@ function BlockCard({
   onDragStart,
   onDragEnd,
   onSoon,
-  onDragOver,
-  onDrop,
 }: {
   block: WorksheetBlock
   index: number
@@ -1054,6 +1082,7 @@ function BlockCard({
   showDifficulty: boolean
   dragging?: boolean
   onSelect: () => void
+  onChangeBlock?: (block: WorksheetBlock) => void
   onRemove: () => void
   onMoveUp: () => void
   onMoveDown: () => void
@@ -1062,8 +1091,6 @@ function BlockCard({
   onDragStart: (e: DragEvent) => void
   onDragEnd: () => void
   onSoon?: (message: string) => void
-  onDragOver: (e: DragEvent) => void
-  onDrop: () => void
 }) {
   if (block.type === 'page_break') {
     return (
@@ -1095,8 +1122,6 @@ function BlockCard({
         <div
           className={`page-break-block ${selected ? 'selected' : ''} ${editable ? 'editable' : ''} ${dragging ? 'dragging' : ''}`}
           onClick={editable ? onSelect : undefined}
-          onDragOver={editable ? onDragOver : undefined}
-          onDrop={editable ? onDrop : undefined}
         >
           — Разрыв страницы —
         </div>
@@ -1105,11 +1130,16 @@ function BlockCard({
   }
 
   const number = index + 1
-  const question = block.question ?? block.body ?? block.gapsText ?? ''
+  const question = getBlockQuestion(block)
   const isPlainText = block.type === 'text'
+  const isEditing = editable && selected && Boolean(onChangeBlock)
   const rows = block.tableRows ?? 3
   const cols = block.tableCols ?? 3
   const cells = block.tableCells
+
+  const stopEditBubble = (e: { stopPropagation: () => void }) => {
+    e.stopPropagation()
+  }
 
   return (
     <div className={`ws-task-wrap ${selected ? 'selected' : ''} ${editable ? 'editable' : ''}`}>
@@ -1145,22 +1175,56 @@ function BlockCard({
         </>
       ) : null}
       <article
-        className={`ws-task ${selected ? 'selected' : ''} ${editable ? 'editable' : ''} ${isPlainText ? 'plain' : ''} ${dragging ? 'dragging' : ''}`}
+        className={`ws-task ${selected ? 'selected' : ''} ${editable ? 'editable' : ''} ${isPlainText ? 'plain' : ''} ${dragging ? 'dragging' : ''} ${isEditing ? 'editing-inline' : ''}`}
         onClick={editable ? onSelect : undefined}
-        onDragOver={editable ? onDragOver : undefined}
-        onDrop={editable ? onDrop : undefined}
       >
         <div className="ws-task-head">
           {!isPlainText ? <span className="ws-task-num">{number}.</span> : null}
           <div className="ws-task-main">
-            <p className="ws-task-text">
-              {block.instruction ? (
-                <>
-                  <MathText className="instruction" text={block.instruction} />{' '}
-                </>
-              ) : null}
-              <MathText text={question} />
-            </p>
+            {isEditing ? (
+              <div className="ws-inline-fields" onClick={stopEditBubble}>
+                {block.instruction !== undefined && block.type !== 'text' ? (
+                  <textarea
+                    className="ws-inline-textarea ws-inline-instruction"
+                    rows={1}
+                    value={block.instruction ?? ''}
+                    placeholder="Инструкция (необязательно)"
+                    onChange={(e) => onChangeBlock?.({ ...block, instruction: e.target.value })}
+                  />
+                ) : null}
+                {block.type === 'text' ? (
+                  <textarea
+                    className="ws-inline-textarea ws-inline-body"
+                    rows={3}
+                    value={block.body ?? ''}
+                    onChange={(e) => onChangeBlock?.({ ...block, body: e.target.value })}
+                  />
+                ) : block.type !== 'fill_gaps' ? (
+                  <textarea
+                    className="ws-inline-textarea ws-inline-question"
+                    rows={2}
+                    value={block.question ?? ''}
+                    onChange={(e) => onChangeBlock?.({ ...block, question: e.target.value })}
+                  />
+                ) : (
+                  <textarea
+                    className="ws-inline-textarea ws-inline-question"
+                    rows={2}
+                    value={block.question ?? ''}
+                    onChange={(e) => onChangeBlock?.({ ...block, question: e.target.value })}
+                  />
+                )}
+              </div>
+            ) : (
+              <p className="ws-task-text">
+                {block.instruction ? (
+                  <>
+                    <MathText className="instruction" text={block.instruction} />{' '}
+                  </>
+                ) : null}
+                <MathText text={question} />
+              </p>
+            )}
             {showDifficulty && !isPlainText ? (
               <div className="ws-task-meta">
                 <span className="diff-label">Сложность:</span>
@@ -1199,9 +1263,20 @@ function BlockCard({
 
       {block.type === 'fill_gaps' ? (
         <div className="ws-task-slot gaps-slot">
-          <p className="gaps-text">
-            <MathText text={block.gapsText ?? ''} />
-          </p>
+          {isEditing ? (
+            <textarea
+              className="ws-inline-textarea ws-inline-gaps"
+              rows={5}
+              value={block.gapsText ?? ''}
+              placeholder="Текст с пропусками (_______)"
+              onClick={stopEditBubble}
+              onChange={(e) => onChangeBlock?.({ ...block, gapsText: e.target.value })}
+            />
+          ) : (
+            <p className="gaps-text">
+              <MathText text={block.gapsText ?? ''} />
+            </p>
+          )}
           {(block.gapsAnswers?.length ?? 0) > 0 ? (
             <div className="gaps-words">
               <span className="gaps-words-label">Пропущенные слова:</span>

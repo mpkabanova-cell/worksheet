@@ -179,10 +179,22 @@ export default function App() {
     setCreateAdvanced(false)
   }
 
-  const submitCreate = () => {
+  const submitCreate = (createMode: 'generate' | 'manual' = 'generate') => {
+    setCreateOpen(false)
+    setCreateAdvanced(false)
+    setDraft((d) => ({
+      ...d,
+      title: d.topic || d.title,
+      blocks: createMode === 'manual' ? [] : d.blocks,
+      intro: createMode === 'manual' ? '' : d.intro,
+    }))
+    if (createMode === 'manual') {
+      setSelectedBlockId(null)
+      setScreen('edit')
+      return
+    }
     setPendingGenerate(true)
     setGenerateMode('create')
-    setDraft((d) => ({ ...d, title: d.topic || d.title }))
     setScreen('loader')
   }
 
@@ -233,16 +245,22 @@ export default function App() {
     }))
   }
 
-  const reorderBlock = (fromId: string, toId: string) => {
+  const reorderBlock = (
+    fromId: string,
+    toId: string,
+    position: 'before' | 'after' = 'before',
+  ) => {
     if (fromId === toId) return
     setDraft((d) =>
       reorderPageBlocks(d, currentPage, (pageBlocks) => {
         const fromIdx = pageBlocks.findIndex((b) => b.id === fromId)
-        const toIdx = pageBlocks.findIndex((b) => b.id === toId)
+        let toIdx = pageBlocks.findIndex((b) => b.id === toId)
         if (fromIdx < 0 || toIdx < 0) return pageBlocks
         const next = [...pageBlocks]
         const [item] = next.splice(fromIdx, 1)
-        next.splice(toIdx, 0, item)
+        if (fromIdx < toIdx) toIdx -= 1
+        const insertIdx = position === 'after' ? toIdx + 1 : toIdx
+        next.splice(insertIdx, 0, item)
         return next
       }),
     )
@@ -450,6 +468,7 @@ export default function App() {
                 onChange={setDraft}
                 onClose={closeCreate}
                 onSubmit={submitCreate}
+                onSoon={showToast}
               />
             </div>
           ) : null}
@@ -588,11 +607,18 @@ function insertBlockInPage(
   page: number,
   insertBeforeId?: string | null,
 ): WorksheetBlock[] {
-  if (!insertBeforeId) return [...blocks, block]
   const pageBlocks = blocks.filter((b) => b.page === page)
   const others = blocks.filter((b) => b.page !== page)
+
+  if (!insertBeforeId) {
+    return [...others, ...pageBlocks, block]
+  }
+
   const idx = pageBlocks.findIndex((b) => b.id === insertBeforeId)
-  if (idx < 0) return [...blocks, block]
+  if (idx < 0) {
+    return [...others, ...pageBlocks, block]
+  }
+
   const next = [...pageBlocks]
   next.splice(idx, 0, block)
   return [...others, ...next]

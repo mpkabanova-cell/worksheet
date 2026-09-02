@@ -930,6 +930,71 @@
   background: var(--bg-brand-soft);
 }
 
+.block-drop-zone {
+  width: 100%;
+}
+
+.block-drop-zone--end {
+  min-height: 24px;
+}
+
+.block-drop-zone--end .drop-indicator {
+  margin-top: 8px;
+}
+
+.ws-task.editing-inline {
+  cursor: default;
+}
+
+.ws-inline-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.ws-inline-textarea {
+  width: 100%;
+  border: 1px solid var(--border-brand);
+  border-radius: 8px;
+  background: var(--bg-white);
+  padding: 8px 12px;
+  font: inherit;
+  color: var(--text-default);
+  resize: vertical;
+  min-height: 48px;
+}
+
+.ws-inline-textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(80, 58, 224, 0.2);
+}
+
+.ws-inline-instruction {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-secondary);
+  min-height: 36px;
+}
+
+.ws-inline-question {
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 24px;
+  letter-spacing: -0.1px;
+}
+
+.ws-task.plain .ws-inline-body {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+}
+
+.ws-inline-gaps {
+  font-size: 14px;
+  line-height: 20px;
+}
+
 .ws-task.dragging,
 .page-break-block.dragging {
   opacity: 0.55;
@@ -1081,10 +1146,15 @@
   background: var(--bg-secondary);
 }
 
+.ws-settings-panel {
+  padding-bottom: 72px;
+}
+
 .settings-actions {
-  position: absolute;
+  position: fixed;
   right: 20px;
   bottom: 20px;
+  z-index: 25;
   display: flex;
   gap: 4px;
   margin-top: 0;
@@ -1155,6 +1225,10 @@
   .edit-actions-row,
   .proto-nav,
   .block-tools {
+    display: none !important;
+  }
+
+  .settings-actions {
     display: none !important;
   }
 

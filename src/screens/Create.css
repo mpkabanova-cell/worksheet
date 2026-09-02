@@ -66,32 +66,28 @@
   background: var(--bg-white);
 }
 
-.create-sidemenu button {
+.create-sidemenu-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+}
+
+.create-sidemenu-nav button {
   text-align: left;
-  padding: 10px 0;
-  border-radius: 12px;
+  padding: 12px 16px;
+  border-radius: 10px;
   font-size: 16px;
   line-height: 24px;
   color: var(--text-secondary);
-  position: relative;
-  width: 184px;
   font-weight: 400;
+  min-height: 48px;
+  width: 100%;
 }
 
-.create-sidemenu button.active {
+.create-sidemenu-nav button.active {
   color: var(--text-brand);
   font-weight: 500;
-}
-
-.create-sidemenu button.active::before {
-  content: '';
-  position: absolute;
-  left: -8px;
-  top: 8px;
-  bottom: 8px;
-  width: 3px;
-  border-radius: 3px;
-  background: var(--bg-brand);
 }
 
 .create-form {
@@ -100,13 +96,69 @@
   padding: 24px 32px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 32px;
 }
 
 .create-main {
   display: flex;
   flex-direction: column;
+  gap: 24px;
+}
+
+.wishes-textarea {
+  min-height: 160px;
+}
+
+.file-dropzone {
+  background: var(--bg-white);
+  border: 1px dashed #bfc3de;
+  border-radius: 12px;
+  min-height: 120px;
+  padding: 16px 16px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 20px;
+  width: 100%;
+}
+
+.file-dropzone-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  max-width: 480px;
+  text-align: center;
+}
+
+.file-dropzone-copy strong {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 24px;
+  color: var(--text-default);
+}
+
+.file-dropzone-copy p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-secondary);
+}
+
+.file-pick-btn {
+  min-height: 40px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-default);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.file-pick-btn:hover {
+  background: #e4e6f7;
 }
 
 .row-3 {
@@ -124,7 +176,7 @@
 .create-advanced-wrap {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
 }
 
 .advanced-link {
@@ -142,13 +194,13 @@
 .advanced-settings {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
 }
 
 .plan-block {
   border: 1px solid var(--border-secondary);
-  border-radius: 11px;
-  padding: 16px;
+  border-radius: 12px;
+  padding: 20px 24px 24px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -238,20 +290,21 @@
 }
 
 .difficulty-field {
-  max-width: 288px;
+  width: 288px;
+  max-width: 100%;
 }
 
 .switch-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  font-size: 16px;
-  line-height: 24px;
+  justify-content: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 20px;
   color: var(--text-default);
-  width: 100%;
-  max-width: 480px;
-  min-height: 40px;
+  min-height: 20px;
+  width: fit-content;
+  max-width: 100%;
 }
 
 .switch {
@@ -368,18 +421,18 @@
 
   .create-sidemenu {
     width: 100%;
-    flex-direction: row;
+    flex-direction: column;
     border-right: none;
     border-bottom: 1px solid var(--border-secondary);
   }
 
-  .create-sidemenu button.active::before {
-    left: 0;
-    top: auto;
-    bottom: 0;
-    right: 0;
-    width: auto;
-    height: 3px;
+  .create-sidemenu-nav {
+    flex-direction: row;
+  }
+
+  .create-sidemenu-nav button {
+    flex: 1;
+    text-align: center;
   }
 
   .row-3,
@@ -415,6 +468,10 @@
   flex-direction: column;
 }
 
+.create-page--overlay.create-page--expanded {
+  max-height: min(1424px, calc(100vh - 48px));
+}
+
 .create-page--overlay .create-inner {
   width: 100%;
   max-width: none;
@@ -441,6 +498,11 @@
   background: var(--bg-page);
   border-right: none;
   flex-shrink: 0;
+  gap: 24px;
+}
+
+.create-page--overlay .create-sidemenu-nav button.active::before {
+  display: none;
 }
 
 .create-sidemenu-title {
@@ -516,21 +578,22 @@
 
   .create-page--overlay .create-sidemenu {
     width: 100%;
-    flex-direction: row;
+    flex-direction: column;
     padding: 16px;
     gap: 8px;
     border-bottom: 1px solid var(--border-secondary);
   }
 
-  .create-page--overlay .create-sidemenu button {
-    width: auto;
+  .create-page--overlay .create-sidemenu-nav {
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .create-page--overlay .create-sidemenu-nav button {
     flex: 1;
     text-align: center;
     padding: 10px 12px;
-  }
-
-  .create-page--overlay .create-sidemenu button.active::before {
-    display: none;
+    min-height: 44px;
   }
 
   .create-page--overlay .create-form {

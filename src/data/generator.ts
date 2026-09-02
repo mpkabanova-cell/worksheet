@@ -1,5 +1,6 @@
 import type { DifficultyMode, PlanTask, TaskType, WorksheetBlock, WorksheetDraft } from './worksheet'
 import { createPlan, labelForType, uid } from './worksheet'
+import { expectationToQuestion } from './taskContent'
 
 function starsForIndex(i: number, mode: DifficultyMode, total: number): 1 | 2 | 3 {
   if (mode === 'starter') return 1
@@ -76,17 +77,18 @@ function blockForType(
       return {
         ...base,
         instruction: '',
-        gapsText:
-          expectation ||
-          `По теме «${topic}» важно помнить: ___ — это основа, а ___ помогает проверить результат.`,
+        question:
+          expectationToQuestion(expectation) || `Заполните пропуски по теме «${topic}».`,
+        gapsText: `По теме «${topic}» важно помнить: ___ — это основа, а ___ помогает проверить результат.`,
         gapsAnswers: ['правило', 'пример'],
-        question: `Текст с пропусками по теме «${topic}».`,
       }
     case 'matching':
       return {
         ...base,
         instruction: '',
-        question: expectation || `Понятия и определения по теме «${topic}».`,
+        question:
+          expectationToQuestion(expectation) ||
+          `Сопоставьте понятия и определения по теме «${topic}».`,
         leftItems: [
           { id: 'left_1', text: 'Понятие 1' },
           { id: 'left_2', text: 'Понятие 2' },
