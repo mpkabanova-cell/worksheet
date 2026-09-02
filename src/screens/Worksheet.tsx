@@ -4,8 +4,7 @@ import { GRADES, SUBJECTS, formatSavedAgo } from '@/data/worksheet'
 import { countTaskBlocksBefore, reconcileAnswerBlockStyle } from '@/data/blockUtils'
 import { Button, FigmaIcon, Icon, Select } from '@/components/ui'
 import { BlockCard } from '@/screens/worksheet/BlockCard'
-import { BlockEditorPanel, AnswerTaskSettingsPanel, ChoiceTaskSettingsPanel } from '@/screens/worksheet/blockEditors'
-import { QUESTION_MAX_LENGTH } from '@/data/blockUtils'
+import { AnswerTaskSettingsPanel, ChoiceTaskSettingsPanel, FillGapsTaskSettingsPanel } from '@/screens/worksheet/blockEditors'
 import pageAddIcon from '@/assets/worksheet/tools/page-add.svg'
 import toolText from '@/assets/worksheet/tools/tool-text.svg'
 import toolMedia from '@/assets/worksheet/tools/tool-media.svg'
@@ -186,18 +185,14 @@ export function WorksheetScreen({
     selected?.type === 'short_answer' || selected?.type === 'extended_answer'
   const isChoiceBlockSelected =
     selected?.type === 'single_choice' || selected?.type === 'multiple_choice'
+  const isFillGapsBlockSelected = selected?.type === 'fill_gaps'
+  const hasTaskSettings =
+    isAnswerBlockSelected || isChoiceBlockSelected || isFillGapsBlockSelected
   const [sheetSettingsOpen, setSheetSettingsOpen] = useState(true)
 
   useEffect(() => {
-    setSheetSettingsOpen(!isAnswerBlockSelected && !isChoiceBlockSelected)
-  }, [selected?.id, isAnswerBlockSelected, isChoiceBlockSelected])
-  const showOtherBlockSettings =
-    selected &&
-    !isAnswerBlockSelected &&
-    !isChoiceBlockSelected &&
-    selected.type !== 'text' &&
-    selected.type !== 'page_break' &&
-    selected.type !== 'answer_field'
+    setSheetSettingsOpen(!hasTaskSettings)
+  }, [selected?.id, hasTaskSettings])
 
   const handleDropOnBlock = (targetId: string) => {
     if (sidebarDragType) {
@@ -445,22 +440,16 @@ export function WorksheetScreen({
               <ChoiceTaskSettingsPanel block={selected} onChange={onChangeBlock} />
             ) : null}
 
-            {showOtherBlockSettings && onChangeBlock ? (
-              <BlockEditorPanel
-                block={selected}
-                subject={draft.subject}
-                onChange={onChangeBlock}
-                onClose={() => onSelectBlock?.(null)}
-                embedded
-              />
+            {isFillGapsBlockSelected && selected && onChangeBlock ? (
+              <FillGapsTaskSettingsPanel block={selected} onChange={onChangeBlock} />
             ) : null}
 
-            {isAnswerBlockSelected || isChoiceBlockSelected ? (
+            {hasTaskSettings ? (
               <div className="ws-right-divider" aria-hidden />
             ) : null}
 
             <aside
-              className={`ws-sidepanel ws-settings-panel ${sheetSettingsOpen ? 'is-open' : 'is-collapsed'} ${isAnswerBlockSelected || isChoiceBlockSelected ? 'has-task-settings' : ''}`}
+              className={`ws-sidepanel ws-settings-panel ${sheetSettingsOpen ? 'is-open' : 'is-collapsed'} ${hasTaskSettings ? 'has-task-settings' : ''}`}
             >
             <button
               type="button"
@@ -473,11 +462,7 @@ export function WorksheetScreen({
             </button>
             {sheetSettingsOpen ? (
             <div className="ws-sidepanel-scroll">
-            {!isAnswerBlockSelected && !isChoiceBlockSelected ? <h3>Настройки рабочего листа</h3> : null}
-            <p className="side-section-label">Ограничения</p>
-            <p className="side-field-hint side-field-hint--static">
-              Количество символов в вопросе — {QUESTION_MAX_LENGTH}
-            </p>
+            {!hasTaskSettings ? <h3>Настройки рабочего листа</h3> : null}
             <label className="side-field">
               <span>Предмет</span>
               <Select

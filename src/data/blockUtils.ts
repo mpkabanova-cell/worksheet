@@ -139,6 +139,11 @@ export function answerHeightRange(style: AnswerAreaStyle): { min: number; max: n
   return { min: ANSWER_HEIGHT_COMPACT_MIN, max: ANSWER_HEIGHT_COMPACT_MAX }
 }
 
+export function answerHeightOptionsForStyle(style: AnswerAreaStyle): string[] {
+  const { min, max } = answerHeightRange(style)
+  return Array.from({ length: max - min + 1 }, (_, i) => String(min + i))
+}
+
 export function clampAnswerHeight(style: AnswerAreaStyle, value: number): number {
   const { min, max } = answerHeightRange(style)
   const n = Number.isFinite(value) ? value : min

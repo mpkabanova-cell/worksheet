@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import type { WorksheetBlock } from '@/data/worksheet'
 import {
-  answerHeightRange,
+  answerHeightOptionsForStyle,
   answerLabelFromStyle,
   answerStyleFromLabel,
   answerStyleOptionsForSubject,
@@ -40,7 +40,6 @@ export function AnswerTaskSettingsPanel({
   onChange: (block: WorksheetBlock) => void
 }) {
   const style = getBlockAnswerStyle(block, subject)
-  const range = answerHeightRange(style)
   const styleOptions = answerStyleOptionsForSubject(subject)
 
   return (
@@ -66,11 +65,9 @@ export function AnswerTaskSettingsPanel({
       </label>
       <label className="side-field">
         <span>Высота блока</span>
-        <Input
-          type="number"
-          min={range.min}
-          max={range.max}
-          value={block.answerLines ?? defaultAnswerHeight(style)}
+        <Select
+          options={answerHeightOptionsForStyle(style)}
+          value={String(block.answerLines ?? defaultAnswerHeight(style))}
           onChange={(e) =>
             onChange({
               ...block,
@@ -138,6 +135,40 @@ export function ChoiceTaskSettingsPanel({
               ...block,
               choiceShuffle: !block.choiceShuffle,
               choiceDisplayOrder: undefined,
+            })
+          }
+        >
+          <span className="knob" />
+        </button>
+      </div>
+    </section>
+  )
+}
+
+export function FillGapsTaskSettingsPanel({
+  block,
+  onChange,
+}: {
+  block: WorksheetBlock
+  onChange: (block: WorksheetBlock) => void
+}) {
+  return (
+    <section className="ws-task-settings-panel">
+      <p className="side-section-heading">Настройки задания</p>
+      <div className="side-switch-row">
+        <span>Перемешать ответы</span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={block.gapsShuffleAnswers ?? false}
+          className={`switch ${block.gapsShuffleAnswers ? 'on' : ''}`}
+          onClick={() =>
+            onChange({
+              ...block,
+              gapsShuffleAnswers: !block.gapsShuffleAnswers,
+              gapsAnswers: block.gapsShuffleAnswers
+                ? block.gapsAnswers
+                : shuffleArray(block.gapsAnswers ?? []),
             })
           }
         >

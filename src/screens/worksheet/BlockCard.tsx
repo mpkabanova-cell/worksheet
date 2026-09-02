@@ -4,12 +4,10 @@ import type { BlockPreviewState, WorksheetBlock } from '@/data/worksheet'
 import {
   clampText,
   getBlockAnswerStyle,
-  getCorrectAnswerText,
   getChoiceQuestionMaxLength,
   getGapsSourceText,
   getGapsStudentText,
   getOrderDisplayItems,
-  hasValidChoiceCorrectAnswers,
   isChoiceBlock,
   TEXT_BODY_MAX_LENGTH,
 } from '@/data/blockUtils'
@@ -336,10 +334,6 @@ export function BlockCard({
           </div>
         )}
 
-        {isChoiceTask && isEditing && !hasValidChoiceCorrectAnswers(block) ? (
-          <p className="ws-choice-validation-hint">Отметьте хотя бы один правильный вариант</p>
-        ) : null}
-
         {isChoiceTask ? (
           <ChoiceOptionsView
             block={block}
@@ -456,28 +450,6 @@ export function BlockCard({
           </div>
         ) : null}
 
-        {effectiveShowAnswer &&
-        block.type !== 'matching' &&
-        !isAnswerBlock &&
-        !isChoiceTask &&
-        (block.correctAnswers?.length || block.correctOptionId) ? (
-          <div className="ws-task-slot">
-            <div className="answer-pill">
-              Ответ:{' '}
-              <MathText
-                text={
-                  (isAnswerBlock ? getCorrectAnswerText(block) : block.correctAnswers?.join(', ')) ||
-                  block.options?.find((o) => o.id === block.correctOptionId)?.text ||
-                  (block.correctOptionIds ?? [])
-                    .map((id) => block.options?.find((o) => o.id === id)?.text)
-                    .filter(Boolean)
-                    .join(', ') ||
-                  ''
-                }
-              />
-            </div>
-          </div>
-        ) : null}
       </article>
     </div>
   )

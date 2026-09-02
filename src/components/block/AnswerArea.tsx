@@ -16,6 +16,10 @@ interface AnswerAreaProps {
   onChangeAnswer?: (text: string) => void
 }
 
+function AnswerLabel() {
+  return <span className="answer-field-label">Ответ:</span>
+}
+
 function AnswerInlineEditor({
   value,
   lines,
@@ -45,14 +49,37 @@ function AnswerInlineEditor({
 function AnswerReadonlyOverlay({
   value,
   style,
+  showPrefix = false,
 }: {
   value: string
   style: AnswerAreaStyle
+  showPrefix?: boolean
 }) {
+  if (showPrefix) {
+    return (
+      <div className={`answer-inline-readonly answer-inline-readonly--${style} answer-inline-readonly--labeled`}>
+        <AnswerLabel />
+        <span className="answer-field-value">
+          <MathText text={value} as="span" />
+        </span>
+      </div>
+    )
+  }
+
   return (
     <div className={`answer-inline-readonly answer-inline-readonly--${style}`}>
       <MathText text={value} as="div" />
     </div>
+  )
+}
+
+function AnswerLineRules({ count }: { count: number }) {
+  return (
+    <>
+      {Array.from({ length: count }).map((_, i) => (
+        <i key={i} />
+      ))}
+    </>
   )
 }
 
@@ -82,6 +109,9 @@ function CellsAnswerSlot({
 }) {
   return (
     <div className="ws-task-slot answer-cells-slot">
+      <div className="answer-lines-head">
+        <AnswerLabel />
+      </div>
       <AnswerCellsGrid
         rows={rows}
         overlay={gridOverlayForStyle(style)}
@@ -89,6 +119,102 @@ function CellsAnswerSlot({
         value={value}
         onChange={onChange}
       />
+    </div>
+  )
+}
+
+function LinesAnswerSlot({
+  lines,
+  mode,
+  value,
+  showAnswerValue,
+  onChange,
+}: {
+  lines: number
+  mode: 'empty' | 'edit' | 'readonly'
+  value: string
+  showAnswerValue?: boolean
+  onChange?: (text: string) => void
+}) {
+  const extraLines = Math.max(0, lines - (showAnswerValue && value ? 1 : 0))
+
+  return (
+    <div className="ws-task-slot lines answer-slot">
+      <div className="answer-lines-wrap">
+        {showAnswerValue && value ? (
+          <div className="answer-lines-body answer-area-readonly">
+            <div className="answer-line-row answer-line-row--filled">
+              <AnswerLabel />
+              <span className="answer-field-value">
+                <MathText text={value} as="span" />
+              </span>
+            </div>
+            <AnswerLineRules count={extraLines} />
+          </div>
+        ) : (
+          <>
+            <div className="answer-lines-head">
+              <AnswerLabel />
+            </div>
+            <div
+              className={`answer-lines-body ${mode === 'edit' ? 'answer-area-editable' : ''}`}
+            >
+              <AnswerLineRules count={lines} />
+              {mode === 'edit' ? (
+                <AnswerInlineEditor value={value} lines={lines} style="lines" onChange={onChange} />
+              ) : null}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function BlockAnswerSlot({
+  lines,
+  mode,
+  value,
+  showAnswerValue,
+  onChange,
+}: {
+  lines: number
+  mode: 'empty' | 'edit' | 'readonly'
+  value: string
+  showAnswerValue?: boolean
+  onChange?: (text: string) => void
+}) {
+  return (
+    <div className="ws-task-slot answer-slot">
+      <div
+        className="answer-block-area answer-block-area--ruled"
+        style={{ minHeight: `${Math.max(lines + 1, 3) * 28}px` }}
+      >
+        {mode === 'empty' ? (
+          <>
+            <div className="answer-lines-head answer-lines-head--inset">
+              <AnswerLabel />
+            </div>
+            <span className="answer-placeholder">Введите текст</span>
+          </>
+        ) : null}
+        {mode === 'edit' ? (
+          <>
+            <div className="answer-lines-head answer-lines-head--inset">
+              <AnswerLabel />
+            </div>
+            <AnswerInlineEditor
+              value={value}
+              lines={lines}
+              style="block"
+              onChange={onChange}
+            />
+          </>
+        ) : null}
+        {mode === 'readonly' && showAnswerValue && value ? (
+          <AnswerReadonlyOverlay value={value} style="block" showPrefix />
+        ) : null}
+      </div>
     </div>
   )
 }
@@ -116,22 +242,22 @@ export function AnswerArea({
 
     if (style === 'block') {
       return (
-        <div
-          className="ws-task-slot answer-block-area answer-area-readonly"
-          style={{ minHeight: `${lines * 28}px` }}
-        >
-          <AnswerReadonlyOverlay value={answerText} style={style} />
-        </div>
+        <BlockAnswerSlot
+          lines={lines}
+          mode="readonly"
+          value={answerText}
+          showAnswerValue
+        />
       )
     }
 
     return (
-      <div className="ws-task-slot lines answer-area-readonly">
-        {Array.from({ length: lines }).map((_, i) => (
-          <i key={i} />
-        ))}
-        <AnswerReadonlyOverlay value={answerText} style={style} />
-      </div>
+      <LinesAnswerSlot
+        lines={lines}
+        mode="readonly"
+        value={answerText}
+        showAnswerValue
+      />
     )
   }
 
@@ -150,32 +276,22 @@ export function AnswerArea({
 
     if (style === 'block') {
       return (
-        <div
-          className="ws-task-slot answer-block-area answer-area-editable"
-          style={{ minHeight: `${lines * 28}px` }}
-        >
-          <AnswerInlineEditor
-            value={rawAnswerText}
-            lines={lines}
-            style={style}
-            onChange={onChangeAnswer}
-          />
-        </div>
+        <BlockAnswerSlot
+          lines={lines}
+          mode="edit"
+          value={rawAnswerText}
+          onChange={onChangeAnswer}
+        />
       )
     }
 
     return (
-      <div className="ws-task-slot lines answer-area-editable">
-        {Array.from({ length: lines }).map((_, i) => (
-          <i key={i} />
-        ))}
-        <AnswerInlineEditor
-          value={rawAnswerText}
-          lines={lines}
-          style={style}
-          onChange={onChangeAnswer}
-        />
-      </div>
+      <LinesAnswerSlot
+        lines={lines}
+        mode="edit"
+        value={rawAnswerText}
+        onChange={onChangeAnswer}
+      />
     )
   }
 
@@ -184,18 +300,8 @@ export function AnswerArea({
   }
 
   if (style === 'block') {
-    return (
-      <div className="ws-task-slot answer-block-area" style={{ minHeight: `${lines * 28}px` }}>
-        <span className="answer-placeholder">Введите текст</span>
-      </div>
-    )
+    return <BlockAnswerSlot lines={lines} mode="empty" value="" />
   }
 
-  return (
-    <div className="ws-task-slot lines">
-      {Array.from({ length: lines }).map((_, i) => (
-        <i key={i} />
-      ))}
-    </div>
-  )
+  return <LinesAnswerSlot lines={lines} mode="empty" value="" />
 }

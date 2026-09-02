@@ -484,6 +484,58 @@
   position: relative;
 }
 
+.answer-lines-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+}
+
+.answer-lines-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 28px;
+  font-size: 14px;
+  line-height: 28px;
+  color: var(--text-default);
+}
+
+.answer-lines-head--inset {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  padding: 0 12px;
+  pointer-events: none;
+}
+
+.answer-field-label {
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 28px;
+  color: var(--text-default);
+}
+
+.answer-field-value {
+  color: var(--text-positive);
+  font-size: 14px;
+  line-height: 28px;
+}
+
+.answer-lines-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.answer-slot {
+  padding-top: 0;
+}
+
 .answer-inline-input {
   width: 100%;
   border: none;
@@ -499,15 +551,16 @@
 .answer-inline-input--block {
   position: absolute;
   inset: 0;
-  padding: 12px;
-  line-height: 20px;
+  padding: 28px 12px 12px;
+  line-height: 28px;
+  background: transparent;
 }
 
 .answer-area-editable.lines .answer-inline-input,
 .answer-area-readonly.lines .answer-inline-readonly {
   position: absolute;
   inset: 0;
-  padding: 8px 0 0;
+  padding: 0;
   background: transparent;
 }
 
@@ -522,8 +575,22 @@
 .answer-inline-readonly--block {
   position: absolute;
   inset: 0;
-  padding: 12px;
-  line-height: 20px;
+  padding: 0;
+  line-height: 28px;
+  background: transparent;
+}
+
+.answer-line-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 28px;
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.answer-line-row--filled {
+  padding-bottom: 0;
 }
 
 .ws-task-wrap {
@@ -1447,11 +1514,70 @@
   color: var(--text-default);
 }
 
+.answer-inline-readonly--labeled {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 0 12px;
+  line-height: 28px;
+}
+
+.answer-inline-readonly--labeled .answer-field-label {
+  color: var(--text-default);
+}
+
 .answer-block-area {
-  border: 1px solid var(--border-secondary);
-  border-radius: 8px;
+  border: none;
+  border-radius: 0;
   min-height: 80px;
   position: relative;
+  overflow: hidden;
+  background-color: var(--bg-white);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 27px,
+    var(--border-secondary) 27px,
+    var(--border-secondary) 28px
+  );
+  background-size: 100% 28px;
+}
+
+.answer-block-area--ruled {
+  width: 100%;
+}
+
+.answer-block-area .answer-placeholder {
+  top: 28px;
+  left: 12px;
+}
+
+.plain-body .wysiwyg-field--block {
+  border-radius: 0;
+}
+
+.plain-body .wysiwyg-field--block .ws-inline-textarea {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0 0 8px;
+  line-height: 28px;
+  min-height: 168px;
+  background-color: var(--bg-white);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 27px,
+    var(--border-secondary) 27px,
+    var(--border-secondary) 28px
+  );
+  background-size: 100% 28px;
+  resize: vertical;
+}
+
+.plain-body .wysiwyg-field--block .ws-inline-textarea:focus {
+  box-shadow: none;
 }
 
 .answer-placeholder {
