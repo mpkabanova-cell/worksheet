@@ -33,6 +33,8 @@ export function AnswerGridOverlay({
     cols,
     rows,
   )
+  const lineWidth = cols * cell
+  const lineHeight = rows * cell + 1
 
   const y = lineRow * cell
   const originX = originCol * cell
@@ -41,9 +43,9 @@ export function AnswerGridOverlay({
   return (
     <svg
       className="answer-grid-overlay"
-      viewBox={`0 0 ${width} ${height}`}
-      width={width}
-      height={height}
+      viewBox={`0 0 ${lineWidth} ${lineHeight}`}
+      width={lineWidth}
+      height={lineHeight}
       aria-hidden
     >
       {type === 'axes' ? (

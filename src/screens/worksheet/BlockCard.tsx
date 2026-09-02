@@ -288,7 +288,7 @@ export function BlockCard({
                   </p>
                 )}
               </div>
-              {isAnswerBlock ? (
+              {isEditing || (showDifficulty && (isAnswerBlock || block.difficulty)) ? (
                 <div className="ws-task-meta">
                   <span className="diff-label">Сложность:</span>
                   {isEditing ? (
@@ -300,19 +300,6 @@ export function BlockCard({
                   ) : (
                     <Stars value={block.difficulty ?? 0} />
                   )}
-                </div>
-              ) : isEditing || (showDifficulty && block.difficulty) ? (
-                <div className="ws-task-meta">
-                  <span className="diff-label">Сложность:</span>
-                  {isEditing ? (
-                    <DifficultyPicker
-                      value={block.difficulty}
-                      onChange={(n) => patchBlock({ difficulty: n })}
-                      onClear={() => patchBlock({ difficulty: undefined })}
-                    />
-                  ) : block.difficulty ? (
-                    <Stars value={block.difficulty} />
-                  ) : null}
                 </div>
               ) : null}
             </div>

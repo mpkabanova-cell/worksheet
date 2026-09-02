@@ -5,6 +5,11 @@ import { AnswerGridOverlay, type GridOverlayType } from '@/components/block/Answ
 
 type CellsMode = 'empty' | 'edit' | 'readonly'
 
+/** +1px so the bottom grid line is not clipped at exact multiples of cell size. */
+function gridHeightPx(rows: number): number {
+  return rows * ANSWER_CELL_SIZE + 1
+}
+
 export function AnswerCellsGrid({
   rows,
   mode,
@@ -37,7 +42,7 @@ export function AnswerCellsGrid({
   }, [])
 
   const gridWidth = cols > 0 ? cols * ANSWER_CELL_SIZE : undefined
-  const gridHeight = rows * ANSWER_CELL_SIZE
+  const gridHeight = gridHeightPx(rows)
 
   return (
     <div ref={wrapRef} className="answer-cells-wrap">
@@ -45,7 +50,6 @@ export function AnswerCellsGrid({
         className={`answer-cells-grid${mode === 'edit' ? ' answer-area-editable' : ''}${mode === 'readonly' ? ' answer-area-readonly' : ''}`}
         style={{
           width: gridWidth,
-          maxWidth: '100%',
           height: gridHeight,
           ['--cell-size' as string]: `${ANSWER_CELL_SIZE}px`,
           ['--cols' as string]: String(cols),

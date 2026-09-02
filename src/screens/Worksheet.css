@@ -1246,8 +1246,6 @@
 
 .answer-cells-wrap {
   width: 100%;
-  max-width: 100%;
-  overflow: hidden;
 }
 
 .answer-cells-slot {
@@ -1258,10 +1256,8 @@
   position: relative;
   flex-shrink: 0;
   box-sizing: border-box;
-  max-width: 100%;
   --cell-size: 16px;
   --cell-color: #c8cce0;
-  overflow: hidden;
   background-color: var(--bg-white);
   background-image:
     linear-gradient(to right, var(--cell-color) 1px, transparent 1px),
