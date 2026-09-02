@@ -1,22 +1,17 @@
 import type { DragEvent } from 'react'
 import type { WorksheetBlock } from '@/data/worksheet'
 import {
-  clampText,
   defaultAnswerStyle,
-  getGapsSourceText,
   getGapsStudentText,
-  getMatchingRightItems,
   getOrderDisplayItems,
   getTableAnswerBank,
-  QUESTION_MAX_LENGTH,
-  TEXT_BODY_MAX_LENGTH,
 } from '@/data/blockUtils'
 import { getBlockQuestion } from '@/data/taskContent'
 import { MathText } from '@/components/MathText'
 import { FigmaIcon } from '@/components/ui'
-import { WysiwygTextarea } from '@/components/WysiwygTextarea'
 import { AnswerArea } from '@/components/block/AnswerArea'
-import { FillGapsEditor, FillGapsStudent } from '@/components/block/FillGapsBody'
+import { FillGapsStudent } from '@/components/block/FillGapsBody'
+import { MatchingView } from '@/components/block/MatchingView'
 import { MediaBlockView } from '@/components/block/MediaBlockView'
 import starFilled from '@/assets/worksheet/star-filled.svg'
 import starEmpty from '@/assets/worksheet/star-empty.svg'
@@ -137,18 +132,12 @@ export function BlockCard({
 
   const question = getBlockQuestion(block)
   const isPlainText = block.type === 'text'
-  const isEditing = editable && selected && Boolean(onChangeBlock)
   const rows = block.tableRows ?? 3
   const cols = block.tableCols ?? 3
   const cells = block.tableCells
   const headers = block.tableHeaders ?? Array.from({ length: cols }, (_, i) => `Группа ${i + 1}`)
-  const gapsSource = getGapsSourceText(block)
   const gapsStudentText = getGapsStudentText(block)
   const answerStyle = block.answerAreaStyle ?? defaultAnswerStyle(subject)
-
-  const stopEditBubble = (e: { stopPropagation: () => void }) => {
-    e.stopPropagation()
-  }
 
   return (
     <div className={`ws-task-wrap ${selected ? 'selected' : ''} ${editable ? 'editable' : ''}`}>
@@ -164,34 +153,16 @@ export function BlockCard({
         />
       ) : null}
       <article
-        className={`ws-task ${selected ? 'selected' : ''} ${editable ? 'editable' : ''} ${isPlainText ? 'plain' : ''} ${dragging ? 'dragging' : ''} ${isEditing ? 'editing-inline' : ''}`}
+        className={`ws-task ${selected ? 'selected' : ''} ${editable ? 'editable' : ''} ${isPlainText ? 'plain' : ''} ${dragging ? 'dragging' : ''}`}
         onClick={editable ? onSelect : undefined}
       >
         {!isPlainText ? (
           <div className="ws-task-head">
             <span className="ws-task-num">{taskNumber}.</span>
             <div className="ws-task-main">
-              {isEditing && block.type !== 'fill_gaps' ? (
-                <div className="ws-inline-fields" onClick={stopEditBubble}>
-                  <WysiwygTextarea
-                    className="ws-inline-textarea ws-inline-question"
-                    rows={2}
-                    maxLength={QUESTION_MAX_LENGTH}
-                    value={block.question ?? ''}
-                    onChange={(q) =>
-                      onChangeBlock?.({ ...block, question: clampText(q, QUESTION_MAX_LENGTH) })
-                    }
-                  />
-                </div>
-              ) : block.type !== 'fill_gaps' ? (
-                <p className="ws-task-text">
-                  <MathText text={question} />
-                </p>
-              ) : (
-                <p className="ws-task-text">
-                  <MathText text={question} />
-                </p>
-              )}
+              <p className="ws-task-text">
+                <MathText text={question} />
+              </p>
               {showDifficulty && block.difficulty ? (
                 <div className="ws-task-meta">
                   <span className="diff-label">Сложность:</span>
@@ -202,19 +173,9 @@ export function BlockCard({
           </div>
         ) : (
           <div className="ws-task-main plain-body">
-            {isEditing ? (
-              <WysiwygTextarea
-                className="ws-inline-textarea ws-inline-body"
-                rows={8}
-                maxLength={TEXT_BODY_MAX_LENGTH}
-                value={block.body ?? ''}
-                onChange={(body) => onChangeBlock?.({ ...block, body })}
-              />
-            ) : (
-              <div className="ws-task-text">
-                <MathText text={block.body ?? ''} />
-              </div>
-            )}
+            <div className="ws-task-text">
+              <MathText text={block.body ?? ''} />
+            </div>
           </div>
         )}
 
@@ -241,63 +202,22 @@ export function BlockCard({
 
         {block.type === 'fill_gaps' ? (
           <div className="ws-task-slot">
-            {isEditing && onChangeBlock ? (
-              <>
-                <div className="ws-inline-fields" onClick={stopEditBubble}>
-                  <WysiwygTextarea
-                    className="ws-inline-textarea ws-inline-question"
-                    rows={2}
-                    maxLength={QUESTION_MAX_LENGTH}
-                    value={block.question ?? ''}
-                    onChange={(q) =>
-                      onChangeBlock({ ...block, question: clampText(q, QUESTION_MAX_LENGTH) })
-                    }
-                  />
-                </div>
-                <FillGapsEditor
-                  sourceText={gapsSource}
-                  gapWords={block.gapsAnswers ?? []}
-                  showAnswer={showAnswer}
-                  onChange={(patch) => onChangeBlock({ ...block, ...patch })}
-                />
-              </>
-            ) : (
-              <FillGapsStudent
-                text={gapsStudentText}
-                gapWords={showAnswer ? (block.gapsAnswers ?? []) : []}
-                showAnswer={showAnswer}
-              />
-            )}
+            <FillGapsStudent
+              text={gapsStudentText}
+              gapWords={showAnswer ? (block.gapsAnswers ?? []) : []}
+              showAnswer={showAnswer}
+            />
           </div>
         ) : null}
 
         {block.type === 'matching' ? (
           <div className="ws-task-slot matching-slot">
-            {(() => {
-              const left = block.leftItems ?? []
-              const right = getMatchingRightItems(block, editable, selected)
-              const count = Math.max(left.length, right.length, 0)
-              return Array.from({ length: count }, (_, i) => {
-                const l = left[i]
-                const r = right[i]
-                return (
-                  <div key={l?.id ?? r?.id ?? i} className="matching-row">
-                    <div className="match-col">
-                      <div className={`match-answer-box ${l?.text ? '' : 'placeholder'}`}>
-                        {l?.text ? <MathText text={l.text} /> : 'Ответ'}
-                      </div>
-                      <span className="match-dot" aria-hidden />
-                    </div>
-                    <div className="match-col">
-                      <span className="match-dot" aria-hidden />
-                      <div className={`match-answer-box ${r?.text ? '' : 'placeholder'}`}>
-                        {r?.text ? <MathText text={r.text} /> : 'Ответ'}
-                      </div>
-                    </div>
-                  </div>
-                )
-              })
-            })()}
+            <MatchingView
+              block={block}
+              editable={editable}
+              selected={selected}
+              showAnswer={showAnswer}
+            />
           </div>
         ) : null}
 
@@ -346,28 +266,7 @@ export function BlockCard({
                 {Array.from({ length: rows }).map((_, r) => (
                   <tr key={r}>
                     {Array.from({ length: cols }).map((_, c) => (
-                      <td key={c}>
-                        {editable && selected && onChangeBlock ? (
-                          <input
-                            className="table-cell-fill"
-                            value={cells?.[r]?.[c] ?? ''}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => {
-                              const base =
-                                cells ??
-                                Array.from({ length: rows }, () =>
-                                  Array.from({ length: cols }, () => ''),
-                                )
-                              const next = base.map((row, ri) =>
-                                row.map((cell, ci) => (ri === r && ci === c ? e.target.value : cell)),
-                              )
-                              onChangeBlock({ ...block, tableCells: next })
-                            }}
-                          />
-                        ) : (
-                          cells?.[r]?.[c] ?? ''
-                        )}
-                      </td>
+                      <td key={c}>{cells?.[r]?.[c] ?? ''}</td>
                     ))}
                   </tr>
                 ))}
@@ -385,7 +284,9 @@ export function BlockCard({
           </div>
         ) : null}
 
-        {showAnswer && (block.correctAnswers?.length || block.correctOptionId) ? (
+        {showAnswer &&
+        block.type !== 'matching' &&
+        (block.correctAnswers?.length || block.correctOptionId) ? (
           <div className="ws-task-slot">
             <div className="answer-pill">
               Ответ:{' '}

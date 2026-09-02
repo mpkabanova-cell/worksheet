@@ -192,6 +192,7 @@ export function Create({
           </aside>
 
           <div className="create-form">
+            <div className="create-form-scroll">
             <div className="create-main">
               <div className={mode === 'generate' ? 'row-3' : 'row-2'}>
                 <Field label="Предмет" required>
@@ -429,6 +430,7 @@ export function Create({
                 ) : null}
               </div>
             ) : null}
+            </div>
 
             <footer className="create-footer">
               <Button variant="secondary" size="lg" className="footer-btn" onClick={onClose}>

@@ -1,5 +1,7 @@
 .ws-page {
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
   background: var(--bg-page);
   display: flex;
   flex-direction: column;
@@ -10,6 +12,7 @@
   display: grid;
   grid-template-columns: 56px 1fr;
   min-height: 0;
+  overflow: hidden;
 }
 
 .ws-body-layout.with-side {
@@ -18,6 +21,10 @@
 
 .ws-body-layout.with-tools {
   grid-template-columns: 320px 1fr 280px;
+}
+
+.ws-body-layout > * {
+  min-height: 0;
 }
 
 /* Pages rail — Figma: px 8, py 16, gap 8, thumbs 40×56.67 */
@@ -104,6 +111,7 @@
 
 .ws-canvas {
   padding: 24px 24px 40px;
+  min-height: 0;
   overflow: auto;
   display: flex;
   justify-content: center;
@@ -121,7 +129,7 @@
   gap: 8px;
   box-shadow: 0 1px 3px rgba(22, 26, 51, 0.06);
   min-height: 900px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .sheet-header {
@@ -705,23 +713,16 @@
   max-height: 70vh;
 }
 
-.answer-cells {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.answer-cell-row {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 2px;
-}
-
-.answer-cell {
-  display: block;
-  height: 24px;
-  border: 1px solid var(--border-secondary);
-  border-radius: 2px;
+.answer-cells-grid {
+  --cell-size: 20px;
+  --cell-color: #c8cce0;
+  border: 1px solid var(--cell-color);
+  background-image:
+    linear-gradient(to right, var(--cell-color) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--cell-color) 1px, transparent 1px);
+  background-size: var(--cell-size) var(--cell-size);
+  background-position: -1px -1px;
+  flex-shrink: 0;
 }
 
 .answer-block-area {
@@ -796,24 +797,49 @@
   gap: 0;
 }
 
-.matching-row {
-  display: flex;
-  align-items: center;
+.matching-board {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 48px;
   width: 100%;
-  padding: 0;
 }
 
-.matching-row + .matching-row {
-  margin-top: 16px;
+.matching-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
 }
 
-.match-col {
-  flex: 1;
-  min-width: 0;
+.matching-lines line {
+  stroke: var(--border-brand);
+  stroke-width: 2;
+}
+
+.matching-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.matching-item {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 48px;
+}
+
+.matching-col-left .matching-item {
+  justify-content: flex-end;
+}
+
+.matching-col-right .matching-item {
+  justify-content: flex-start;
 }
 
 .match-answer-box {
@@ -828,6 +854,11 @@
   background: var(--bg-white);
 }
 
+.match-answer-box.correct-match {
+  border-color: var(--border-brand);
+  background: var(--bg-brand-soft);
+}
+
 .match-answer-box.placeholder {
   color: var(--text-tertiary);
 }
@@ -838,6 +869,12 @@
   border: 1px solid var(--text-tertiary);
   border-radius: 50%;
   flex-shrink: 0;
+  background: var(--bg-white);
+}
+
+.match-dot.correct-match {
+  border-color: var(--border-brand);
+  background: var(--bg-brand);
 }
 
 .ws-tools-sidebar {
@@ -1038,13 +1075,46 @@
 .ws-sidepanel {
   background: var(--bg-white);
   border-left: 1px solid var(--border-secondary);
-  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  width: 280px;
+  position: relative;
+}
+
+.ws-sidepanel-head {
+  flex-shrink: 0;
+  padding: 20px 20px 0;
+}
+
+.ws-sidepanel-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px 20px 20px;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  overflow: auto;
-  width: 280px;
-  position: relative;
+}
+
+.ws-settings-panel .ws-sidepanel-scroll {
+  padding-top: 20px;
+}
+
+.side-field-textarea,
+.side-field textarea,
+.side-field input {
+  border: none;
+  outline: none;
+  background: var(--bg-secondary);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: var(--text-default);
+  font-size: 16px;
+  resize: vertical;
+  width: 100%;
 }
 
 .side-head {
@@ -1064,18 +1134,6 @@
   gap: 8px;
   font-size: 14px;
   color: var(--text-secondary);
-}
-
-.side-field input,
-.side-field textarea {
-  border: none;
-  outline: none;
-  background: var(--bg-secondary);
-  border-radius: 10px;
-  padding: 12px 14px;
-  color: var(--text-default);
-  font-size: 16px;
-  resize: vertical;
 }
 
 .diff-picker {

@@ -620,7 +620,12 @@ export default function App() {
         onSoon={showToast}
       />
 
-      <PrototypeNav screen={screen} onScreen={goScreen} onModal={setModal} />
+      <PrototypeNav
+        screen={screen}
+        onScreen={goScreen}
+        onModal={setModal}
+        hidden={showCreateOverlay}
+      />
     </>
   )
 }

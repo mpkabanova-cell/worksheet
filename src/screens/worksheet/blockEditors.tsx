@@ -6,14 +6,17 @@ import {
   clampTableRows,
   clampText,
   defaultAnswerStyle,
+  getGapsSourceText,
   MATCHING_PAIRS_MAX,
   MATCHING_PAIRS_MIN,
   ORDER_ITEMS_MAX,
   ORDER_ITEMS_MIN,
   QUESTION_MAX_LENGTH,
   shuffleArray,
+  TEXT_BODY_MAX_LENGTH,
 } from '@/data/blockUtils'
 import { Button, Input, Select, Textarea } from '@/components/ui'
+import { FillGapsEditor } from '@/components/block/FillGapsBody'
 import { uid } from '@/data/worksheet'
 import starFilled from '@/assets/worksheet/star-filled.svg'
 import starEmpty from '@/assets/worksheet/star-empty.svg'
@@ -38,16 +41,26 @@ export function BlockEditorPanel({
   if (block.type === 'text') {
     return (
       <aside className="ws-sidepanel">
-        <div className="side-head">
+        <div className="side-head ws-sidepanel-head">
           <h3>Текстовый блок</h3>
           <button type="button" className="icon-btn" onClick={onClose} aria-label="Закрыть">
             ×
           </button>
         </div>
-        <p className="side-hint">У текстового блока нет дополнительных настроек. Редактируйте текст прямо на листе.</p>
-        <Button variant="danger-soft" onClick={onRemove}>
-          Удалить блок
-        </Button>
+        <div className="ws-sidepanel-scroll">
+          <label className="side-field">
+            <span>Текст</span>
+            <Textarea
+              rows={12}
+              maxLength={TEXT_BODY_MAX_LENGTH}
+              value={block.body ?? ''}
+              onChange={(e) => onChange({ ...block, body: e.target.value })}
+            />
+          </label>
+          <Button variant="danger-soft" onClick={onRemove}>
+            Удалить блок
+          </Button>
+        </div>
       </aside>
     )
   }
@@ -88,27 +101,14 @@ export function BlockEditorPanel({
 
   return (
     <aside className="ws-sidepanel">
-      <div className="side-head">
+      <div className="side-head ws-sidepanel-head">
         <h3>Редактирование блока</h3>
         <button type="button" className="icon-btn" onClick={onClose} aria-label="Закрыть">
           ×
         </button>
       </div>
 
-      {block.type !== 'table' && block.type !== 'fill_gaps' ? (
-        <label className="side-field">
-          <span>Вопрос / текст</span>
-          <Textarea
-            rows={4}
-            maxLength={QUESTION_MAX_LENGTH}
-            value={block.question ?? ''}
-            onChange={(e) =>
-              onChange({ ...block, question: clampText(e.target.value, QUESTION_MAX_LENGTH) })
-            }
-          />
-        </label>
-      ) : null}
-
+      <div className="ws-sidepanel-scroll">
       {block.type === 'fill_gaps' ? (
         <>
           <label className="side-field">
@@ -142,7 +142,27 @@ export function BlockEditorPanel({
               <span className="knob" />
             </button>
           </div>
+          <FillGapsEditor
+            sourceText={getGapsSourceText(block)}
+            gapWords={block.gapsAnswers ?? []}
+            showAnswer={false}
+            onChange={(patch) => onChange({ ...block, ...patch })}
+          />
         </>
+      ) : null}
+
+      {block.type !== 'table' && block.type !== 'fill_gaps' ? (
+        <label className="side-field">
+          <span>Вопрос / текст</span>
+          <Textarea
+            rows={4}
+            maxLength={QUESTION_MAX_LENGTH}
+            value={block.question ?? ''}
+            onChange={(e) =>
+              onChange({ ...block, question: clampText(e.target.value, QUESTION_MAX_LENGTH) })
+            }
+          />
+        </label>
       ) : null}
 
       {(block.type === 'short_answer' || block.type === 'extended_answer') && (
@@ -157,7 +177,13 @@ export function BlockEditorPanel({
               onChange={(e) =>
                 onChange({
                   ...block,
-                  answerLines: Math.max(1, Math.min(block.type === 'extended_answer' ? 6 : 2, Number(e.target.value) || 1)),
+                  answerLines: Math.max(
+                    1,
+                    Math.min(
+                      block.type === 'extended_answer' ? 6 : 2,
+                      Number(e.target.value) || 1,
+                    ),
+                  ),
                 })
               }
             />
@@ -275,6 +301,7 @@ export function BlockEditorPanel({
       <Button variant="danger-soft" onClick={onRemove}>
         Удалить блок
       </Button>
+      </div>
     </aside>
   )
 }

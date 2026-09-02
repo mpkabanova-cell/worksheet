@@ -97,6 +97,15 @@
   display: flex;
   flex-direction: column;
   gap: 32px;
+  min-height: 0;
+}
+
+.create-form-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  flex: 1;
+  min-height: 0;
 }
 
 .create-main {
@@ -417,7 +426,10 @@
 
 .footer-btn {
   width: 160px;
-  min-width: 160px;
+  min-width: 0;
+  max-width: 100%;
+  flex: 0 1 160px;
+  box-sizing: border-box;
 }
 
 @media (max-width: 900px) {
@@ -526,22 +538,30 @@
 
 .create-page--overlay .create-form {
   background: var(--bg-white);
-  padding: 40px 32px 32px;
+  padding: 0;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.create-page--overlay .create-form-scroll {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  display: flex;
-  flex-direction: column;
+  padding: 40px 32px 24px;
   gap: 24px;
 }
 
 .create-page--overlay .create-footer {
-  position: sticky;
-  bottom: 0;
-  margin-top: auto;
-  padding: 16px 0 0;
-  background: linear-gradient(to top, var(--bg-white) 70%, rgba(255, 255, 255, 0));
-  z-index: 1;
+  flex-shrink: 0;
+  margin-top: 0;
+  padding: 16px 32px 32px;
+  background: var(--bg-white);
+  border-top: 1px solid var(--border-secondary);
+  box-sizing: border-box;
 }
 
 .create-page--overlay .create-footer .btn-secondary {
@@ -606,8 +626,12 @@
     min-height: 44px;
   }
 
-  .create-page--overlay .create-form {
-    padding: 20px 16px;
+  .create-page--overlay .create-form-scroll {
+    padding: 20px 16px 16px;
+  }
+
+  .create-page--overlay .create-footer {
+    padding: 12px 16px 16px;
   }
 
   .create-page {
@@ -626,6 +650,7 @@
 
   .footer-btn {
     width: 100%;
+    flex: 1 1 auto;
   }
 }
 

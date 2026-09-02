@@ -72,6 +72,19 @@ function toBlock(
     id: `option_${i + 1}`,
     text,
   }))
+  const leftItems = task.left_items?.map((text, i) => ({ id: `left_${i + 1}`, text }))
+  const rightItems = task.right_items?.map((text, i) => ({ id: `right_${i + 1}`, text }))
+  let correctAnswers = task.correct_answers
+  if (
+    type === 'matching' &&
+    leftItems?.length &&
+    rightItems?.length &&
+    (!correctAnswers?.length || correctAnswers.every((answer) => !answer.trim()))
+  ) {
+    correctAnswers = leftItems.map(
+      (left, i) => `${left.text} → ${rightItems[i]?.text ?? ''}`.trim(),
+    )
+  }
   return {
     id: uid('task'),
     type,
@@ -86,12 +99,12 @@ function toBlock(
         ? `option_${task.correct_option_index + 1}`
         : undefined,
     correctOptionIds: task.correct_option_indexes?.map((i) => `option_${i + 1}`),
-    correctAnswers: task.correct_answers,
+    correctAnswers,
     answerLines: task.answer_lines,
     gapsText: normalized.gaps_text,
     gapsAnswers: task.gaps_answers,
-    leftItems: task.left_items?.map((text, i) => ({ id: `left_${i + 1}`, text })),
-    rightItems: task.right_items?.map((text, i) => ({ id: `right_${i + 1}`, text })),
+    leftItems,
+    rightItems,
     groups: task.groups?.map((g, i) => ({ id: `g${i + 1}`, title: g.title, items: g.items })),
     orderItems: task.order_items,
     difficulty: task.difficulty ?? stars(index, draft.taskCount, draft.difficulty),

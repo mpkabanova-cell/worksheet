@@ -27,6 +27,22 @@ export function FillGapsEditor({ sourceText, gapWords, showAnswer, onChange }: F
 
   return (
     <div className="gaps-slot">
+      <label className="side-field">
+        <span>Текст с пропусками</span>
+        <textarea
+          className="side-field-textarea gaps-source-textarea"
+          rows={6}
+          value={sourceText}
+          placeholder="Введите текст задания…"
+          onChange={(e) =>
+            onChange({
+              gapsSourceText: e.target.value,
+              gapsText: undefined,
+            })
+          }
+        />
+      </label>
+      <p className="side-hint">Выделите слово в тексте ниже и отметьте его как пропуск.</p>
       <div className="gaps-interactive">
         {tokens.map((token, i) => {
           if (/^\s+$/.test(token)) {
@@ -67,18 +83,6 @@ export function FillGapsEditor({ sourceText, gapWords, showAnswer, onChange }: F
           ))}
         </div>
       )}
-      <textarea
-        className="ws-inline-textarea ws-inline-gaps-source"
-        rows={4}
-        value={sourceText}
-        placeholder="Введите текст задания…"
-        onChange={(e) =>
-          onChange({
-            gapsSourceText: e.target.value,
-            gapsText: undefined,
-          })
-        }
-      />
     </div>
   )
 }

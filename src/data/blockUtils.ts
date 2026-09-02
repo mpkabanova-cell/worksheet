@@ -14,6 +14,9 @@ export const ORDER_ITEMS_MAX = 10
 export const MATCHING_PAIRS_MIN = 2
 export const MATCHING_PAIRS_MAX = 10
 
+export const ANSWER_CELL_SIZE = 20
+export const ANSWER_CELL_COLS = 14
+
 const GRID_SUBJECTS = new Set([
   'Математика',
   'Физика',
@@ -115,6 +118,69 @@ export function getMatchingRightItems(
   if (editable && selected) return items
   if (block.matchingDisplayRight?.length === items.length) return block.matchingDisplayRight
   return stableShuffle(items, `${block.id}-right`)
+}
+
+export function normalizeMatchText(value: string): string {
+  return value
+    .trim()
+    .replace(/^["'«]|["'»]$/g, '')
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+}
+
+export function getMatchingCorrectLinks(
+  block: WorksheetBlock,
+  displayRight: { id: string; text: string }[],
+): { leftIndex: number; rightIndex: number }[] {
+  const left = block.leftItems ?? []
+  const canonicalRight = block.rightItems ?? []
+
+  const findRightIndex = (raw: string): number => {
+    const normalized = normalizeMatchText(raw)
+    let index = displayRight.findIndex((item) => normalizeMatchText(item.text) === normalized)
+    if (index >= 0) return index
+
+    const canonicalIndex = canonicalRight.findIndex(
+      (item) => normalizeMatchText(item.text) === normalized || item.id === raw.trim(),
+    )
+    if (canonicalIndex < 0) return -1
+    const target = canonicalRight[canonicalIndex]
+    index = displayRight.findIndex((item) => item.id === target.id)
+    return index
+  }
+
+  if (block.correctAnswers?.length) {
+    return block.correctAnswers
+      .map((answer) => {
+        const idMatch = answer.match(/^(left_\d+)\s*(?:→|->)\s*(right_\d+)/i)
+        if (idMatch) {
+          return {
+            leftIndex: left.findIndex((item) => item.id === idMatch[1]),
+            rightIndex: displayRight.findIndex((item) => item.id === idMatch[2]),
+          }
+        }
+
+        const parts = answer.split(/\s*(?:→|->)\s*/)
+        if (parts.length === 2) {
+          const leftIndex = left.findIndex(
+            (item) => normalizeMatchText(item.text) === normalizeMatchText(parts[0]),
+          )
+          return { leftIndex, rightIndex: findRightIndex(parts[1]) }
+        }
+
+        return { leftIndex: -1, rightIndex: -1 }
+      })
+      .filter((pair) => pair.leftIndex >= 0 && pair.rightIndex >= 0)
+  }
+
+  return left
+    .map((_, leftIndex) => {
+      const target = canonicalRight[leftIndex]
+      if (!target) return { leftIndex, rightIndex: -1 }
+      const rightIndex = displayRight.findIndex((item) => item.id === target.id)
+      return { leftIndex, rightIndex }
+    })
+    .filter((pair) => pair.rightIndex >= 0)
 }
 
 export function getTableAnswerBank(block: WorksheetBlock, editable: boolean, selected: boolean): string[] {

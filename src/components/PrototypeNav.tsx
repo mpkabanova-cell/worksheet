@@ -35,12 +35,25 @@ interface PrototypeNavProps {
   screen: Screen
   onScreen: (screen: Screen) => void
   onModal: (modal: Modal) => void
+  hidden?: boolean
 }
 
-export function PrototypeNav({ screen, onScreen, onModal }: PrototypeNavProps) {
+export function PrototypeNav({ screen, onScreen, onModal, hidden = false }: PrototypeNavProps) {
+  if (hidden) return null
+
   return (
     <details className="proto-nav">
-      <summary>Экраны макета</summary>
+      <summary aria-label="Экраны макета">
+        <span className="proto-nav-icon" aria-hidden>
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <rect x="2.5" y="2.5" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+            <rect x="11.5" y="2.5" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+            <rect x="2.5" y="11.5" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+            <rect x="11.5" y="11.5" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+          </svg>
+        </span>
+        <span className="proto-nav-title">Экраны макета</span>
+      </summary>
       <div className="proto-body">
         <p>Экраны</p>
         <div className="proto-list">

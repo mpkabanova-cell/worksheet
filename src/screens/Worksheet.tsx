@@ -387,6 +387,7 @@ export function WorksheetScreen({
 
         {mode === 'edit' ? (
           <aside className="ws-sidepanel ws-settings-panel">
+            <div className="ws-sidepanel-scroll">
             <h3>Настройки рабочего листа</h3>
             <label className="side-field">
               <span>Предмет</span>
@@ -454,6 +455,7 @@ export function WorksheetScreen({
               <button type="button" className="history-btn" onClick={onRedo} aria-label="Повторить">
                 <FigmaIcon src={iconRedo} size={20} />
               </button>
+            </div>
             </div>
           </aside>
         ) : null}
