@@ -7,10 +7,7 @@ import {
   answerStyleOptionsForSubject,
   CHOICE_FORMAT_OPTIONS,
   CHOICE_OPTION_COUNT_DEFAULT,
-  CHOICE_OPTION_COUNT_MAX,
-  CHOICE_OPTION_COUNT_MIN,
-  CHOICE_OPTION_MAX,
-  CHOICE_QUESTION_MAX,
+  CHOICE_OPTION_COUNT_OPTIONS,
   choiceFormatFromLabel,
   choiceLabelFromFormat,
   clampAnswerHeight,
@@ -81,9 +78,6 @@ export function AnswerTaskSettingsPanel({
             })
           }
         />
-        <span className="side-field-hint">
-          Высота от {range.min} до {range.max}
-        </span>
       </label>
     </section>
   )
@@ -103,7 +97,7 @@ export function ChoiceTaskSettingsPanel({
     <section className="ws-task-settings-panel">
       <p className="side-section-heading">Настройки задания</p>
       <label className="side-field">
-        <span>Формат вариантов ответа</span>
+        <span>Тип ответов</span>
         <Select
           options={CHOICE_FORMAT_OPTIONS}
           value={choiceLabelFromFormat(format)}
@@ -114,12 +108,10 @@ export function ChoiceTaskSettingsPanel({
         />
       </label>
       <label className="side-field">
-        <span>Количество вариантов</span>
-        <Input
-          type="number"
-          min={CHOICE_OPTION_COUNT_MIN}
-          max={CHOICE_OPTION_COUNT_MAX}
-          value={count}
+        <span>Количество ответов</span>
+        <Select
+          options={CHOICE_OPTION_COUNT_OPTIONS}
+          value={String(count)}
           onChange={(e) => {
             const nextCount = clampChoiceOptionCount(Number(e.target.value) || CHOICE_OPTION_COUNT_DEFAULT)
             const nextBlock = {
@@ -133,12 +125,9 @@ export function ChoiceTaskSettingsPanel({
             })
           }}
         />
-        <span className="side-field-hint">
-          От {CHOICE_OPTION_COUNT_MIN} до {CHOICE_OPTION_COUNT_MAX}
-        </span>
       </label>
       <div className="side-switch-row">
-        <span>Перемешивание вариантов</span>
+        <span>Перемешать ответы</span>
         <button
           type="button"
           role="switch"
@@ -155,9 +144,6 @@ export function ChoiceTaskSettingsPanel({
           <span className="knob" />
         </button>
       </div>
-      <p className="side-field-hint side-field-hint--static">
-        Вопрос — до {CHOICE_QUESTION_MAX} символов, вариант — до {CHOICE_OPTION_MAX}
-      </p>
     </section>
   )
 }

@@ -295,8 +295,8 @@
 }
 
 .ws-right-divider {
-  height: 24px;
   flex-shrink: 0;
+  margin: 0 20px;
   border-bottom: 1px solid var(--border-secondary);
 }
 
@@ -336,10 +336,16 @@
 
 .ws-task-settings-panel .side-field input,
 .ws-task-settings-panel .select-wrap .input.select {
+  border: none;
   border-radius: 8px;
   padding: 10px 14px;
   font-size: 14px;
   line-height: 20px;
+  background: var(--bg-secondary);
+}
+
+.ws-task-settings-panel .side-switch-row {
+  padding: 8px 20px;
 }
 
 .ws-task-settings-panel .side-field-hint {

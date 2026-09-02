@@ -19,6 +19,11 @@ export const CHOICE_FORMAT_LABELS: Record<ChoiceOptionFormat, string> = {
   text_image: 'Текст и изображение',
 }
 
+export const CHOICE_OPTION_COUNT_OPTIONS = Array.from(
+  { length: CHOICE_OPTION_COUNT_MAX - CHOICE_OPTION_COUNT_MIN + 1 },
+  (_, index) => String(index + CHOICE_OPTION_COUNT_MIN),
+)
+
 export const CHOICE_FORMAT_OPTIONS = (Object.keys(CHOICE_FORMAT_LABELS) as ChoiceOptionFormat[]).map(
   (key) => CHOICE_FORMAT_LABELS[key],
 )
