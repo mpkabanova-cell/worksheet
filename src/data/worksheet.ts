@@ -140,6 +140,9 @@ export interface WorksheetDraft {
   blocks: WorksheetBlock[]
   pages: number
   print: PrintSettings
+  contextFileName?: string
+  contextFileText?: string
+  contextFileNote?: string
   savedAt?: string
 }
 
@@ -158,6 +161,9 @@ export const SUBJECTS = [
 export const GRADES = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', 'Другое']
 
 export const TASK_COUNTS = Array.from({ length: 15 }, (_, i) => String(i + 1))
+
+/** Максимальная длина поля «Пожелания» (Create, перегенерация, промпты). */
+export const WISHES_MAX_LENGTH = 2000
 
 export const TASK_TYPE_META: {
   type: TaskType

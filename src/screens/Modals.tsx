@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button, Field, Icon, Input, ModalShell, Select, Textarea } from '@/components/ui'
-import { GRADES, PLAN_TASK_TYPES, SUBJECTS, labelForType } from '@/data/worksheet'
+import { GRADES, PLAN_TASK_TYPES, SUBJECTS, labelForType, WISHES_MAX_LENGTH } from '@/data/worksheet'
 import type { Modal, TaskType, WorksheetDraft } from '@/data/worksheet'
 import './Modals.css'
 
@@ -372,8 +372,8 @@ export function Modals({
             <Textarea
               value={draft.wishes}
               placeholder="Что изменить: сложность, типы заданий, акценты..."
-              maxLength={500}
-              counter={`${draft.wishes.length}/500`}
+              maxLength={WISHES_MAX_LENGTH}
+              counter={`${draft.wishes.length}/${WISHES_MAX_LENGTH}`}
               onChange={(e) => onChangeDraft({ ...draft, wishes: e.target.value })}
             />
           </Field>

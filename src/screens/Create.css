@@ -161,6 +161,16 @@
   background: #e4e6f7;
 }
 
+.file-clear-btn {
+  min-height: 40px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid var(--border-secondary);
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
 .row-3 {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

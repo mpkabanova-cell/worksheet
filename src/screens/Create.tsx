@@ -6,6 +6,7 @@ import iconClose from '@/assets/create/close.svg'
 import iconClear from '@/assets/create/clear.svg'
 import { Button, Field, FigmaIcon, Input, Select, Textarea } from '@/components/ui'
 import { generatePlanAI } from '@/data/ai'
+import { extractContextFile } from '@/data/contextFile'
 import { createPlan } from '@/data/worksheet'
 import type { DifficultyMode, TaskType, WorksheetDraft } from '@/data/worksheet'
 import {
@@ -14,6 +15,7 @@ import {
   PLAN_TASK_TYPES,
   SUBJECTS,
   TASK_COUNTS,
+  WISHES_MAX_LENGTH,
 } from '@/data/worksheet'
 import './Create.css'
 
@@ -44,6 +46,7 @@ export function Create({
   const [planError, setPlanError] = useState('')
   const [dragPlanIdx, setDragPlanIdx] = useState<number | null>(null)
   const [attachedFile, setAttachedFile] = useState<File | null>(null)
+  const [fileBusy, setFileBusy] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -99,7 +102,7 @@ export function Create({
     }
   }
 
-  const pickFile = (file: File | null) => {
+  const pickFile = async (file: File | null) => {
     if (!file) return
     if (file.size > 10 * 1024 * 1024) {
       onSoon?.('Файл не должен весить больше 10 Мб')
@@ -111,7 +114,39 @@ export function Create({
       onSoon?.('Формат — docx, pdf, jpg, png')
       return
     }
+
     setAttachedFile(file)
+    setFileBusy(true)
+    try {
+      const extracted = await extractContextFile(file)
+      onChange({
+        ...draft,
+        contextFileName: extracted.name,
+        contextFileText: extracted.text || undefined,
+        contextFileNote: extracted.note,
+      })
+    } catch {
+      onSoon?.('Не удалось обработать файл')
+      onChange({
+        ...draft,
+        contextFileName: file.name,
+        contextFileText: undefined,
+        contextFileNote: `Файл «${file.name}» приложён, но текст не извлечён.`,
+      })
+    } finally {
+      setFileBusy(false)
+    }
+  }
+
+  const clearFile = () => {
+    setAttachedFile(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+    onChange({
+      ...draft,
+      contextFileName: undefined,
+      contextFileText: undefined,
+      contextFileNote: undefined,
+    })
   }
 
   return (
@@ -219,8 +254,8 @@ export function Create({
                       className="wishes-textarea"
                       placeholder="Особенности группы, акценты, ограничение по времени, опорный материал…"
                       value={draft.wishes}
-                      maxLength={2000}
-                      counter={`${draft.wishes.length}/2000`}
+                      maxLength={WISHES_MAX_LENGTH}
+                      counter={`${draft.wishes.length}/${WISHES_MAX_LENGTH}`}
                       onChange={(e) => onChange({ ...draft, wishes: e.target.value })}
                     />
                   </Field>
@@ -235,11 +270,11 @@ export function Create({
                   >
                     <div className="file-dropzone-copy">
                       <strong>
-                        {attachedFile
-                          ? attachedFile.name
+                        {attachedFile?.name || draft.contextFileName
+                          ? attachedFile?.name || draft.contextFileName
                           : 'Перетащите сюда файл или выберите на компьютере'}
                       </strong>
-                      {!attachedFile ? (
+                      {!attachedFile && !draft.contextFileName ? (
                         <p>
                           файл не должен весить больше 10 Мб.
                           <br />
@@ -258,9 +293,15 @@ export function Create({
                       type="button"
                       className="file-pick-btn"
                       onClick={() => fileInputRef.current?.click()}
+                      disabled={fileBusy}
                     >
-                      {attachedFile ? 'Заменить файл' : 'Выбрать файл'}
+                      {fileBusy ? 'Обработка…' : attachedFile || draft.contextFileName ? 'Заменить файл' : 'Выбрать файл'}
                     </button>
+                    {attachedFile || draft.contextFileName ? (
+                      <button type="button" className="file-clear-btn" onClick={clearFile}>
+                        Удалить файл
+                      </button>
+                    ) : null}
                   </div>
                 </>
               ) : null}

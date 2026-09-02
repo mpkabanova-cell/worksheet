@@ -101,10 +101,19 @@ function toBlock(
 function ensurePlan(draft: WorksheetDraft): PlanTask[] {
   const count = Math.min(15, Math.max(1, draft.taskCount || draft.plan.length || 5))
   if (draft.plan.length === count) return draft.plan
-  return createPlan(
-    count,
-    draft.plan.map((p) => p.taskType),
-  )
+  if (draft.plan.length > count) return draft.plan.slice(0, count)
+
+  const types = draft.plan.map((p) => p.taskType)
+  const padded: PlanTask[] = [...draft.plan]
+  while (padded.length < count) {
+    const type = types[padded.length % Math.max(types.length, 1)] ?? 'short_answer'
+    padded.push({
+      id: `plan-${Date.now()}-${padded.length}`,
+      taskType: type,
+      userExpectation: '',
+    })
+  }
+  return padded
 }
 
 export async function generatePlanAI(draft: WorksheetDraft): Promise<PlanTask[]> {

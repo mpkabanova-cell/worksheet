@@ -1,5 +1,7 @@
 import type { DifficultyMode, TaskType, WorksheetBlock, WorksheetDraft } from './worksheet'
-import { PLAN_TASK_TYPES, labelForType } from './worksheet'
+import { PLAN_TASK_TYPES, WISHES_MAX_LENGTH, labelForType } from './worksheet'
+import { getGapsSourceText } from './blockUtils'
+import { referenceFilePayload } from './contextFile'
 
 const TASK_TYPES_LIST = PLAN_TASK_TYPES.map((t) => `${t.type} — ${t.label} (${t.hint})`).join('\n')
 
@@ -118,6 +120,13 @@ const OUTPUT_FORMAT = `Формат ответа:
 - Верни ТОЛЬКО валидный JSON-объект (без текста вокруг, без markdown-обёртки всего ответа).
 - Правила языка, Markdown и LaTeX применяются к содержимому строковых полей JSON, а не к оболочке ответа.`
 
+const CONTEXT_USAGE_RULES = `
+[Контекст учителя и сложность]
+- Если teacher_wishes не null — обязательно учитывай акценты, ограничения и пожелания из этого поля.
+- Поле difficulty у каждого задания выставляй строго по difficulty_guidance из user JSON.
+- Если reference_file не null и content не пустой — используй его как опорный материал (конспект, учебник, образец). Не копируй дословно большие фрагменты; адаптируй под класс и тему.
+- Если reference_file.content null, но reference_file.note не null — учитывай note (например, приложено изображение или PDF без текста).`
+
 function difficultyHint(mode: DifficultyMode): string {
   switch (mode) {
     case 'starter':
@@ -136,11 +145,12 @@ function contextPayload(draft: WorksheetDraft) {
     subject: draft.subject,
     grade: `${draft.grade} класс`,
     topic: draft.topic,
-    teacher_wishes: draft.wishes?.trim() || null,
+    teacher_wishes: draft.wishes?.trim().slice(0, WISHES_MAX_LENGTH) || null,
     task_count: draft.taskCount,
     difficulty_mode: draft.difficulty,
     difficulty_guidance: difficultyHint(draft.difficulty),
     add_intro: draft.addIntro,
+    reference_file: referenceFilePayload(draft),
   }
 }
 
@@ -153,13 +163,20 @@ function planPayload(draft: WorksheetDraft) {
   }))
 }
 
+function blockBriefText(block: WorksheetBlock): string {
+  if (block.type === 'fill_gaps') {
+    return block.question || getGapsSourceText(block) || ''
+  }
+  return block.question || block.body || ''
+}
+
 function existingTasksBrief(blocks: WorksheetBlock[]) {
   return blocks
     .filter((b) => !['page_break', 'text', 'answer_field', 'table'].includes(b.type))
     .map((b, i) => ({
       index: i + 1,
       type: b.type,
-      question: b.question || b.gapsText || b.body || '',
+      question: blockBriefText(b),
     }))
 }
 
@@ -183,6 +200,8 @@ ${OUTPUT_FORMAT}
 - Чередуй типы, не ставь подряд больше двух одинаковых.
 - Логика: от простого к сложному / от узнавания к применению.
 - Учитывай предмет, класс, тему и пожелания учителя.
+
+${CONTEXT_USAGE_RULES}
 
 ${EXPECTATION_FIELD_RULES}
 
@@ -227,7 +246,9 @@ ${CONTENT_RULES}
 - order_items: дай перемешанный порядок; correct_answers — правильная последовательность.
 - matching: right_items перемешай относительно left_items; в correct_answers укажи пары «лево → право».
 - fill_gaps: question — короткая формулировка задания (1 предложение: что сделать). gaps_text — только текст с пропусками ___; не дублируй question и gaps_text. Правила и теорию не помещай в question — только в gaps_text, если они нужны как контекст перед строками с пропусками.
-- matching: question обязателен — ясно укажи, что нужно сопоставить (например, «Сопоставьте слова с значениями приставок»). Не оставляй question пустым.`
+- matching: question обязателен — ясно укажи, что нужно сопоставить (например, «Сопоставьте слова с значениями приставок»). Не оставляй question пустым.
+
+${CONTEXT_USAGE_RULES}`
 
   const user = JSON.stringify(
     {
@@ -264,7 +285,9 @@ ${CONTENT_RULES}
 - Поле instruction — всегда "".
 - Если есть teacher_expectation — это установка вида «Решить квадратное уравнение» / «Сопоставить…». Разверни в question без служебных преамбул и без местоимений; не копируй expectation дословно.
 - fill_gaps: question — короткое задание; gaps_text — упражнение с пропусками, без дублирования question.
-- matching: question обязателен и понятен ученику.`
+- matching: question обязателен и понятен ученику.
+
+${CONTEXT_USAGE_RULES}`
 
   const user = JSON.stringify(
     {
