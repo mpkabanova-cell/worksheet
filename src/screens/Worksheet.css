@@ -227,20 +227,21 @@
   text-align: center;
 }
 
-/* Task widget — Figma: p 12, gap 16 between head and slot; no full-width border */
+/* Task widget — Figma: px 8 py 12, gap 12, no border in default */
 .ws-task {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 12px;
+  gap: 12px;
+  padding: 12px 8px;
   border-radius: 12px;
   width: 100%;
   background: var(--bg-white);
+  border: 1px solid transparent;
+  box-sizing: border-box;
 }
 
 .ws-task.editable {
   cursor: pointer;
-  border: 1px solid var(--border-secondary);
 }
 
 .ws-task.editable:hover:not(.selected):not(.ws-task--active),
@@ -288,7 +289,7 @@
 }
 
 .ws-task.ws-task--default.editable {
-  border: 1px solid var(--border-secondary);
+  border-color: transparent;
   background: var(--bg-white);
   box-shadow: none;
 }
@@ -433,31 +434,10 @@
   padding-right: 80px;
 }
 
-.ws-task-head--answer .ws-task-height-badge {
-  position: absolute;
-  top: 0;
-  right: 0;
-}
-
 .ws-task-question-row .ws-task-text,
 .ws-task-question-row .ws-inline-textarea {
   flex: 1;
   min-width: 0;
-}
-
-.ws-task-height-badge {
-  flex-shrink: 0;
-  min-width: 24px;
-  height: 24px;
-  padding: 0 6px;
-  border-radius: 6px;
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 16px;
-  display: grid;
-  place-items: center;
 }
 
 .ws-task-issued-label {
@@ -644,13 +624,9 @@
 }
 
 .ws-task.answer-task .ws-task-num {
-  color: var(--text-secondary);
-}
-
-.ws-task.answer-task.ws-task--active .ws-task-num,
-.ws-task.answer-task.editing-inline .ws-task-num {
   font-size: 16px;
   line-height: 24px;
+  color: var(--text-secondary);
 }
 
 .ws-task-main {
@@ -670,14 +646,14 @@
   color: var(--text-default);
 }
 
-.ws-task.answer-task .ws-task-text.is-placeholder {
-  color: var(--text-secondary);
-}
-
-.ws-task.answer-task.ws-task--active .ws-task-text,
-.ws-task.answer-task.editing-inline .ws-inline-textarea {
+.ws-task.answer-task .ws-task-text,
+.ws-task.answer-task .ws-inline-textarea {
   font-size: 16px;
   line-height: 24px;
+}
+
+.ws-task.answer-task .ws-task-text.is-placeholder {
+  color: var(--text-secondary);
 }
 
 .ws-task.answer-task.editing-inline .ws-inline-textarea {
@@ -1270,6 +1246,8 @@
 
 .answer-cells-wrap {
   width: 100%;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .answer-cells-slot {
@@ -1280,9 +1258,9 @@
   position: relative;
   flex-shrink: 0;
   box-sizing: border-box;
+  max-width: 100%;
   --cell-size: 16px;
   --cell-color: #c8cce0;
-  border: 1px solid var(--cell-color);
   overflow: hidden;
   background-color: var(--bg-white);
   background-image:

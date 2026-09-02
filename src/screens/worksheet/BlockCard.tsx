@@ -4,7 +4,6 @@ import type { BlockPreviewState, WorksheetBlock } from '@/data/worksheet'
 import {
   clampText,
   getBlockAnswerStyle,
-  getConfiguredAnswerLines,
   getCorrectAnswerText,
   getChoiceQuestionMaxLength,
   getGapsSourceText,
@@ -202,7 +201,6 @@ export function BlockCard({
   const isAnswerBlock = block.type === 'short_answer' || block.type === 'extended_answer'
   const isChoiceTask = isChoiceBlock(block)
   const questionMaxLength = getChoiceQuestionMaxLength(block)
-  const configuredHeight = isAnswerBlock ? getConfiguredAnswerLines(block, subject) : 0
   const effectiveShowAnswer = showAnswer || previewState === 'show-answer'
   const visualState: BlockPreviewState =
     previewState && (isAnswerBlock || isChoiceTask)
@@ -211,7 +209,7 @@ export function BlockCard({
         ? 'issued'
         : effectiveShowAnswer && (isAnswerBlock || isChoiceTask)
           ? 'show-answer'
-          : selected
+          : editable && selected
             ? 'active'
             : 'default'
   const choiceFormat = block.choiceOptionFormat ?? 'text'
@@ -318,11 +316,6 @@ export function BlockCard({
                 </div>
               ) : null}
             </div>
-            {isAnswerBlock && selected ? (
-              <span className="ws-task-height-badge" aria-label={`Высота блока ${configuredHeight}`}>
-                {configuredHeight}
-              </span>
-            ) : null}
           </div>
         ) : (
           <div className="ws-task-main plain-body">

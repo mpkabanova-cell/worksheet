@@ -45,6 +45,7 @@ export function AnswerCellsGrid({
         className={`answer-cells-grid${mode === 'edit' ? ' answer-area-editable' : ''}${mode === 'readonly' ? ' answer-area-readonly' : ''}`}
         style={{
           width: gridWidth,
+          maxWidth: '100%',
           height: gridHeight,
           ['--cell-size' as string]: `${ANSWER_CELL_SIZE}px`,
           ['--cols' as string]: String(cols),

@@ -588,13 +588,17 @@ export default function App() {
           onBack={() => setScreen('home')}
           onMaterials={() => setScreen('worksheets-list')}
           onEdit={() => setScreen('edit')}
-          onPreview={() => setScreen('preview')}
+          onPreview={() => {
+            setSelectedBlockId(null)
+            setScreen('preview')
+          }}
           onConvert={() => setModal('convert')}
           onDownload={() => setScreen('print')}
           onMenu={() => setModal('menu')}
           onSettings={() => setModal('settings')}
           onShowAnswers={() => {
             setDraft((d) => ({ ...d, showAnswers: !d.showAnswers }))
+            setSelectedBlockId(null)
             setScreen((s) => (s === 'show-answers' ? 'preview' : 'show-answers'))
           }}
           onAddBlockOpen={() => setScreen('edit')}
