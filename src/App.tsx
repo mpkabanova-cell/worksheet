@@ -13,7 +13,7 @@ import {
   loadWorksheet,
   uid,
 } from '@/data/worksheet'
-import { isPageEmpty, removePageFromDraft } from '@/data/blockUtils'
+import { isPageEmpty, removePageFromDraft, syncPagesFromBreaks } from '@/data/blockUtils'
 import type { Modal, NavId, Screen, TaskType, WorksheetBlock, WorksheetDraft } from '@/data/worksheet'
 import { Home } from '@/screens/Home'
 import { Create } from '@/screens/Create'
@@ -170,6 +170,18 @@ export default function App() {
     }
   }, [screen, selectedBlockId, draft.blocks])
 
+  useEffect(() => {
+    if (
+      screen === 'edit' ||
+      screen === 'edit-widget' ||
+      screen === 'preview' ||
+      screen === 'show-answers' ||
+      screen === 'print'
+    ) {
+      setDraft((d) => syncPagesFromBreaks(d))
+    }
+  }, [screen])
+
   const openCreate = (advanced = false) => {
     setDraft(emptyDraft())
     setCreateAdvanced(advanced)
@@ -209,42 +221,48 @@ export default function App() {
 
   const addBlock = (type: TaskType, insertBeforeId?: string | null) => {
     if (type === 'page_break') {
-      const nextPage = draft.pages
       const block = createEmptyBlock('page_break', currentPage, draft.subject)
-      setDraft((d) => ({
-        ...d,
-        pages: d.pages + 1,
-        blocks: insertBlockInPage(d.blocks, block, currentPage, insertBeforeId),
-      }))
-      setCurrentPage(nextPage)
+      setDraft((d) =>
+        syncPagesFromBreaks({
+          ...d,
+          blocks: insertBlockInPage(d.blocks, block, currentPage, insertBeforeId),
+        }),
+      )
+      setCurrentPage(currentPage + 1)
       setSelectedBlockId(null)
       setScreen('edit')
       return
     }
     const block = createEmptyBlock(type, currentPage, draft.subject)
-    setDraft((d) => ({
-      ...d,
-      blocks: insertBlockInPage(d.blocks, block, currentPage, insertBeforeId),
-    }))
+    setDraft((d) =>
+      syncPagesFromBreaks({
+        ...d,
+        blocks: insertBlockInPage(d.blocks, block, currentPage, insertBeforeId),
+      }),
+    )
     setSelectedBlockId(block.id)
     setScreen('edit-widget')
   }
 
   const removeBlock = (id: string) => {
-    setDraft((d) => ({ ...d, blocks: d.blocks.filter((b) => b.id !== id) }))
+    setDraft((d) => syncPagesFromBreaks({ ...d, blocks: d.blocks.filter((b) => b.id !== id) }))
     setSelectedBlockId(null)
     setScreen('edit')
   }
 
   const moveBlock = (id: string, dir: -1 | 1) => {
-    setDraft((d) => reorderPageBlocks(d, currentPage, (pageBlocks) => {
-      const idx = pageBlocks.findIndex((b) => b.id === id)
-      const swap = idx + dir
-      if (idx < 0 || swap < 0 || swap >= pageBlocks.length) return pageBlocks
-      const next = [...pageBlocks]
-      ;[next[idx], next[swap]] = [next[swap], next[idx]]
-      return next
-    }))
+    setDraft((d) =>
+      syncPagesFromBreaks(
+        reorderPageBlocks(d, currentPage, (pageBlocks) => {
+          const idx = pageBlocks.findIndex((b) => b.id === id)
+          const swap = idx + dir
+          if (idx < 0 || swap < 0 || swap >= pageBlocks.length) return pageBlocks
+          const next = [...pageBlocks]
+          ;[next[idx], next[swap]] = [next[swap], next[idx]]
+          return next
+        }),
+      ),
+    )
   }
 
   const reorderBlock = (
@@ -254,17 +272,19 @@ export default function App() {
   ) => {
     if (fromId === toId) return
     setDraft((d) =>
-      reorderPageBlocks(d, currentPage, (pageBlocks) => {
-        const fromIdx = pageBlocks.findIndex((b) => b.id === fromId)
-        let toIdx = pageBlocks.findIndex((b) => b.id === toId)
-        if (fromIdx < 0 || toIdx < 0) return pageBlocks
-        const next = [...pageBlocks]
-        const [item] = next.splice(fromIdx, 1)
-        if (fromIdx < toIdx) toIdx -= 1
-        const insertIdx = position === 'after' ? toIdx + 1 : toIdx
-        next.splice(insertIdx, 0, item)
-        return next
-      }),
+      syncPagesFromBreaks(
+        reorderPageBlocks(d, currentPage, (pageBlocks) => {
+          const fromIdx = pageBlocks.findIndex((b) => b.id === fromId)
+          let toIdx = pageBlocks.findIndex((b) => b.id === toId)
+          if (fromIdx < 0 || toIdx < 0) return pageBlocks
+          const next = [...pageBlocks]
+          const [item] = next.splice(fromIdx, 1)
+          if (fromIdx < toIdx) toIdx -= 1
+          const insertIdx = position === 'after' ? toIdx + 1 : toIdx
+          next.splice(insertIdx, 0, item)
+          return next
+        }),
+      ),
     )
   }
 
@@ -274,7 +294,7 @@ export default function App() {
   }
 
   const confirmRemovePage = (page: number) => {
-    setDraft((d) => removePageFromDraft(d, page))
+    setDraft((d) => syncPagesFromBreaks(removePageFromDraft(d, page)))
     setCurrentPage((prev) => {
       if (prev > page) return prev - 1
       if (prev === page) return Math.max(0, page - 1)

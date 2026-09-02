@@ -458,6 +458,31 @@
   color: var(--text-positive);
 }
 
+.option-inline-input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border-brand);
+  border-radius: 6px;
+  background: var(--bg-white);
+  padding: 4px 8px;
+  font: inherit;
+  color: var(--text-default);
+}
+
+.option-inline-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(80, 58, 224, 0.12);
+}
+
+.wysiwyg-field--block {
+  width: 100%;
+  position: relative;
+}
+
+.wysiwyg-field--block .ws-inline-textarea {
+  margin-top: 0;
+}
+
 /* Answer lines — shorter than sheet, full width of slot only */
 .ws-task-slot.lines {
   gap: 0;
@@ -483,30 +508,77 @@
 
 .gaps-slot {
   gap: 16px;
-  padding-bottom: 16px;
+}
+
+.gaps-sidebar-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.gaps-chip-list,
+.gaps-answer-bank {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.gaps-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--bg-secondary);
+  color: var(--text-default);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.gaps-chip--answer {
+  background: var(--bg-brand-soft);
+  color: var(--text-brand);
+}
+
+.gaps-chip-remove {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.gaps-chip-remove:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-default);
+}
+
+.gaps-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.gaps-add-input {
+  flex: 1;
+  min-width: 120px;
+  border: none;
+  outline: none;
+  background: var(--bg-secondary);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: var(--text-default);
 }
 
 .gaps-text {
   margin: 0;
   font-size: 14px;
   line-height: 20px;
-  color: var(--text-default);
-}
-
-.gaps-words {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  line-height: 20px;
-}
-
-.gaps-words-label {
-  color: var(--text-secondary);
-}
-
-.gaps-word {
   color: var(--text-default);
 }
 
@@ -714,6 +786,7 @@
 }
 
 .answer-cells-grid {
+  width: 100%;
   --cell-size: 20px;
   --cell-color: #c8cce0;
   border: 1px solid var(--cell-color);
@@ -722,7 +795,6 @@
     linear-gradient(to bottom, var(--cell-color) 1px, transparent 1px);
   background-size: var(--cell-size) var(--cell-size);
   background-position: -1px -1px;
-  flex-shrink: 0;
 }
 
 .answer-block-area {

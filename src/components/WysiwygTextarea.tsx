@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, type RefObject } from 'react'
 
 type WrapMode = 'bold' | 'italic' | 'heading' | 'code'
 
@@ -15,8 +15,38 @@ interface WysiwygTextareaProps {
   value: string
   maxLength?: number
   placeholder?: string
+  inputRef?: RefObject<HTMLTextAreaElement | null>
+  floatingToolbar?: boolean
   onChange: (value: string) => void
   onClick?: (e: React.MouseEvent) => void
+}
+
+function WysiwygToolbar({
+  floating,
+  onWrap,
+}: {
+  floating: boolean
+  onWrap: (mode: WrapMode) => void
+}) {
+  const btnClass = floating ? 'wysiwyg-btn' : undefined
+
+  return (
+    <>
+      <button type="button" className={btnClass} onClick={() => onWrap('bold')} aria-label="Жирный">
+        Ж
+      </button>
+      <button type="button" className={btnClass} onClick={() => onWrap('italic')} aria-label="Курсив">
+        К
+      </button>
+      <button type="button" className={btnClass} onClick={() => onWrap('heading')} aria-label="Заголовок">
+        H
+      </button>
+      {floating ? <span className="wysiwyg-divider" aria-hidden /> : null}
+      <button type="button" className={btnClass} onClick={() => onWrap('code')} aria-label="Код">
+        {'{ }'}
+      </button>
+    </>
+  )
 }
 
 export function WysiwygTextarea({
@@ -25,10 +55,17 @@ export function WysiwygTextarea({
   value,
   maxLength,
   placeholder,
+  inputRef,
+  floatingToolbar = false,
   onChange,
   onClick,
 }: WysiwygTextareaProps) {
   const ref = useRef<HTMLTextAreaElement>(null)
+
+  const setTextareaRef = (node: HTMLTextAreaElement | null) => {
+    ref.current = node
+    if (inputRef) inputRef.current = node
+  }
 
   const applyWrap = (mode: WrapMode) => {
     const el = ref.current
@@ -47,36 +84,46 @@ export function WysiwygTextarea({
     })
   }
 
+  const textarea = (
+    <textarea
+      ref={setTextareaRef}
+      className={className}
+      rows={rows}
+      value={value}
+      maxLength={maxLength}
+      placeholder={placeholder}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  )
+
+  const counter =
+    maxLength ? (
+      <span className="wysiwyg-counter">
+        {value.length}/{maxLength}
+      </span>
+    ) : null
+
+  if (floatingToolbar) {
+    return (
+      <div className="wysiwyg-field wysiwyg-field--block" onClick={onClick}>
+        <div className="block-wysiwyg" onClick={(e) => e.stopPropagation()}>
+          <div className="wysiwyg-tools">
+            <WysiwygToolbar floating onWrap={applyWrap} />
+          </div>
+        </div>
+        {textarea}
+        {counter}
+      </div>
+    )
+  }
+
   return (
     <div className="wysiwyg-field" onClick={onClick}>
       <div className="wysiwyg-mini-tools">
-        <button type="button" onClick={() => applyWrap('bold')} aria-label="Жирный">
-          B
-        </button>
-        <button type="button" onClick={() => applyWrap('italic')} aria-label="Курсив">
-          I
-        </button>
-        <button type="button" onClick={() => applyWrap('heading')} aria-label="Заголовок">
-          H
-        </button>
-        <button type="button" onClick={() => applyWrap('code')} aria-label="Код">
-          {'</>'}
-        </button>
+        <WysiwygToolbar floating={false} onWrap={applyWrap} />
       </div>
-      <textarea
-        ref={ref}
-        className={className}
-        rows={rows}
-        value={value}
-        maxLength={maxLength}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-      />
-      {maxLength ? (
-        <span className="wysiwyg-counter">
-          {value.length}/{maxLength}
-        </span>
-      ) : null}
+      {textarea}
+      {counter}
     </div>
   )
 }

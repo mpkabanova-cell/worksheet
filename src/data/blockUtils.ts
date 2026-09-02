@@ -1,4 +1,4 @@
-import type { AnswerAreaStyle, WorksheetBlock } from './worksheet'
+import type { AnswerAreaStyle, WorksheetBlock, WorksheetDraft } from './worksheet'
 
 export const QUESTION_MAX_LENGTH = 250
 export const TEXT_BODY_MAX_LENGTH = 10_000
@@ -15,7 +15,6 @@ export const MATCHING_PAIRS_MIN = 2
 export const MATCHING_PAIRS_MAX = 10
 
 export const ANSWER_CELL_SIZE = 20
-export const ANSWER_CELL_COLS = 14
 
 const GRID_SUBJECTS = new Set([
   'Математика',
@@ -232,6 +231,42 @@ export function removePageFromDraft<T extends { pages: number; blocks: Worksheet
     pages: Math.max(1, draft.pages - 1),
     blocks,
   }
+}
+
+/** Перераспределяет блоки по страницам относительно маркеров page_break. */
+export function syncPagesFromBreaks(draft: WorksheetDraft): WorksheetDraft {
+  if (!draft.blocks.length) {
+    return { ...draft, pages: Math.max(1, draft.pages) }
+  }
+
+  const ordered = [...draft.blocks].sort((a, b) => {
+    if (a.page !== b.page) return a.page - b.page
+    return draft.blocks.indexOf(a) - draft.blocks.indexOf(b)
+  })
+
+  let page = 0
+  const blocks = ordered.map((block) => {
+    if (block.type === 'page_break') {
+      const synced = { ...block, page }
+      page += 1
+      return synced
+    }
+    return { ...block, page }
+  })
+
+  const maxPage = blocks.reduce((max, block) => Math.max(max, block.page), 0)
+  const pages = Math.max(1, maxPage + 1)
+
+  const unchanged =
+    pages === draft.pages &&
+    blocks.every((block) => {
+      const prev = draft.blocks.find((b) => b.id === block.id)
+      return prev && prev.page === block.page
+    })
+
+  if (unchanged) return draft
+
+  return { ...draft, blocks, pages }
 }
 
 export function qrCodeUrl(data: string, size = 160): string {

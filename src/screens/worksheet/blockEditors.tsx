@@ -4,19 +4,14 @@ import {
   clampOrderCount,
   clampTableCols,
   clampTableRows,
-  clampText,
   defaultAnswerStyle,
-  getGapsSourceText,
   MATCHING_PAIRS_MAX,
   MATCHING_PAIRS_MIN,
   ORDER_ITEMS_MAX,
   ORDER_ITEMS_MIN,
-  QUESTION_MAX_LENGTH,
   shuffleArray,
-  TEXT_BODY_MAX_LENGTH,
 } from '@/data/blockUtils'
-import { Button, Input, Select, Textarea } from '@/components/ui'
-import { FillGapsEditor } from '@/components/block/FillGapsBody'
+import { Button, Input, Select } from '@/components/ui'
 import { uid } from '@/data/worksheet'
 import starFilled from '@/assets/worksheet/star-filled.svg'
 import starEmpty from '@/assets/worksheet/star-empty.svg'
@@ -26,17 +21,11 @@ export function BlockEditorPanel({
   subject,
   onChange,
   onClose,
-  onMoveUp,
-  onMoveDown,
-  onRemove,
 }: {
   block: WorksheetBlock
   subject: string
   onChange: (block: WorksheetBlock) => void
   onClose: () => void
-  onMoveUp: () => void
-  onMoveDown: () => void
-  onRemove: () => void
 }) {
   if (block.type === 'text') {
     return (
@@ -48,18 +37,7 @@ export function BlockEditorPanel({
           </button>
         </div>
         <div className="ws-sidepanel-scroll">
-          <label className="side-field">
-            <span>Текст</span>
-            <Textarea
-              rows={12}
-              maxLength={TEXT_BODY_MAX_LENGTH}
-              value={block.body ?? ''}
-              onChange={(e) => onChange({ ...block, body: e.target.value })}
-            />
-          </label>
-          <Button variant="danger-soft" onClick={onRemove}>
-            Удалить блок
-          </Button>
+          <p className="side-hint">Редактируйте текст прямо на листе.</p>
         </div>
       </aside>
     )
@@ -75,9 +53,6 @@ export function BlockEditorPanel({
           </button>
         </div>
         <p className="side-hint">Добавляет перенос на следующую страницу. Виден только в режиме редактирования.</p>
-        <Button variant="danger-soft" onClick={onRemove}>
-          Удалить разрыв
-        </Button>
       </aside>
     )
   }
@@ -92,36 +67,21 @@ export function BlockEditorPanel({
           </button>
         </div>
         <p className="side-hint">Введите ссылку или загрузите файл в блоке на листе.</p>
-        <Button variant="danger-soft" onClick={onRemove}>
-          Удалить блок
-        </Button>
       </aside>
     )
   }
 
-  return (
-    <aside className="ws-sidepanel">
-      <div className="side-head ws-sidepanel-head">
-        <h3>Редактирование блока</h3>
-        <button type="button" className="icon-btn" onClick={onClose} aria-label="Закрыть">
-          ×
-        </button>
-      </div>
-
-      <div className="ws-sidepanel-scroll">
-      {block.type === 'fill_gaps' ? (
-        <>
-          <label className="side-field">
-            <span>Вопрос</span>
-            <Textarea
-              rows={2}
-              maxLength={QUESTION_MAX_LENGTH}
-              value={block.question ?? ''}
-              onChange={(e) =>
-                onChange({ ...block, question: clampText(e.target.value, QUESTION_MAX_LENGTH) })
-              }
-            />
-          </label>
+  if (block.type === 'fill_gaps') {
+    return (
+      <aside className="ws-sidepanel">
+        <div className="side-head ws-sidepanel-head">
+          <h3>Заполнение пропусков</h3>
+          <button type="button" className="icon-btn" onClick={onClose} aria-label="Закрыть">
+            ×
+          </button>
+        </div>
+        <div className="ws-sidepanel-scroll">
+          <p className="side-hint">Текст и пропуски редактируются на листе.</p>
           <div className="side-switch-row">
             <span>Перемешать ответы</span>
             <button
@@ -142,29 +102,21 @@ export function BlockEditorPanel({
               <span className="knob" />
             </button>
           </div>
-          <FillGapsEditor
-            sourceText={getGapsSourceText(block)}
-            gapWords={block.gapsAnswers ?? []}
-            showAnswer={false}
-            onChange={(patch) => onChange({ ...block, ...patch })}
-          />
-        </>
-      ) : null}
+        </div>
+      </aside>
+    )
+  }
 
-      {block.type !== 'table' && block.type !== 'fill_gaps' ? (
-        <label className="side-field">
-          <span>Вопрос / текст</span>
-          <Textarea
-            rows={4}
-            maxLength={QUESTION_MAX_LENGTH}
-            value={block.question ?? ''}
-            onChange={(e) =>
-              onChange({ ...block, question: clampText(e.target.value, QUESTION_MAX_LENGTH) })
-            }
-          />
-        </label>
-      ) : null}
+  return (
+    <aside className="ws-sidepanel">
+      <div className="side-head ws-sidepanel-head">
+        <h3>Настройки блока</h3>
+        <button type="button" className="icon-btn" onClick={onClose} aria-label="Закрыть">
+          ×
+        </button>
+      </div>
 
+      <div className="ws-sidepanel-scroll">
       {(block.type === 'short_answer' || block.type === 'extended_answer') && (
         <>
           <label className="side-field">
@@ -220,38 +172,13 @@ export function BlockEditorPanel({
         </>
       )}
 
-      {(block.type === 'single_choice' || block.type === 'multiple_choice') && (
-        <>
-          <label className="side-field">
-            <span>Варианты (каждый с новой строки)</span>
-            <Textarea
-              rows={4}
-              value={(block.options ?? []).map((o) => o.text).join('\n')}
-              onChange={(e) => {
-                const texts = e.target.value.split('\n').filter(Boolean)
-                const options = texts.map((text, i) => ({
-                  id: block.options?.[i]?.id ?? `option_${i + 1}`,
-                  text,
-                }))
-                onChange({
-                  ...block,
-                  options,
-                  correctOptionId: block.correctOptionId ?? options[0]?.id,
-                })
-              }}
-            />
-          </label>
-        </>
-      )}
-
       {block.type === 'matching' ? <MatchingEditor block={block} onChange={onChange} /> : null}
       {block.type === 'ordering' ? <OrderingEditor block={block} onChange={onChange} /> : null}
       {block.type === 'table' ? <TableEditor block={block} onChange={onChange} /> : null}
 
       {(block.correctAnswers || block.type === 'short_answer' || block.type === 'extended_answer') &&
       block.type !== 'single_choice' &&
-      block.type !== 'multiple_choice' &&
-      block.type !== 'fill_gaps' ? (
+      block.type !== 'multiple_choice' ? (
         <label className="side-field">
           <span>Правильный ответ</span>
           <Input
@@ -289,18 +216,6 @@ export function BlockEditorPanel({
           </button>
         </div>
       </label>
-
-      <div className="side-actions">
-        <Button variant="secondary" onClick={onMoveUp}>
-          ↑ Выше
-        </Button>
-        <Button variant="secondary" onClick={onMoveDown}>
-          ↓ Ниже
-        </Button>
-      </div>
-      <Button variant="danger-soft" onClick={onRemove}>
-        Удалить блок
-      </Button>
       </div>
     </aside>
   )
@@ -384,7 +299,8 @@ function OrderingEditor({
     <>
       <label className="side-field">
         <span>Элементы ({ORDER_ITEMS_MIN}–{ORDER_ITEMS_MAX})</span>
-        <Textarea
+        <textarea
+          className="side-field-textarea"
           rows={5}
           value={items.join('\n')}
           onChange={(e) => {

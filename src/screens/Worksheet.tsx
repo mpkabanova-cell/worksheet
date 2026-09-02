@@ -466,9 +466,6 @@ export function WorksheetScreen({
             subject={draft.subject}
             onChange={onChangeBlock!}
             onClose={() => onSelectBlock?.(null)}
-            onMoveUp={() => onMoveBlock?.(selected.id, -1)}
-            onMoveDown={() => onMoveBlock?.(selected.id, 1)}
-            onRemove={() => onRemoveBlock?.(selected.id)}
           />
         ) : null}
       </div>

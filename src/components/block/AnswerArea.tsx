@@ -1,5 +1,5 @@
 import type { AnswerAreaStyle, WorksheetBlock } from '@/data/worksheet'
-import { ANSWER_CELL_COLS, ANSWER_CELL_SIZE } from '@/data/blockUtils'
+import { ANSWER_CELL_SIZE } from '@/data/blockUtils'
 
 interface AnswerAreaProps {
   block: WorksheetBlock
@@ -10,12 +10,13 @@ export function AnswerArea({ block, style }: AnswerAreaProps) {
   const lines = block.answerLines ?? (block.type === 'extended_answer' ? 5 : 1)
 
   if (style === 'cells') {
-    const width = ANSWER_CELL_COLS * ANSWER_CELL_SIZE
-    const height = lines * ANSWER_CELL_SIZE
     return (
       <div
         className="ws-task-slot answer-cells-grid"
-        style={{ width: `${width}px`, height: `${height}px` }}
+        style={{
+          height: `${lines * ANSWER_CELL_SIZE}px`,
+          ['--rows' as string]: String(lines),
+        }}
         aria-hidden
       />
     )

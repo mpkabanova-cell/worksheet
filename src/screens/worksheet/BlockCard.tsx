@@ -1,16 +1,21 @@
 import type { DragEvent } from 'react'
 import type { WorksheetBlock } from '@/data/worksheet'
 import {
+  clampText,
   defaultAnswerStyle,
+  getGapsSourceText,
   getGapsStudentText,
   getOrderDisplayItems,
   getTableAnswerBank,
+  QUESTION_MAX_LENGTH,
+  TEXT_BODY_MAX_LENGTH,
 } from '@/data/blockUtils'
 import { getBlockQuestion } from '@/data/taskContent'
 import { MathText } from '@/components/MathText'
+import { WysiwygTextarea } from '@/components/WysiwygTextarea'
 import { FigmaIcon } from '@/components/ui'
 import { AnswerArea } from '@/components/block/AnswerArea'
-import { FillGapsStudent } from '@/components/block/FillGapsBody'
+import { FillGapsEditor, FillGapsStudent } from '@/components/block/FillGapsBody'
 import { MatchingView } from '@/components/block/MatchingView'
 import { MediaBlockView } from '@/components/block/MediaBlockView'
 import starFilled from '@/assets/worksheet/star-filled.svg'
@@ -76,6 +81,12 @@ export function BlockCard({
   onDragStart: (e: DragEvent) => void
   onDragEnd: () => void
 }) {
+  const isEditing = editable && selected && !!onChangeBlock
+
+  const patchBlock = (patch: Partial<WorksheetBlock>) => {
+    onChangeBlock?.({ ...block, ...patch })
+  }
+
   if (block.type === 'page_break') {
     if (!editable) return null
     return (
@@ -153,16 +164,31 @@ export function BlockCard({
         />
       ) : null}
       <article
-        className={`ws-task ${selected ? 'selected' : ''} ${editable ? 'editable' : ''} ${isPlainText ? 'plain' : ''} ${dragging ? 'dragging' : ''}`}
+        className={`ws-task ${selected ? 'selected' : ''} ${editable ? 'editable' : ''} ${isPlainText ? 'plain' : ''} ${isEditing ? 'editing-inline' : ''} ${dragging ? 'dragging' : ''}`}
         onClick={editable ? onSelect : undefined}
       >
         {!isPlainText ? (
           <div className="ws-task-head">
             <span className="ws-task-num">{taskNumber}.</span>
             <div className="ws-task-main">
-              <p className="ws-task-text">
-                <MathText text={question} />
-              </p>
+              {isEditing ? (
+                <WysiwygTextarea
+                  className="ws-inline-textarea"
+                  rows={2}
+                  value={block.question ?? question}
+                  maxLength={QUESTION_MAX_LENGTH}
+                  placeholder="Текст вопроса…"
+                  floatingToolbar
+                  onChange={(value) =>
+                    patchBlock({ question: clampText(value, QUESTION_MAX_LENGTH) })
+                  }
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ) : (
+                <p className="ws-task-text">
+                  <MathText text={question} />
+                </p>
+              )}
               {showDifficulty && block.difficulty ? (
                 <div className="ws-task-meta">
                   <span className="diff-label">Сложность:</span>
@@ -173,19 +199,55 @@ export function BlockCard({
           </div>
         ) : (
           <div className="ws-task-main plain-body">
-            <div className="ws-task-text">
-              <MathText text={block.body ?? ''} />
-            </div>
+            {isEditing ? (
+              <WysiwygTextarea
+                className="ws-inline-textarea"
+                rows={6}
+                value={block.body ?? ''}
+                maxLength={TEXT_BODY_MAX_LENGTH}
+                placeholder="Текст блока…"
+                floatingToolbar
+                onChange={(value) =>
+                  patchBlock({ body: clampText(value, TEXT_BODY_MAX_LENGTH) })
+                }
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <div className="ws-task-text">
+                <MathText text={block.body ?? ''} />
+              </div>
+            )}
           </div>
         )}
 
         {block.type === 'single_choice' || block.type === 'multiple_choice' ? (
           <div className="ws-task-slot options">
-            {(block.options ?? []).map((opt) => {
+            {(block.options ?? []).map((opt, index) => {
               const correct =
                 block.type === 'single_choice'
                   ? opt.id === block.correctOptionId
                   : (block.correctOptionIds ?? []).includes(opt.id)
+
+              if (isEditing) {
+                return (
+                  <label key={opt.id} className="option option-edit">
+                    <span className="checkbox" />
+                    <input
+                      className="option-inline-input"
+                      value={opt.text}
+                      placeholder={`Вариант ${String.fromCharCode(65 + index)}`}
+                      onChange={(e) => {
+                        const options = (block.options ?? []).map((item, i) =>
+                          i === index ? { ...item, text: e.target.value } : item,
+                        )
+                        patchBlock({ options })
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </label>
+                )
+              }
+
               return (
                 <label key={opt.id} className={`option ${showAnswer && correct ? 'correct' : ''}`}>
                   <span className="checkbox" />
@@ -202,11 +264,19 @@ export function BlockCard({
 
         {block.type === 'fill_gaps' ? (
           <div className="ws-task-slot">
-            <FillGapsStudent
-              text={gapsStudentText}
-              gapWords={showAnswer ? (block.gapsAnswers ?? []) : []}
-              showAnswer={showAnswer}
-            />
+            {isEditing ? (
+              <FillGapsEditor
+                sourceText={getGapsSourceText(block)}
+                gapWords={block.gapsAnswers ?? []}
+                onChange={patchBlock}
+              />
+            ) : (
+              <FillGapsStudent
+                text={gapsStudentText}
+                gapWords={showAnswer ? (block.gapsAnswers ?? []) : []}
+                showAnswer={showAnswer}
+              />
+            )}
           </div>
         ) : null}
 
