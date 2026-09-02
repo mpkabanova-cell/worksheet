@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { Sidebar } from '@/components/Sidebar'
 import { PrototypeNav } from '@/components/PrototypeNav'
 import { generateSingleTaskAI, generateWorksheetAI } from '@/data/ai'
@@ -140,9 +141,10 @@ export default function App() {
         const wait = Math.max(0, 900 - (Date.now() - started))
         await new Promise((r) => window.setTimeout(r, wait))
         if (cancelled) return
-        setDraft(next)
+        setDraft(syncPagesFromBreaks(next))
         setPendingGenerate(false)
         setCurrentPage(0)
+        setSelectedBlockId(null)
         setCreateOpen(false)
         setScreen(mode === 'regenerate' ? 'edit' : 'preview')
         if (mode === 'regenerate') showToast('Рабочий лист перегенерирован')
@@ -323,7 +325,13 @@ export default function App() {
     try {
       const block = await generateSingleTaskAI(draft, generateTaskType, generateTaskHint)
       block.page = currentPage
-      setDraft((d) => ({ ...d, blocks: [...d.blocks, block], taskCount: d.taskCount + 1 }))
+      setDraft((d) =>
+        syncPagesFromBreaks({
+          ...d,
+          blocks: [...d.blocks, block],
+          taskCount: d.taskCount + 1,
+        }),
+      )
       setSelectedBlockId(block.id)
       setModal(null)
       setGenerateTaskHint('')
@@ -538,7 +546,8 @@ export default function App() {
       screen === 'edit-widget' ||
       screen === 'add-block' ||
       screen === 'show-answers' ? (
-        <WorksheetScreen
+        <ErrorBoundary onReset={() => setScreen('edit')}>
+          <WorksheetScreen
           draft={draft}
           mode={worksheetMode}
           selectedBlockId={selectedBlockId}
@@ -577,6 +586,7 @@ export default function App() {
           onRedo={redo}
           onSoon={showToast}
         />
+        </ErrorBoundary>
       ) : null}
 
       {screen === 'print' ? (

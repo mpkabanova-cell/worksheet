@@ -23,7 +23,8 @@ function renderKatex(tex: string, displayMode: boolean): string {
 
 /** Renders plain text with inline `$...$` and display `$$...$$` LaTeX via KaTeX. */
 export function MathText({ text, className, as: Tag = 'span' }: MathTextProps) {
-  const nodes = useMemo(() => parseMathText(text), [text])
+  const safeText = typeof text === 'string' ? text : text == null ? '' : String(text)
+  const nodes = useMemo(() => parseMathText(safeText), [safeText])
 
   return (
     <Tag className={className ? `math-text ${className}` : 'math-text'}>

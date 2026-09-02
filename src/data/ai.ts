@@ -6,6 +6,7 @@ import {
   generateSingleTask as mockSingle,
 } from './generator'
 import { promptsForPlan, promptsForSingleTask, promptsForWorksheet } from './aiPrompts'
+import { sanitizeBlock } from './blockUtils'
 import { normalizeAiTask } from './taskContent'
 
 export type GenerateMode = 'create' | 'regenerate'
@@ -85,7 +86,7 @@ function toBlock(
       (left, i) => `${left.text} → ${rightItems[i]?.text ?? ''}`.trim(),
     )
   }
-  return {
+  return sanitizeBlock({
     id: uid('task'),
     type,
     page: 0,
@@ -105,10 +106,14 @@ function toBlock(
     gapsAnswers: task.gaps_answers,
     leftItems,
     rightItems,
-    groups: task.groups?.map((g, i) => ({ id: `g${i + 1}`, title: g.title, items: g.items })),
+    groups: task.groups?.map((g, i) => ({
+      id: `g${i + 1}`,
+      title: g.title,
+      items: Array.isArray(g.items) ? g.items : [],
+    })),
     orderItems: task.order_items,
     difficulty: task.difficulty ?? stars(index, draft.taskCount, draft.difficulty),
-  }
+  })
 }
 
 function ensurePlan(draft: WorksheetDraft): PlanTask[] {

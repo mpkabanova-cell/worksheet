@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { TaskType, WorksheetBlock, WorksheetDraft } from '@/data/worksheet'
 import { GRADES, SUBJECTS, formatSavedAgo } from '@/data/worksheet'
 import { countTaskBlocksBefore } from '@/data/blockUtils'
@@ -162,6 +162,17 @@ export function WorksheetScreen({
     [draft.blocks, currentPage],
   )
 
+  useEffect(() => {
+    if (pageBlocks.length > 0 || draft.blocks.length === 0) return
+    const firstPageWithBlocks = draft.blocks.reduce(
+      (min, block) => Math.min(min, block.page),
+      Number.POSITIVE_INFINITY,
+    )
+    if (Number.isFinite(firstPageWithBlocks) && firstPageWithBlocks !== currentPage) {
+      onPageChange(firstPageWithBlocks)
+    }
+  }, [pageBlocks.length, draft.blocks, currentPage, onPageChange])
+
   const pageCount = Math.max(draft.pages, 1)
   const hasSidePanel = mode === 'edit' || mode === 'edit-widget' || mode === 'add-block'
   const showToolsSidebar = isEdit
@@ -303,6 +314,18 @@ export function WorksheetScreen({
                 <div className="sheet-intro-widget">
                   <MathText as="p" className="sheet-intro" text={draft.intro} />
                 </div>
+              ) : null}
+
+              {pageBlocks.length === 0 && draft.blocks.length > 0 ? (
+                <p className="sheet-empty-hint">
+                  На этой странице нет блоков. Перейдите на другую страницу в колонке слева.
+                </p>
+              ) : null}
+
+              {pageBlocks.length === 0 && draft.blocks.length === 0 && isEdit ? (
+                <p className="sheet-empty-hint">
+                  Добавьте блок из панели инструментов слева или сгенерируйте задание.
+                </p>
               ) : null}
 
               {pageBlocks.map((block, index) => {

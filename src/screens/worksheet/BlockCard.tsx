@@ -299,7 +299,7 @@ export function BlockCard({
                   <MathText text={g.title} />
                 </strong>
                 <ul>
-                  {g.items.map((item) => (
+                  {(g.items ?? []).map((item) => (
                     <li key={item}>
                       <MathText text={item} />
                     </li>

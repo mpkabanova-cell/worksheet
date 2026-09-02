@@ -217,6 +217,16 @@
   margin: 0;
 }
 
+.sheet-empty-hint {
+  padding: 24px 16px;
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+}
+
 /* Task widget — Figma: p 12, gap 16 between head and slot; no full-width border */
 .ws-task {
   display: flex;

@@ -29,6 +29,57 @@ export function clampText(value: string, max: number): string {
   return value.length > max ? value.slice(0, max) : value
 }
 
+function asText(value: unknown): string | undefined {
+  if (value == null) return undefined
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  return undefined
+}
+
+/** Приводит блок к безопасному виду после ответа модели (защита от падения UI). */
+export function sanitizeBlock(block: WorksheetBlock): WorksheetBlock {
+  return {
+    ...block,
+    question: asText(block.question),
+    body: asText(block.body),
+    instruction: asText(block.instruction) ?? '',
+    options: block.options?.map((option, index) => ({
+      id: option.id || `option_${index + 1}`,
+      text: asText(option.text) ?? '',
+    })),
+    leftItems: block.leftItems?.map((item, index) => ({
+      id: item.id || `left_${index + 1}`,
+      text: asText(item.text) ?? '',
+    })),
+    rightItems: block.rightItems?.map((item, index) => ({
+      id: item.id || `right_${index + 1}`,
+      text: asText(item.text) ?? '',
+    })),
+    groups: block.groups?.map((group, index) => ({
+      id: group.id || `g${index + 1}`,
+      title: asText(group.title) ?? '',
+      items: Array.isArray(group.items)
+        ? group.items.map((item) => asText(item) ?? '').filter(Boolean)
+        : [],
+    })),
+    orderItems: Array.isArray(block.orderItems)
+      ? block.orderItems.map((item) => asText(item) ?? '').filter(Boolean)
+      : block.orderItems,
+    gapsAnswers: Array.isArray(block.gapsAnswers)
+      ? block.gapsAnswers.map((item) => asText(item) ?? '').filter(Boolean)
+      : block.gapsAnswers,
+    gapsText: asText(block.gapsText),
+    gapsSourceText: asText(block.gapsSourceText),
+    correctAnswers: Array.isArray(block.correctAnswers)
+      ? block.correctAnswers.map((item) => asText(item) ?? '').filter(Boolean)
+      : block.correctAnswers,
+  }
+}
+
+export function sanitizeBlocks(blocks: WorksheetBlock[]): WorksheetBlock[] {
+  return blocks.map(sanitizeBlock)
+}
+
 export function defaultAnswerStyle(subject: string): AnswerAreaStyle {
   return GRID_SUBJECTS.has(subject) ? 'cells' : 'lines'
 }
