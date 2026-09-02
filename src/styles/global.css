@@ -164,6 +164,28 @@ ul {
   flex-direction: column;
 }
 
+.ui-error-page {
+  padding: 24px;
+  gap: 16px;
+  background: var(--bg-page);
+}
+
+.ui-error-page h1 {
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--text-default);
+}
+
+.ui-error-text {
+  color: var(--text-secondary);
+  max-width: 560px;
+}
+
+.ui-error-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .mobile-topbar {
   display: none;
   align-items: center;

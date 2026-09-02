@@ -17,14 +17,30 @@ interface MatchLine {
   y2: number
 }
 
+const EMPTY_LINES: MatchLine[] = []
+
+function linesEqual(a: MatchLine[], b: MatchLine[]): boolean {
+  if (a.length !== b.length) return false
+  return a.every(
+    (line, index) =>
+      line.x1 === b[index]?.x1 &&
+      line.y1 === b[index]?.y1 &&
+      line.x2 === b[index]?.x2 &&
+      line.y2 === b[index]?.y2,
+  )
+}
+
 export function MatchingView({ block, editable, selected, showAnswer }: MatchingViewProps) {
   const boardRef = useRef<HTMLDivElement>(null)
   const leftDotRefs = useRef<Array<HTMLSpanElement | null>>([])
   const rightDotRefs = useRef<Array<HTMLSpanElement | null>>([])
-  const [lines, setLines] = useState<MatchLine[]>([])
+  const [lines, setLines] = useState<MatchLine[]>(EMPTY_LINES)
 
   const left = block.leftItems ?? []
-  const right = getMatchingRightItems(block, editable, selected)
+  const right = useMemo(
+    () => getMatchingRightItems(block, editable, selected),
+    [block, editable, selected],
+  )
   const links = useMemo(
     () => getMatchingCorrectLinks(block, right),
     [block, right],
@@ -41,7 +57,7 @@ export function MatchingView({ block, editable, selected, showAnswer }: Matching
 
   useLayoutEffect(() => {
     if (!showAnswer || !boardRef.current) {
-      setLines([])
+      setLines((prev) => (prev.length === 0 ? prev : EMPTY_LINES))
       return
     }
 
@@ -64,7 +80,7 @@ export function MatchingView({ block, editable, selected, showAnswer }: Matching
         })
         .filter((line): line is MatchLine => line !== null)
 
-      setLines(next)
+      setLines((prev) => (linesEqual(prev, next) ? prev : next))
     }
 
     measure()

@@ -24,12 +24,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   render() {
     if (this.state.error) {
       return (
-        <div className="full-page" style={{ padding: 24, gap: 16 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 500 }}>Не удалось показать рабочий лист</h1>
-          <p style={{ color: 'var(--text-secondary)', maxWidth: 560 }}>
+        <div className="full-page ui-error-page">
+          <h1>Не удалось показать рабочий лист</h1>
+          <p className="ui-error-text">
             {this.state.error.message || 'Произошла ошибка отображения.'}
           </p>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className="ui-error-actions">
             <Button
               variant="brand"
               onClick={() => {
