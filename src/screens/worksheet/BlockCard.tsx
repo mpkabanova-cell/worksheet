@@ -391,17 +391,17 @@ export function BlockCard({
               selected={selected}
               showAnswer={effectiveShowAnswer}
               isEditing={isEditing}
-              onChangeLeft={(index, text) =>
+              onChangeLeft={(index, patch) =>
                 patchBlock({
                   leftItems: (block.leftItems ?? []).map((item, i) =>
-                    i === index ? { ...item, text } : item,
+                    i === index ? { ...item, ...patch } : item,
                   ),
                 })
               }
-              onChangeRight={(index, text) =>
+              onChangeRight={(index, patch) =>
                 patchBlock({
                   rightItems: (block.rightItems ?? []).map((item, i) =>
-                    i === index ? { ...item, text } : item,
+                    i === index ? { ...item, ...patch } : item,
                   ),
                 })
               }

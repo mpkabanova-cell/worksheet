@@ -315,10 +315,14 @@ export function sanitizeBlock(block: WorksheetBlock): WorksheetBlock {
     leftItems: block.leftItems?.map((item, index) => ({
       id: item.id || `left_${index + 1}`,
       text: asText(item.text) ?? '',
+      imageData: item.imageData,
+      imageFileName: asText(item.imageFileName),
     })),
     rightItems: block.rightItems?.map((item, index) => ({
       id: item.id || `right_${index + 1}`,
       text: asText(item.text) ?? '',
+      imageData: item.imageData,
+      imageFileName: asText(item.imageFileName),
     })),
     groups: block.groups?.map((group, index) => ({
       id: group.id || `g${index + 1}`,

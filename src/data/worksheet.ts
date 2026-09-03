@@ -69,6 +69,8 @@ export type MediaKind = 'link' | 'audio' | 'video' | 'image'
 export interface MatchPair {
   id: string
   text: string
+  imageData?: string
+  imageFileName?: string
 }
 
 export type ChoiceOptionFormat = 'text' | 'image' | 'text_image'

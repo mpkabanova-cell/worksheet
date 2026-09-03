@@ -1,8 +1,9 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { WorksheetBlock } from '@/data/worksheet'
+import type { ChoiceOptionFormat, MatchPair, WorksheetBlock } from '@/data/worksheet'
 import { getMatchingCorrectLinks, getMatchingRightItems } from '@/data/blockUtils'
 import { MathEditableInput } from '@/components/MathEditableInput'
 import { MathText } from '@/components/MathText'
+import choiceImagePlaceholder from '@/assets/worksheet/choice-image-placeholder.png'
 
 interface MatchingViewProps {
   block: WorksheetBlock
@@ -10,8 +11,8 @@ interface MatchingViewProps {
   selected: boolean
   showAnswer: boolean
   isEditing?: boolean
-  onChangeLeft?: (index: number, text: string) => void
-  onChangeRight?: (index: number, text: string) => void
+  onChangeLeft?: (index: number, patch: Partial<MatchPair>) => void
+  onChangeRight?: (index: number, patch: Partial<MatchPair>) => void
 }
 
 interface MatchLine {
@@ -34,7 +35,11 @@ function linesEqual(a: MatchLine[], b: MatchLine[]): boolean {
   )
 }
 
-function MatchAnswerBox({
+function isImageFormat(format: ChoiceOptionFormat): boolean {
+  return format === 'image' || format === 'text_image'
+}
+
+function MatchTextBox({
   text,
   isEditing,
   highlighted,
@@ -49,7 +54,7 @@ function MatchAnswerBox({
 
   return (
     <div
-      className={`match-answer-box ${isEmpty ? 'placeholder' : ''} ${
+      className={`match-answer-box match-item--text ${isEmpty && !isEditing ? 'placeholder' : ''} ${
         highlighted ? 'correct-match' : ''
       }`}
     >
@@ -70,6 +75,101 @@ function MatchAnswerBox({
   )
 }
 
+function MatchImageBox({
+  item,
+  isEditing,
+  highlighted,
+  onChange,
+}: {
+  item: MatchPair
+  isEditing: boolean
+  highlighted: boolean
+  onChange?: (patch: Partial<MatchPair>) => void
+}) {
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const onFile = (file: File | null) => {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      onChange?.({
+        imageData: String(reader.result),
+        imageFileName: file.name,
+      })
+    }
+    reader.readAsDataURL(file)
+  }
+
+  return (
+    <div
+      className={`match-image-box match-item--image ${highlighted ? 'correct-match' : ''} ${
+        isEditing ? 'match-image-box--edit' : ''
+      }`}
+    >
+      {item.imageData ? (
+        <img src={item.imageData} alt="" className="match-image-box__img" />
+      ) : (
+        <img src={choiceImagePlaceholder} alt="" className="match-image-box__placeholder" />
+      )}
+      {isEditing ? (
+        <>
+          <button
+            type="button"
+            className="match-image-box__upload-btn"
+            onClick={(e) => {
+              e.stopPropagation()
+              fileRef.current?.click()
+            }}
+          >
+            Добавить картинку
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(e) => onFile(e.target.files?.[0] ?? null)}
+          />
+        </>
+      ) : null}
+    </div>
+  )
+}
+
+function MatchItemCell({
+  format,
+  item,
+  isEditing,
+  highlighted,
+  onChange,
+}: {
+  format: ChoiceOptionFormat
+  item: MatchPair
+  isEditing: boolean
+  highlighted: boolean
+  onChange?: (patch: Partial<MatchPair>) => void
+}) {
+  if (isImageFormat(format)) {
+    return (
+      <MatchImageBox
+        item={item}
+        isEditing={isEditing}
+        highlighted={highlighted}
+        onChange={onChange}
+      />
+    )
+  }
+
+  return (
+    <MatchTextBox
+      text={item.text}
+      isEditing={isEditing}
+      highlighted={highlighted}
+      onChange={(text) => onChange?.({ text })}
+    />
+  )
+}
+
 export function MatchingView({
   block,
   editable,
@@ -83,6 +183,10 @@ export function MatchingView({
   const leftDotRefs = useRef<Array<HTMLSpanElement | null>>([])
   const rightDotRefs = useRef<Array<HTMLSpanElement | null>>([])
   const [lines, setLines] = useState<MatchLine[]>(EMPTY_LINES)
+
+  const leftFormat = block.matchingLeftFormat ?? 'text'
+  const rightFormat = block.matchingRightFormat ?? 'text'
+  const rowHasImage = isImageFormat(leftFormat) || isImageFormat(rightFormat)
 
   const left = block.leftItems ?? []
   const right = useMemo(
@@ -143,7 +247,9 @@ export function MatchingView({
       observer?.disconnect()
       window.removeEventListener('resize', measure)
     }
-  }, [links, showAnswer, rowCount])
+  }, [links, showAnswer, rowCount, leftFormat, rightFormat])
+
+  const emptyItem = (id: string): MatchPair => ({ id, text: '' })
 
   return (
     <div className="matching-board" ref={boardRef}>
@@ -157,19 +263,23 @@ export function MatchingView({
 
       <div className="matching-rows">
         {Array.from({ length: rowCount }).map((_, index) => {
-          const leftItem = left[index]
-          const rightItem = right[index]
+          const leftItem = left[index] ?? emptyItem(`left-${index}`)
+          const rightItem = right[index] ?? emptyItem(`right-${index}`)
 
           return (
-            <div key={leftItem?.id ?? rightItem?.id ?? index} className="matching-row">
+            <div
+              key={leftItem.id ?? rightItem.id ?? index}
+              className={`matching-row ${rowHasImage ? 'matching-row--has-image' : ''}`}
+            >
               <div className="matching-side matching-side-left">
-                <MatchAnswerBox
-                  text={leftItem?.text ?? ''}
+                <MatchItemCell
+                  format={leftFormat}
+                  item={leftItem}
                   isEditing={isEditing}
                   highlighted={highlightedLeft.has(index)}
                   onChange={
                     isEditing && onChangeLeft
-                      ? (value) => onChangeLeft(index, value)
+                      ? (patch) => onChangeLeft(index, patch)
                       : undefined
                   }
                 />
@@ -190,13 +300,14 @@ export function MatchingView({
                   }}
                   aria-hidden
                 />
-                <MatchAnswerBox
-                  text={rightItem?.text ?? ''}
+                <MatchItemCell
+                  format={rightFormat}
+                  item={rightItem}
                   isEditing={isEditing}
                   highlighted={highlightedRight.has(index)}
                   onChange={
                     isEditing && onChangeRight
-                      ? (value) => onChangeRight(index, value)
+                      ? (patch) => onChangeRight(index, patch)
                       : undefined
                   }
                 />

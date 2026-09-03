@@ -1,56 +1,65 @@
-import { useRef, type InputHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { useRef } from 'react'
 import { MathText } from '@/components/MathText'
 
-type SharedProps = {
+interface MathEditableInputProps {
   value: string
   onChange: (value: string) => void
+  className?: string
+  placeholder?: string
+  maxLength?: number
+  rows?: number
+  multiline?: boolean
+  style?: React.CSSProperties
   onClick?: (e: React.MouseEvent) => void
 }
 
-type SingleLineProps = SharedProps &
-  Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'> & {
-    multiline?: false
-  }
-
-type MultiLineProps = SharedProps &
-  Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'value' | 'onChange'> & {
-    multiline: true
-  }
-
-export function MathEditableInput(props: SingleLineProps | MultiLineProps) {
-  const { value, onChange, className, placeholder, onClick } = props
+export function MathEditableInput({
+  value,
+  onChange,
+  className,
+  placeholder,
+  maxLength,
+  rows = 1,
+  multiline = false,
+  style,
+  onClick,
+}: MathEditableInputProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const preview = value.trim() ? (
-    <MathText text={value} as={props.multiline ? 'div' : 'span'} />
-  ) : (
+    <MathText text={value} as={multiline ? 'div' : 'span'} />
+  ) : placeholder ? (
     <span className="math-editable-placeholder">{placeholder}</span>
-  )
+  ) : null
 
   return (
     <div
-      className={`math-editable ${props.multiline ? 'math-editable--multiline' : ''} ${className ?? ''}`}
+      className={`math-editable ${multiline ? 'math-editable--multiline' : ''} ${className ?? ''}`}
+      style={style}
     >
       <div className="math-editable-preview" aria-hidden>
         {preview}
       </div>
-      {props.multiline ? (
+      {multiline ? (
         <textarea
-          {...props}
           ref={textareaRef}
           className="math-editable-input"
           value={value}
+          rows={rows}
+          maxLength={maxLength}
+          aria-label={placeholder}
           onChange={(e) => onChange(e.target.value)}
           onClick={onClick}
         />
       ) : (
         <input
-          {...props}
           ref={inputRef}
           type="text"
           className="math-editable-input"
           value={value}
+          maxLength={maxLength}
+          aria-label={placeholder}
           onChange={(e) => onChange(e.target.value)}
           onClick={onClick}
         />
