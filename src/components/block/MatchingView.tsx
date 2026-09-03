@@ -1,6 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { WorksheetBlock } from '@/data/worksheet'
 import { getMatchingCorrectLinks, getMatchingRightItems } from '@/data/blockUtils'
+import { MathEditableInput } from '@/components/MathEditableInput'
 import { MathText } from '@/components/MathText'
 
 interface MatchingViewProps {
@@ -53,11 +54,11 @@ function MatchAnswerBox({
       }`}
     >
       {isEditing ? (
-        <input
+        <MathEditableInput
           className="match-answer-input"
           value={text}
           placeholder="Ответ"
-          onChange={(e) => onChange?.(e.target.value)}
+          onChange={(value) => onChange?.(value)}
           onClick={(e) => e.stopPropagation()}
         />
       ) : isEmpty ? (

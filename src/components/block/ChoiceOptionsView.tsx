@@ -7,6 +7,7 @@ import {
   isOptionCorrect,
   toggleCorrectOption,
 } from '@/data/blockUtils'
+import { MathEditableInput } from '@/components/MathEditableInput'
 import { MathText } from '@/components/MathText'
 import { FigmaIcon } from '@/components/ui'
 import choiceCheckboxChecked from '@/assets/worksheet/choice-checkbox-checked.svg'
@@ -230,14 +231,12 @@ export function ChoiceOptionsView({
                 correct={showCorrectUi}
                 onToggle={() => toggleCorrect(opt.id)}
               />
-              <input
+              <MathEditableInput
                 className="option-inline-input"
                 value={opt.text}
                 maxLength={CHOICE_OPTION_MAX}
-                placeholder={`Вариант ${String.fromCharCode(65 + index)}`}
-                onChange={(e) =>
-                  patchOption(index, { text: clampText(e.target.value, CHOICE_OPTION_MAX) })
-                }
+                placeholder="Ответ"
+                onChange={(text) => patchOption(index, { text: clampText(text, CHOICE_OPTION_MAX) })}
                 onClick={(e) => e.stopPropagation()}
               />
             </label>

@@ -1,5 +1,6 @@
 import { useRef, type RefObject } from 'react'
 import { FigmaIcon } from '@/components/ui'
+import { MathText } from '@/components/MathText'
 import iconBold from '@/assets/worksheet/tools/wysiwyg-bold.svg'
 import iconItalic from '@/assets/worksheet/tools/wysiwyg-italic.svg'
 import iconStrike from '@/assets/worksheet/tools/wysiwyg-strike.svg'
@@ -30,6 +31,7 @@ interface WysiwygTextareaProps {
   placeholder?: string
   inputRef?: RefObject<HTMLTextAreaElement | null>
   floatingToolbar?: boolean
+  mathPreview?: boolean
   onChange: (value: string) => void
   onClick?: (e: React.MouseEvent) => void
 }
@@ -123,6 +125,7 @@ export function WysiwygTextarea({
   placeholder,
   inputRef,
   floatingToolbar = false,
+  mathPreview = false,
   onChange,
   onClick,
 }: WysiwygTextareaProps) {
@@ -166,7 +169,26 @@ export function WysiwygTextarea({
     applyEdit(next, start + before.length + selected.length)
   }
 
-  const textarea = (
+  const textarea = mathPreview ? (
+    <div className={`math-editable math-editable--multiline ${className ?? ''}`}>
+      <div className="math-editable-preview" aria-hidden>
+        {value.trim() ? (
+          <MathText text={value} as="div" />
+        ) : (
+          <span className="math-editable-placeholder">{placeholder}</span>
+        )}
+      </div>
+      <textarea
+        ref={setTextareaRef}
+        className="math-editable-input ws-inline-textarea"
+        rows={rows}
+        value={value}
+        maxLength={maxLength}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
+  ) : (
     <textarea
       ref={setTextareaRef}
       className={className}

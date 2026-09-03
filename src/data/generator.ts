@@ -264,13 +264,17 @@ export function createEmptyBlock(type: TaskType, page = 0, subject = ''): Worksh
         instruction: '',
         question: 'Сопоставь элементы',
         leftItems: [
-          { id: 'left_1', text: 'Слева 1' },
-          { id: 'left_2', text: 'Слева 2' },
+          { id: 'left_1', text: '' },
+          { id: 'left_2', text: '' },
         ],
         rightItems: [
-          { id: 'right_1', text: 'Справа 1' },
-          { id: 'right_2', text: 'Справа 2' },
+          { id: 'right_1', text: '' },
+          { id: 'right_2', text: '' },
         ],
+        matchingPairCount: 2,
+        matchingLeftFormat: 'text',
+        matchingRightFormat: 'text',
+        matchingShuffleRight: true,
       }
     case 'grouping':
       return {

@@ -18,11 +18,14 @@ import {
   clampTableRows,
   defaultAnswerHeight,
   getBlockAnswerStyle,
+  MATCHING_PAIR_COUNT_DEFAULT,
+  MATCHING_PAIR_COUNT_OPTIONS,
   MATCHING_PAIRS_MAX,
   MATCHING_PAIRS_MIN,
   ORDER_ITEMS_MAX,
   ORDER_ITEMS_MIN,
   resizeChoiceOptions,
+  resizeMatchingPairs,
   shuffleArray,
 } from '@/data/blockUtils'
 import { Button, Input, Select } from '@/components/ui'
@@ -169,6 +172,79 @@ export function FillGapsTaskSettingsPanel({
               gapsAnswers: block.gapsShuffleAnswers
                 ? block.gapsAnswers
                 : shuffleArray(block.gapsAnswers ?? []),
+            })
+          }
+        >
+          <span className="knob" />
+        </button>
+      </div>
+    </section>
+  )
+}
+
+export function MatchingTaskSettingsPanel({
+  block,
+  onChange,
+}: {
+  block: WorksheetBlock
+  onChange: (block: WorksheetBlock) => void
+}) {
+  const count =
+    block.matchingPairCount ?? block.leftItems?.length ?? MATCHING_PAIR_COUNT_DEFAULT
+  const leftFormat = block.matchingLeftFormat ?? 'text'
+  const rightFormat = block.matchingRightFormat ?? 'text'
+
+  return (
+    <section className="ws-task-settings-panel">
+      <p className="side-section-heading">Настройки задания</p>
+      <label className="side-field">
+        <span>Количество пар</span>
+        <Select
+          options={MATCHING_PAIR_COUNT_OPTIONS}
+          value={String(count)}
+          onChange={(e) => {
+            const nextCount = clampMatchingCount(Number(e.target.value) || MATCHING_PAIR_COUNT_DEFAULT)
+            onChange(
+              resizeMatchingPairs({
+                ...block,
+                matchingPairCount: nextCount,
+              }),
+            )
+          }}
+        />
+      </label>
+      <label className="side-field">
+        <span>Левая колонка</span>
+        <Select
+          options={CHOICE_FORMAT_OPTIONS}
+          value={choiceLabelFromFormat(leftFormat)}
+          onChange={(e) =>
+            onChange({ ...block, matchingLeftFormat: choiceFormatFromLabel(e.target.value) })
+          }
+        />
+      </label>
+      <label className="side-field">
+        <span>Правая колонка</span>
+        <Select
+          options={CHOICE_FORMAT_OPTIONS}
+          value={choiceLabelFromFormat(rightFormat)}
+          onChange={(e) =>
+            onChange({ ...block, matchingRightFormat: choiceFormatFromLabel(e.target.value) })
+          }
+        />
+      </label>
+      <div className="side-switch-row">
+        <span>Перемешать правую колонку</span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={block.matchingShuffleRight ?? true}
+          className={`switch ${block.matchingShuffleRight !== false ? 'on' : ''}`}
+          onClick={() =>
+            onChange({
+              ...block,
+              matchingShuffleRight: !(block.matchingShuffleRight ?? true),
+              matchingDisplayRight: undefined,
             })
           }
         >

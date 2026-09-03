@@ -118,6 +118,12 @@ export interface WorksheetBlock {
   tableShuffleAnswers?: boolean
   orderDisplayItems?: string[]
   matchingDisplayRight?: MatchPair[]
+  /** Количество пар сопоставления (2–10). */
+  matchingPairCount?: number
+  matchingLeftFormat?: ChoiceOptionFormat
+  matchingRightFormat?: ChoiceOptionFormat
+  /** Перемешивать правую колонку при показе ученику. */
+  matchingShuffleRight?: boolean
   answerAreaStyle?: AnswerAreaStyle
   mediaUrl?: string
   mediaFileData?: string

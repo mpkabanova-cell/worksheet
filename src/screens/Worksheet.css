@@ -1077,6 +1077,145 @@
   color: var(--text-default);
 }
 
+.gaps-empty-label {
+  margin: 0;
+  padding: 8px 0 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-secondary);
+}
+
+.gaps-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.gaps-student {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.gaps-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-default);
+}
+
+.gaps-words-bank {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  padding: 0 0 16px;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.gaps-words-bank--student {
+  padding: 0 0 16px;
+}
+
+.gaps-words-bank-label {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.gaps-words-bank-item {
+  display: inline;
+  color: var(--text-default);
+}
+
+.gaps-words-bank-word {
+  display: inline;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.gaps-words-bank-word:hover {
+  color: var(--text-brand);
+}
+
+.gaps-words-bank-sep {
+  margin-right: 4px;
+}
+
+.math-editable {
+  position: relative;
+  width: 100%;
+  min-height: 40px;
+}
+
+.math-editable--multiline {
+  min-height: 48px;
+}
+
+.math-editable-preview {
+  position: absolute;
+  inset: 0;
+  padding: inherit;
+  overflow: hidden;
+  pointer-events: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.math-editable-placeholder {
+  color: var(--text-secondary);
+}
+
+.math-editable-input {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--text-default);
+  font: inherit;
+  resize: none;
+}
+
+.math-editable:not(.math-editable--multiline) .math-editable-input {
+  min-height: 40px;
+  padding: 8px 12px;
+}
+
+.option-edit .math-editable {
+  flex: 1;
+  min-width: 0;
+}
+
+.option-edit .math-editable-input {
+  padding: 4px 8px;
+}
+
+.match-answer-box .math-editable {
+  width: 100%;
+  min-height: 24px;
+}
+
+.match-answer-box .math-editable-input {
+  padding: 0;
+  min-height: 24px;
+  line-height: 24px;
+}
+
+.answer-inline-input.math-editable,
+.answer-inline-input.math-editable--multiline {
+  position: absolute;
+  inset: 0;
+}
+
 .gaps-slot {
   gap: 16px;
 }

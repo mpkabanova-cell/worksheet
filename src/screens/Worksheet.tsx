@@ -4,7 +4,7 @@ import { GRADES, SUBJECTS, formatSavedAgo } from '@/data/worksheet'
 import { countTaskBlocksBefore, reconcileAnswerBlockStyle } from '@/data/blockUtils'
 import { Button, FigmaIcon, Icon, Select } from '@/components/ui'
 import { BlockCard } from '@/screens/worksheet/BlockCard'
-import { AnswerTaskSettingsPanel, ChoiceTaskSettingsPanel, FillGapsTaskSettingsPanel } from '@/screens/worksheet/blockEditors'
+import { AnswerTaskSettingsPanel, ChoiceTaskSettingsPanel, FillGapsTaskSettingsPanel, MatchingTaskSettingsPanel } from '@/screens/worksheet/blockEditors'
 import pageAddIcon from '@/assets/worksheet/tools/page-add.svg'
 import toolText from '@/assets/worksheet/tools/tool-text.svg'
 import toolMedia from '@/assets/worksheet/tools/tool-media.svg'
@@ -186,8 +186,12 @@ export function WorksheetScreen({
   const isChoiceBlockSelected =
     selected?.type === 'single_choice' || selected?.type === 'multiple_choice'
   const isFillGapsBlockSelected = selected?.type === 'fill_gaps'
+  const isMatchingBlockSelected = selected?.type === 'matching'
   const hasTaskSettings =
-    isAnswerBlockSelected || isChoiceBlockSelected || isFillGapsBlockSelected
+    isAnswerBlockSelected ||
+    isChoiceBlockSelected ||
+    isFillGapsBlockSelected ||
+    isMatchingBlockSelected
   const [sheetSettingsOpen, setSheetSettingsOpen] = useState(true)
 
   useEffect(() => {
@@ -442,6 +446,10 @@ export function WorksheetScreen({
 
             {isFillGapsBlockSelected && selected && onChangeBlock ? (
               <FillGapsTaskSettingsPanel block={selected} onChange={onChangeBlock} />
+            ) : null}
+
+            {isMatchingBlockSelected && selected && onChangeBlock ? (
+              <MatchingTaskSettingsPanel block={selected} onChange={onChangeBlock} />
             ) : null}
 
             {hasTaskSettings ? (

@@ -1,4 +1,5 @@
 import type { AnswerAreaStyle, WorksheetBlock } from '@/data/worksheet'
+import { MathEditableInput } from '@/components/MathEditableInput'
 import { MathText } from '@/components/MathText'
 import { AnswerCellsGrid } from '@/components/block/AnswerCellsGrid'
 import type { GridOverlayType } from '@/components/block/AnswerGridOverlay'
@@ -34,13 +35,14 @@ function AnswerInlineEditor({
   const minHeight = lines * 28
 
   return (
-    <textarea
+    <MathEditableInput
       className={`answer-inline-input answer-inline-input--${style}`}
+      multiline
+      rows={Math.max(1, lines)}
       value={value}
       placeholder={style === 'block' ? 'Введите текст' : undefined}
-      rows={Math.max(1, lines)}
       style={{ minHeight: `${minHeight}px` }}
-      onChange={(e) => onChange?.(e.target.value)}
+      onChange={(text) => onChange?.(text)}
       onClick={(e) => e.stopPropagation()}
     />
   )

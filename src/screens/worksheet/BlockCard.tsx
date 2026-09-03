@@ -7,6 +7,7 @@ import {
   getChoiceQuestionMaxLength,
   getGapsSourceText,
   getGapsStudentText,
+  getGapsDisplayAnswers,
   getOrderDisplayItems,
   isChoiceBlock,
   TEXT_BODY_MAX_LENGTH,
@@ -373,7 +374,10 @@ export function BlockCard({
               />
             ) : (
               <FillGapsStudent
-                text={showAnswer ? getGapsSourceText(block) : gapsStudentText}
+                text={effectiveShowAnswer ? getGapsSourceText(block) : gapsStudentText}
+                gapWords={block.gapsAnswers ?? []}
+                showWordBank={!effectiveShowAnswer && Boolean(block.gapsShuffleAnswers)}
+                shuffledWords={getGapsDisplayAnswers(block, editable, selected)}
               />
             )}
           </div>

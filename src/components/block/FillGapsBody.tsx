@@ -1,8 +1,8 @@
-import { useRef, useState } from 'react'
+import { useRef } from 'react'
 import type { WorksheetBlock } from '@/data/worksheet'
+import { MathText } from '@/components/MathText'
 import { WysiwygTextarea } from '@/components/WysiwygTextarea'
 import { Button } from '@/components/ui'
-import { MathText } from '@/components/MathText'
 
 interface FillGapsEditorProps {
   sourceText: string
@@ -16,7 +16,6 @@ export function FillGapsEditor({
   onChange,
 }: FillGapsEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const [manualGap, setManualGap] = useState('')
 
   const syncSource = (nextSource: string) => {
     onChange({
@@ -33,19 +32,13 @@ export function FillGapsEditor({
       gapsSourceText: sourceText,
       gapsText: undefined,
     })
-    setManualGap('')
   }
 
   const addGapFromSelection = () => {
     const el = textareaRef.current
-    if (el) {
-      const selected = sourceText.slice(el.selectionStart, el.selectionEnd).trim()
-      if (selected) {
-        addGapWord(selected)
-        return
-      }
-    }
-    if (manualGap.trim()) addGapWord(manualGap)
+    if (!el) return
+    const selected = sourceText.slice(el.selectionStart, el.selectionEnd).trim()
+    if (selected) addGapWord(selected)
   }
 
   const removeGap = (word: string) => {
@@ -57,67 +50,80 @@ export function FillGapsEditor({
   }
 
   return (
-    <div className="gaps-sidebar-editor">
+    <div className="gaps-editor">
       <WysiwygTextarea
         className="ws-inline-textarea gaps-source-textarea"
         rows={8}
         value={sourceText}
-        placeholder="Введите текст с пропусками…"
+        placeholder="Текст с пропусками"
         inputRef={textareaRef}
         floatingToolbar
+        mathPreview
         onChange={syncSource}
         onClick={(e) => e.stopPropagation()}
       />
 
       {gapWords.length > 0 ? (
-        <div className="gaps-chip-list" aria-label="Пропуски">
-          {gapWords.map((word) => (
-            <span key={word} className="gaps-chip">
-              {word}
+        <div className="gaps-words-bank" aria-label="Пропущенные слова">
+          <span className="gaps-words-bank-label">Пропущенные слова:</span>
+          {gapWords.map((word, index) => (
+            <span key={word} className="gaps-words-bank-item">
               <button
                 type="button"
-                className="gaps-chip-remove"
-                aria-label={`Удалить пропуск «${word}»`}
+                className="gaps-words-bank-word"
                 onClick={() => removeGap(word)}
+                title="Удалить из пропусков"
               >
-                ×
+                <MathText text={word} as="span" />
               </button>
+              {index < gapWords.length - 1 ? <span className="gaps-words-bank-sep">,</span> : null}
             </span>
           ))}
         </div>
       ) : null}
 
-      <div className="gaps-add-row">
-        <input
-          className="gaps-add-input"
-          value={manualGap}
-          placeholder="Слово для пропуска"
-          onChange={(e) => setManualGap(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              addGapFromSelection()
-            }
-          }}
-        />
-        <Button variant="secondary" size="sm" type="button" onClick={addGapFromSelection}>
-          Добавить пропуск
-        </Button>
-      </div>
+      <Button variant="secondary" size="sm" type="button" onClick={addGapFromSelection}>
+        Добавить в пропуски
+      </Button>
     </div>
   )
 }
 
 interface FillGapsStudentProps {
   text: string
+  gapWords?: string[]
+  showWordBank?: boolean
+  shuffledWords?: string[]
 }
 
-export function FillGapsStudent({ text }: FillGapsStudentProps) {
-  const displayText = text.trim() || 'Текст с пропусками'
+export function FillGapsStudent({
+  text,
+  gapWords = [],
+  showWordBank = false,
+  shuffledWords = [],
+}: FillGapsStudentProps) {
+  if (!text.trim()) {
+    return <p className="gaps-empty-label">Текст с пропусками</p>
+  }
+
+  const words = showWordBank && shuffledWords.length > 0 ? shuffledWords : gapWords
 
   return (
-    <p className="gaps-text">
-      <MathText text={displayText} />
-    </p>
+    <div className="gaps-student">
+      <p className="gaps-text">
+        <MathText text={text} />
+      </p>
+      {words.length > 0 ? (
+        <div className="gaps-words-bank gaps-words-bank--student">
+          <span className="gaps-words-bank-label">Пропущенные слова:</span>
+          {words.map((word, index) => (
+            <span key={`${word}-${index}`} className="gaps-words-bank-item">
+              <MathText text={word} as="span" />
+              {index < words.length - 1 ? <span className="gaps-words-bank-sep">,</span> : null}
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </div>
   )
 }

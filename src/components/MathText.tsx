@@ -1,6 +1,7 @@
 import { Fragment, useMemo, type ReactNode } from 'react'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
+import { preprocessMathText } from '@/data/mathTextUtils'
 
 interface MathTextProps {
   text: string
@@ -24,7 +25,8 @@ function renderKatex(tex: string, displayMode: boolean): string {
 /** Renders plain text with inline `$...$` and display `$$...$$` LaTeX via KaTeX. */
 export function MathText({ text, className, as: Tag = 'span' }: MathTextProps) {
   const safeText = typeof text === 'string' ? text : text == null ? '' : String(text)
-  const nodes = useMemo(() => parseMathText(safeText), [safeText])
+  const prepared = useMemo(() => preprocessMathText(safeText), [safeText])
+  const nodes = useMemo(() => parseMathText(prepared), [prepared])
 
   return (
     <Tag className={className ? `math-text ${className}` : 'math-text'}>

@@ -6,6 +6,7 @@ import type {
   WorksheetDraft,
 } from './worksheet'
 import { uid } from './worksheet'
+import { splitMathSegments } from '@/data/mathTextUtils'
 
 export const CHOICE_QUESTION_MAX = 500
 export const CHOICE_OPTION_MAX = 300
@@ -63,6 +64,12 @@ export const ORDER_ITEMS_MAX = 10
 
 export const MATCHING_PAIRS_MIN = 2
 export const MATCHING_PAIRS_MAX = 10
+export const MATCHING_PAIR_COUNT_DEFAULT = 3
+
+export const MATCHING_PAIR_COUNT_OPTIONS = Array.from(
+  { length: MATCHING_PAIRS_MAX - MATCHING_PAIRS_MIN + 1 },
+  (_, index) => String(index + MATCHING_PAIRS_MIN),
+)
 
 export const ANSWER_CELL_SIZE = 16
 
@@ -400,7 +407,7 @@ export function stableShuffle<T>(items: T[], seed: string): T[] {
 }
 
 export function gapUnderscore(word: string): string {
-  const len = Math.max(2, word.length * 2)
+  const len = Math.max(7, word.length + 3)
   return '_'.repeat(len)
 }
 
@@ -408,14 +415,22 @@ export function renderGapsStudentText(sourceText: string, gapWords: string[]): s
   if (!sourceText.trim()) return ''
   if (!gapWords.length) return sourceText
 
-  let result = sourceText
-  for (const word of gapWords) {
-    const idx = result.indexOf(word)
-    if (idx >= 0) {
-      result = result.slice(0, idx) + gapUnderscore(word) + result.slice(idx + word.length)
-    }
-  }
-  return result
+  const segments = splitMathSegments(sourceText)
+  return segments
+    .map((segment) => {
+      if (segment.kind === 'math') {
+        return segment.display ? `$$${segment.value}$$` : `$${segment.value}$`
+      }
+      let plain = segment.value
+      for (const word of gapWords) {
+        const idx = plain.indexOf(word)
+        if (idx >= 0) {
+          plain = plain.slice(0, idx) + gapUnderscore(word) + plain.slice(idx + word.length)
+        }
+      }
+      return plain
+    })
+    .join('')
 }
 
 export function tokenizeGapText(text: string): string[] {
@@ -439,6 +454,18 @@ export function getGapsStudentText(block: WorksheetBlock): string {
   return renderGapsStudentText(source, block.gapsAnswers ?? [])
 }
 
+export function getGapsDisplayAnswers(
+  block: WorksheetBlock,
+  editable: boolean,
+  selected: boolean,
+): string[] {
+  const answers = block.gapsAnswers ?? []
+  if (!answers.length) return []
+  if (editable && selected) return answers
+  if (!block.gapsShuffleAnswers) return answers
+  return stableShuffle(answers, `${block.id}-gaps`)
+}
+
 export function getOrderDisplayItems(
   block: WorksheetBlock,
   editable: boolean,
@@ -457,6 +484,7 @@ export function getMatchingRightItems(
 ) {
   const items = block.rightItems ?? []
   if (editable && selected) return items
+  if (block.matchingShuffleRight === false) return items
   if (block.matchingDisplayRight?.length === items.length) return block.matchingDisplayRight
   return stableShuffle(items, `${block.id}-right`)
 }
@@ -629,6 +657,27 @@ export function clampOrderCount(n: number): number {
 
 export function clampMatchingCount(n: number): number {
   return Math.max(MATCHING_PAIRS_MIN, Math.min(MATCHING_PAIRS_MAX, n))
+}
+
+export function resizeMatchingPairs(block: WorksheetBlock): WorksheetBlock {
+  const count = clampMatchingCount(
+    block.matchingPairCount ?? block.leftItems?.length ?? MATCHING_PAIR_COUNT_DEFAULT,
+  )
+  const left = [...(block.leftItems ?? [])]
+  const right = [...(block.rightItems ?? [])]
+
+  while (left.length < count) {
+    left.push({ id: uid('left'), text: '' })
+    right.push({ id: uid('right'), text: '' })
+  }
+
+  return {
+    ...block,
+    matchingPairCount: count,
+    leftItems: left.slice(0, count),
+    rightItems: right.slice(0, count),
+    matchingDisplayRight: undefined,
+  }
 }
 
 export function clampChoiceOptionCount(n: number): number {
