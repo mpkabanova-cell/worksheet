@@ -315,7 +315,6 @@
   flex-shrink: 0;
   border-left: 1px solid var(--border-secondary);
   padding: 8px 0 0;
-  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -323,35 +322,27 @@
 }
 
 .ws-task-settings-scroll {
-  flex: 1;
+  flex: 0 1 auto;
+  max-height: 45%;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-bottom: 8px;
 }
 
 .ws-sheet-settings-block {
-  flex-shrink: 0;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  min-height: 0;
 }
 
 .ws-right-sidebar.has-task-settings .ws-sheet-settings-block {
-  margin-top: auto;
-  border-top: 1px solid var(--border-secondary);
-  padding-top: 8px;
-}
-
-.ws-right-sidebar.has-task-settings.is-collapsed .ws-sheet-settings-scroll {
-  display: none;
-}
-
-.ws-right-sidebar:not(.has-task-settings) .ws-sheet-settings-toggle {
-  display: none;
+  flex: 1;
+  min-height: 0;
 }
 
 .ws-sheet-settings-heading {
+  flex-shrink: 0;
   padding-bottom: 8px;
 }
 
@@ -360,7 +351,7 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 0 8px 72px;
+  padding: 0 8px 8px;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -421,42 +412,6 @@
 .ws-task-settings-panel .side-field-hint {
   font-size: 12px;
   line-height: 16px;
-}
-
-.ws-sheet-settings-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: calc(100% - 16px);
-  min-height: 40px;
-  margin: 0 8px;
-  padding: 0 12px;
-  border: none;
-  background: transparent;
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 20px;
-  color: var(--text-default);
-  cursor: pointer;
-  border-radius: 6px;
-  flex-shrink: 0;
-}
-
-.ws-sheet-settings-toggle:hover {
-  background: var(--bg-secondary);
-}
-
-.ws-right-sidebar.is-collapsed .ws-sheet-settings-scroll {
-  display: none;
-}
-
-.ws-right-sidebar:not(.has-task-settings) .ws-sheet-settings-scroll {
-  display: flex;
-}
-
-.ws-right-sidebar.has-task-settings .ws-sheet-settings-scroll {
-  max-height: min(40vh, 360px);
-  padding-bottom: 16px;
 }
 
 .ws-task-settings-panel .ws-sidepanel-scroll,
@@ -2866,18 +2821,15 @@
 
 
 .settings-actions {
-  position: absolute;
-  right: 20px;
-  bottom: 20px;
-  z-index: 1;
+  flex-shrink: 0;
   display: flex;
   flex-direction: row;
   align-items: center;
+  justify-content: flex-end;
   gap: 4px;
-  padding: 0;
-  width: 84px;
-  height: 40px;
-  flex: none;
+  padding: 8px 20px 20px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .history-btn {

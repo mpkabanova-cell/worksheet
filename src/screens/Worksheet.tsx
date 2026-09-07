@@ -21,7 +21,6 @@ import iconUndo from '@/assets/worksheet/tools/undo.svg'
 import iconRedo from '@/assets/worksheet/tools/redo.svg'
 import iconThumbUp from '@/assets/worksheet/tools/thumb-up.svg'
 import iconThumbDown from '@/assets/worksheet/tools/thumb-down.svg'
-import iconSettings from '@/assets/icon-settings.svg'
 import { MathText } from '@/components/MathText'
 import './Worksheet.css'
 import './Loader.css'
@@ -189,7 +188,6 @@ export function WorksheetScreen({
   const isFillGapsBlockSelected = selected?.type === 'fill_gaps'
   const isMatchingBlockSelected = selected?.type === 'matching'
   const hasTaskSettings = Boolean(selected && onChangeBlock && isEdit)
-  const [sheetSettingsOpen, setSheetSettingsOpen] = useState(true)
 
   const taskSettingsPanel =
     selected && onChangeBlock
@@ -223,10 +221,6 @@ export function WorksheetScreen({
           )
         })()
       : null
-
-  useEffect(() => {
-    setSheetSettingsOpen(!hasTaskSettings)
-  }, [selected?.id, hasTaskSettings])
 
   const handleDropOnBlock = (targetId: string) => {
     if (sidebarDragType) {
@@ -463,30 +457,17 @@ export function WorksheetScreen({
         </main>
 
         {hasSidePanel ? (
-          <aside
-            className={`ws-sidepanel ws-right-sidebar ${sheetSettingsOpen ? 'is-open' : 'is-collapsed'} ${hasTaskSettings ? 'has-task-settings' : ''}`}
-          >
+          <aside className={`ws-sidepanel ws-right-sidebar ${hasTaskSettings ? 'has-task-settings' : ''}`}>
             {hasTaskSettings && taskSettingsPanel ? (
               <div className="ws-task-settings-scroll">{taskSettingsPanel}</div>
             ) : null}
 
-            <div className="ws-sheet-settings-block">
-              {hasTaskSettings ? (
-                <button
-                  type="button"
-                  className="ws-sheet-settings-toggle"
-                  aria-expanded={sheetSettingsOpen}
-                  onClick={() => setSheetSettingsOpen((open) => !open)}
-                >
-                  <span>Настройки рабочего листа</span>
-                  <FigmaIcon src={iconSettings} size={20} />
-                </button>
-              ) : (
-                <p className="side-section-heading ws-sheet-settings-heading">Настройки рабочего листа</p>
-              )}
+            {hasTaskSettings ? <div className="ws-right-divider" aria-hidden /> : null}
 
-              {!hasTaskSettings || sheetSettingsOpen ? (
-                <div className="ws-sidepanel-scroll ws-sheet-settings-scroll">
+            <div className="ws-sheet-settings-block">
+              <p className="side-section-heading ws-sheet-settings-heading">Настройки рабочего листа</p>
+
+              <div className="ws-sidepanel-scroll ws-sheet-settings-scroll">
                   <label className="side-field">
                     <span>Предмет</span>
                     <Select
@@ -560,8 +541,7 @@ export function WorksheetScreen({
                       </button>
                     </>
                   ) : null}
-                </div>
-              ) : null}
+              </div>
             </div>
 
             <div className="settings-actions">

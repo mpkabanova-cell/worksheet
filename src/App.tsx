@@ -203,19 +203,15 @@ export default function App() {
   const submitCreate = (createMode: 'generate' | 'manual' = 'generate') => {
     setCreateOpen(false)
     setCreateAdvanced(false)
-    setDraft((d) => {
-      const topic = d.topic.trim() || (createMode === 'manual' ? 'Задание' : '')
-      return {
-        ...d,
-        topic,
-        title: topic,
-        blocks: createMode === 'manual' ? [] : d.blocks,
-        intro: createMode === 'manual' ? '' : d.intro,
-        createdManually: createMode === 'manual',
-        addIntro: createMode === 'manual' ? false : d.addIntro,
-        ...(createMode === 'manual' ? { subject: '', grade: '' } : {}),
-      }
-    })
+    setDraft((d) => ({
+      ...d,
+      title: d.topic.trim() || d.title,
+      blocks: createMode === 'manual' ? [] : d.blocks,
+      intro: createMode === 'manual' ? '' : d.intro,
+      createdManually: createMode === 'manual',
+      addIntro: createMode === 'manual' ? false : d.addIntro,
+      ...(createMode === 'manual' ? { subject: '', grade: '' } : {}),
+    }))
     if (createMode === 'manual') {
       setSelectedBlockId(null)
       setScreen('edit')
