@@ -54,11 +54,12 @@ export function getChoiceQuestionMaxLength(block: WorksheetBlock): number {
 export const QUESTION_MAX_LENGTH = 2000
 export const TEXT_BODY_MAX_LENGTH = 10_000
 
-export const ANSWER_QUESTION_PLACEHOLDER = 'Введите условие…'
+export const ANSWER_QUESTION_PLACEHOLDER = 'Введите текст'
 export const CHOICE_QUESTION_PLACEHOLDER = 'Введите вопрос…'
 
 const QUESTION_PLACEHOLDERS = new Set([
   ANSWER_QUESTION_PLACEHOLDER,
+  'Введите условие…',
   'Введите условие...',
   'Введите текст',
   'Введите текст…',

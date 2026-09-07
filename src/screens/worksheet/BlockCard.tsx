@@ -79,9 +79,11 @@ function DifficultyPicker({
           />
         </button>
       ))}
-      <button type="button" className="diff-clear" onClick={onClear}>
-        Сбросить
-      </button>
+      {value ? (
+        <button type="button" className="diff-clear" onClick={onClear}>
+          Сбросить
+        </button>
+      ) : null}
     </span>
   )
 }
@@ -130,8 +132,18 @@ export function BlockCard({
   const [editingQuestion, setEditingQuestion] = useState(false)
 
   useEffect(() => {
-    if (!selected) setEditingQuestion(false)
-  }, [selected, block.id])
+    if (!selected) {
+      setEditingQuestion(false)
+      return
+    }
+    if (
+      (block.type === 'short_answer' || block.type === 'extended_answer') &&
+      editable &&
+      !isIssued
+    ) {
+      setEditingQuestion(true)
+    }
+  }, [selected, block.id, block.type, editable, isIssued])
 
   const patchBlock = (patch: Partial<WorksheetBlock>) => {
     onChangeBlock?.({ ...block, ...patch })

@@ -518,10 +518,14 @@
   align-items: baseline;
   flex-wrap: wrap;
   gap: 4px;
-  min-height: 28px;
+  min-height: 20px;
   font-size: 14px;
-  line-height: 28px;
+  line-height: 20px;
   color: var(--text-default);
+}
+
+.ws-task.answer-task .answer-lines-head {
+  color: var(--text-secondary);
 }
 
 .answer-lines-head--inset {
@@ -536,8 +540,12 @@
 .answer-field-label {
   flex-shrink: 0;
   font-size: 14px;
-  line-height: 28px;
+  line-height: 20px;
   color: var(--text-default);
+}
+
+.ws-task.answer-task .answer-field-label {
+  color: var(--text-secondary);
 }
 
 .answer-field-value {
@@ -731,7 +739,7 @@
 
 .block-drag-side {
   position: absolute;
-  left: -28px;
+  left: -29px;
   top: 50%;
   transform: translateY(-50%);
   width: 20px;
@@ -846,7 +854,16 @@
 }
 
 .ws-task.answer-task .ws-task-main {
-  gap: 8px;
+  gap: 4px;
+}
+
+.ws-task.answer-task .ws-task-num,
+.ws-task.answer-task .ws-task-text,
+.ws-task.answer-task .ws-inline-textarea {
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 24px;
+  letter-spacing: -0.1px;
 }
 
 .diff-label {
@@ -2517,18 +2534,14 @@
 
 .block-tools {
   position: absolute;
-  top: -40px;
-  right: 8px;
+  top: -33px;
+  right: 11px;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 8px;
-  background: var(--bg-white);
-  border-radius: 8px;
-  box-shadow:
-    0 8px 8px rgba(38, 52, 96, 0.05),
-    0 10px 14px rgba(38, 52, 96, 0.05),
-    0 12px 27px rgba(38, 52, 96, 0.05);
+  background: var(--bg-secondary);
+  border-radius: 8px 8px 0 0;
   z-index: 2;
 }
 

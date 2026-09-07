@@ -54,7 +54,7 @@ function ToolButton({
       onClick={onClick}
       aria-label={label}
     >
-      <FigmaIcon src={icon} size={18} />
+      <FigmaIcon src={icon} size={floating ? 16 : 18} />
     </button>
   )
 }
