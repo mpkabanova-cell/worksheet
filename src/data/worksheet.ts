@@ -161,6 +161,8 @@ export interface WorksheetDraft {
   showDifficulty: boolean
   showAnswers: boolean
   addIntro: boolean
+  /** Лист создан вручную (без генерации) — минимальная шапка на листе. */
+  createdManually?: boolean
   plan: PlanTask[]
   blocks: WorksheetBlock[]
   pages: number
@@ -294,6 +296,7 @@ export function emptyDraft(): WorksheetDraft {
     showDifficulty: true,
     showAnswers: false,
     addIntro: true,
+    createdManually: false,
     plan: createPlan(5),
     blocks: [],
     pages: 1,

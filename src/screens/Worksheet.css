@@ -140,28 +140,42 @@
   width: 100%;
 }
 
+.sheet-header--manual-only {
+  gap: 0;
+  padding-bottom: 16px;
+}
+
+.sheet-header--manual-only .sheet-title-input {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
 .student-line {
   display: flex;
   align-items: flex-end;
   gap: 8px;
   width: 100%;
+  min-height: 20px;
   font-size: 14px;
+  font-weight: 400;
   line-height: 20px;
   color: var(--text-secondary);
 }
 
 .student-line i {
   flex: 1;
-  height: 0;
-  border-bottom: 1px solid var(--border-secondary);
-  margin-bottom: 4px;
+  height: 1px;
+  background: var(--border-secondary);
+  margin-bottom: 5px;
+  border: none;
 }
 
 .sheet-title {
   text-align: left;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 500;
-  line-height: 28px;
+  line-height: 26px;
   letter-spacing: -0.2px;
   color: var(--text-default);
   margin: 0;
@@ -180,10 +194,11 @@
 }
 
 .sheet-title-input {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 500;
-  line-height: 28px;
+  line-height: 26px;
   letter-spacing: -0.2px;
+  color: var(--text-default);
 }
 
 /* Full-width divider under title — edge to edge of sheet */
@@ -438,6 +453,12 @@
 
 .ws-task-head--answer {
   padding-right: 80px;
+}
+
+.ws-task-head--answer .ws-task-text,
+.ws-task-head--answer .ws-inline-textarea,
+.ws-task-head .ws-task-text:not(.is-placeholder) {
+  color: var(--text-default);
 }
 
 .ws-task-question-row .ws-task-text,
@@ -744,14 +765,8 @@
   font-weight: 500;
   line-height: 24px;
   letter-spacing: -0.1px;
-  color: var(--text-default);
-  text-align: center;
-}
-
-.ws-task.answer-task .ws-task-num {
-  font-size: 16px;
-  line-height: 24px;
   color: var(--text-secondary);
+  text-align: center;
 }
 
 .ws-task-main {
@@ -771,13 +786,12 @@
   color: var(--text-default);
 }
 
-.ws-task.answer-task .ws-task-text,
-.ws-task.answer-task .ws-inline-textarea {
-  font-size: 16px;
-  line-height: 24px;
+.ws-task-text.is-placeholder {
+  color: var(--text-secondary);
 }
 
-.ws-task.answer-task .ws-task-text.is-placeholder {
+.ws-task.answer-task .ws-task-text.is-placeholder,
+.ws-task.answer-task .ws-inline-textarea::placeholder {
   color: var(--text-secondary);
 }
 
@@ -786,11 +800,11 @@
   background: transparent;
   padding: 0;
   box-shadow: none;
-  color: var(--text-secondary);
+  color: var(--text-default);
 }
 
-.ws-task.answer-task.editing-inline .ws-inline-textarea:focus {
-  box-shadow: none;
+.ws-task.answer-task.editing-inline .ws-inline-textarea::placeholder {
+  color: var(--text-secondary);
 }
 
 .ws-task.plain .ws-task-text {

@@ -204,6 +204,8 @@ export default function App() {
       title: d.topic || d.title,
       blocks: createMode === 'manual' ? [] : d.blocks,
       intro: createMode === 'manual' ? '' : d.intro,
+      createdManually: createMode === 'manual',
+      addIntro: createMode === 'manual' ? false : d.addIntro,
     }))
     if (createMode === 'manual') {
       setSelectedBlockId(null)

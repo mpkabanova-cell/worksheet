@@ -157,6 +157,7 @@ export function WorksheetScreen({
 }: WorksheetScreenProps) {
   const selected = draft.blocks.find((b) => b.id === selectedBlockId) ?? null
   const isEdit = mode === 'edit' || mode === 'edit-widget' || mode === 'add-block'
+  const minimalManualSheet = Boolean(draft.createdManually)
   const showAnswers = mode === 'answers' || draft.showAnswers
   const [dragBlockId, setDragBlockId] = useState<string | null>(null)
   const [dropTargetId, setDropTargetId] = useState<string | null>(null)
@@ -296,11 +297,13 @@ export function WorksheetScreen({
 
         <main className="ws-canvas">
           <div className={`ws-sheet ${isEdit ? 'editing' : ''} ${draft.print.orientation}`}>
-            <div className="sheet-header">
-              <div className="student-line">
-                <span>Ученик:</span>
-                <i />
-              </div>
+            <div className={`sheet-header ${minimalManualSheet ? 'sheet-header--manual-only' : ''}`}>
+              {!minimalManualSheet ? (
+                <div className="student-line">
+                  <span>Ученик:</span>
+                  <i />
+                </div>
+              ) : null}
 
               {isEdit ? (
                 <input
@@ -313,7 +316,9 @@ export function WorksheetScreen({
               )}
             </div>
 
-            <div className="sheet-divider" />
+            {!minimalManualSheet || draft.blocks.length > 0 ? (
+              <div className="sheet-divider" />
+            ) : null}
 
             <div
               className={`sheet-content ${isEdit ? 'editing' : ''}`}
@@ -321,7 +326,7 @@ export function WorksheetScreen({
                 if (sidebarDragType || dragBlockId) e.preventDefault()
               }}
             >
-              {isEdit ? (
+              {isEdit && !minimalManualSheet ? (
                 <div className="sheet-intro-widget">
                   <textarea
                     className="sheet-intro-input"
@@ -331,7 +336,7 @@ export function WorksheetScreen({
                     onChange={(e) => onChangeDraft?.({ ...draft, intro: e.target.value })}
                   />
                 </div>
-              ) : draft.intro ? (
+              ) : !minimalManualSheet && draft.intro ? (
                 <div className="sheet-intro-widget">
                   <MathText as="p" className="sheet-intro" text={draft.intro} />
                 </div>
@@ -343,7 +348,7 @@ export function WorksheetScreen({
                 </p>
               ) : null}
 
-              {pageBlocks.length === 0 && draft.blocks.length === 0 && isEdit ? (
+              {pageBlocks.length === 0 && draft.blocks.length === 0 && isEdit && !minimalManualSheet ? (
                 <p className="sheet-empty-hint">
                   Добавьте блок из панели инструментов слева или сгенерируйте задание.
                 </p>
