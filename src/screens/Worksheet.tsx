@@ -344,10 +344,6 @@ export function WorksheetScreen({
               )}
             </div>
 
-            {!minimalManualSheet || draft.blocks.length > 0 ? (
-              <div className="sheet-divider" />
-            ) : null}
-
             <div
               className={`sheet-content ${isEdit ? 'editing' : ''}`}
               onDragOver={(e) => {

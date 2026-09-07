@@ -10,6 +10,8 @@ import {
   getGapsDisplayAnswers,
   getOrderDisplayItems,
   isChoiceBlock,
+  isQuestionPlaceholder,
+  questionPlaceholderForBlock,
   TEXT_BODY_MAX_LENGTH,
 } from '@/data/blockUtils'
 import { getBlockQuestion } from '@/data/taskContent'
@@ -191,7 +193,8 @@ export function BlockCard({
 
   const question = getBlockQuestion(block)
   const questionText = block.question?.trim() ?? question.trim()
-  const isQuestionEmpty = !questionText
+  const questionPlaceholder = questionPlaceholderForBlock(block)
+  const showsQuestionPlaceholder = isQuestionPlaceholder(questionText)
   const isPlainText = block.type === 'text'
   const gapsStudentText = getGapsStudentText(block)
   const orderItems = isEditing
@@ -267,9 +270,9 @@ export function BlockCard({
                   <WysiwygTextarea
                     className="ws-inline-textarea"
                     rows={2}
-                    value={block.question ?? question}
+                    value={showsQuestionPlaceholder ? '' : (block.question ?? question)}
                     maxLength={questionMaxLength}
-                    placeholder="Введите текст"
+                    placeholder={questionPlaceholder}
                     floatingToolbar
                     onChange={(value) =>
                       patchBlock({ question: clampText(value, questionMaxLength) })
@@ -278,21 +281,21 @@ export function BlockCard({
                   />
                 ) : isEditing ? (
                   <p
-                    className={`ws-task-text ws-task-text--clickable ${isQuestionEmpty ? 'is-placeholder' : ''}`}
+                    className={`ws-task-text ws-task-text--clickable ${showsQuestionPlaceholder ? 'is-placeholder' : ''}`}
                     onClick={(e) => {
                       e.stopPropagation()
                       setEditingQuestion(true)
                     }}
                   >
-                    {isQuestionEmpty ? (
-                      'Введите текст'
+                    {showsQuestionPlaceholder ? (
+                      questionPlaceholder
                     ) : (
                       <MathText text={block.question ?? question} as="span" />
                     )}
                   </p>
                 ) : (
-                  <p className={`ws-task-text ${isQuestionEmpty ? 'is-placeholder' : ''}`}>
-                    {isQuestionEmpty ? 'Введите текст' : <MathText text={question} />}
+                  <p className={`ws-task-text ${showsQuestionPlaceholder ? 'is-placeholder' : ''}`}>
+                    {showsQuestionPlaceholder ? questionPlaceholder : <MathText text={question} />}
                   </p>
                 )}
               </div>

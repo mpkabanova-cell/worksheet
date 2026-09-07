@@ -54,6 +54,32 @@ export function getChoiceQuestionMaxLength(block: WorksheetBlock): number {
 export const QUESTION_MAX_LENGTH = 2000
 export const TEXT_BODY_MAX_LENGTH = 10_000
 
+export const ANSWER_QUESTION_PLACEHOLDER = 'Введите условие…'
+export const CHOICE_QUESTION_PLACEHOLDER = 'Введите вопрос…'
+
+const QUESTION_PLACEHOLDERS = new Set([
+  ANSWER_QUESTION_PLACEHOLDER,
+  'Введите условие...',
+  'Введите текст',
+  CHOICE_QUESTION_PLACEHOLDER,
+  'Введите вопрос...',
+])
+
+export function isQuestionPlaceholder(text: string): boolean {
+  const value = text.trim()
+  return !value || QUESTION_PLACEHOLDERS.has(value)
+}
+
+export function questionPlaceholderForBlock(block: WorksheetBlock): string {
+  if (block.type === 'short_answer' || block.type === 'extended_answer') {
+    return ANSWER_QUESTION_PLACEHOLDER
+  }
+  if (isChoiceBlock(block)) {
+    return CHOICE_QUESTION_PLACEHOLDER
+  }
+  return 'Введите текст'
+}
+
 export const TABLE_ROWS_MIN = 2
 export const TABLE_ROWS_MAX = 10
 export const TABLE_COLS_MIN = 2
