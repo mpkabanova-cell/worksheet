@@ -4,7 +4,7 @@ import { GRADES, SUBJECTS, breadcrumbLabel, formatSavedAgo, sheetTopicLabel } fr
 import { countTaskBlocksBefore, reconcileAnswerBlockStyle } from '@/data/blockUtils'
 import { Button, FigmaIcon, Icon, Select } from '@/components/ui'
 import { BlockCard } from '@/screens/worksheet/BlockCard'
-import { AnswerTaskSettingsPanel, ChoiceTaskSettingsPanel, FillGapsTaskSettingsPanel, MatchingTaskSettingsPanel } from '@/screens/worksheet/blockEditors'
+import { AnswerTaskSettingsPanel, BlockEditorPanel, ChoiceTaskSettingsPanel, FillGapsTaskSettingsPanel, MatchingTaskSettingsPanel } from '@/screens/worksheet/blockEditors'
 import pageAddIcon from '@/assets/worksheet/tools/page-add.svg'
 import toolText from '@/assets/worksheet/tools/tool-text.svg'
 import toolMedia from '@/assets/worksheet/tools/tool-media.svg'
@@ -188,12 +188,41 @@ export function WorksheetScreen({
     selected?.type === 'single_choice' || selected?.type === 'multiple_choice'
   const isFillGapsBlockSelected = selected?.type === 'fill_gaps'
   const isMatchingBlockSelected = selected?.type === 'matching'
-  const hasTaskSettings =
-    isAnswerBlockSelected ||
-    isChoiceBlockSelected ||
-    isFillGapsBlockSelected ||
-    isMatchingBlockSelected
+  const hasTaskSettings = Boolean(selected && onChangeBlock && isEdit)
   const [sheetSettingsOpen, setSheetSettingsOpen] = useState(true)
+
+  const taskSettingsPanel =
+    selected && onChangeBlock
+      ? (() => {
+          if (isAnswerBlockSelected) {
+            return (
+              <AnswerTaskSettingsPanel
+                block={selected}
+                subject={draft.subject}
+                onChange={onChangeBlock}
+              />
+            )
+          }
+          if (isChoiceBlockSelected) {
+            return <ChoiceTaskSettingsPanel block={selected} onChange={onChangeBlock} />
+          }
+          if (isFillGapsBlockSelected) {
+            return <FillGapsTaskSettingsPanel block={selected} onChange={onChangeBlock} />
+          }
+          if (isMatchingBlockSelected) {
+            return <MatchingTaskSettingsPanel block={selected} onChange={onChangeBlock} />
+          }
+          return (
+            <BlockEditorPanel
+              block={selected}
+              subject={draft.subject}
+              onChange={onChangeBlock}
+              onClose={() => onSelectBlock?.(null)}
+              embedded
+            />
+          )
+        })()
+      : null
 
   useEffect(() => {
     setSheetSettingsOpen(!hasTaskSettings)
@@ -435,120 +464,107 @@ export function WorksheetScreen({
         </main>
 
         {hasSidePanel ? (
-          <div className="ws-right-column">
-            {isAnswerBlockSelected && selected && onChangeBlock ? (
-              <AnswerTaskSettingsPanel
-                block={selected}
-                subject={draft.subject}
-                onChange={onChangeBlock}
-              />
+          <aside
+            className={`ws-sidepanel ws-right-sidebar ${sheetSettingsOpen ? 'is-open' : 'is-collapsed'} ${hasTaskSettings ? 'has-task-settings' : ''}`}
+          >
+            {hasTaskSettings && taskSettingsPanel ? (
+              <div className="ws-task-settings-scroll">{taskSettingsPanel}</div>
             ) : null}
 
-            {isChoiceBlockSelected && selected && onChangeBlock ? (
-              <ChoiceTaskSettingsPanel block={selected} onChange={onChangeBlock} />
-            ) : null}
+            <div className="ws-sheet-settings-block">
+              {hasTaskSettings ? (
+                <button
+                  type="button"
+                  className="ws-sheet-settings-toggle"
+                  aria-expanded={sheetSettingsOpen}
+                  onClick={() => setSheetSettingsOpen((open) => !open)}
+                >
+                  <span>Настройки рабочего листа</span>
+                  <FigmaIcon src={iconSettings} size={20} />
+                </button>
+              ) : (
+                <p className="side-section-heading ws-sheet-settings-heading">Настройки рабочего листа</p>
+              )}
 
-            {isFillGapsBlockSelected && selected && onChangeBlock ? (
-              <FillGapsTaskSettingsPanel block={selected} onChange={onChangeBlock} />
-            ) : null}
-
-            {isMatchingBlockSelected && selected && onChangeBlock ? (
-              <MatchingTaskSettingsPanel block={selected} onChange={onChangeBlock} />
-            ) : null}
-
-            {hasTaskSettings ? (
-              <div className="ws-right-divider" aria-hidden />
-            ) : null}
-
-            <aside
-              className={`ws-sidepanel ws-settings-panel ${sheetSettingsOpen ? 'is-open' : 'is-collapsed'} ${hasTaskSettings ? 'has-task-settings' : ''}`}
-            >
-            <button
-              type="button"
-              className="ws-sheet-settings-toggle"
-              aria-expanded={sheetSettingsOpen}
-              onClick={() => setSheetSettingsOpen((open) => !open)}
-            >
-              <span>Настройки рабочего листа</span>
-              <FigmaIcon src={iconSettings} size={20} />
-            </button>
-            {sheetSettingsOpen ? (
-            <div className="ws-sidepanel-scroll">
-            {!hasTaskSettings ? <h3>Настройки рабочего листа</h3> : null}
-            <label className="side-field">
-              <span>Предмет</span>
-              <Select
-                options={SUBJECTS}
-                placeholder="Выберите предмет"
-                value={draft.subject}
-                onChange={(e) => {
-                  const subject = e.target.value
-                  onChangeDraft?.({
-                    ...draft,
-                    subject,
-                    blocks: draft.blocks.map((block) =>
-                      block.type === 'short_answer' || block.type === 'extended_answer'
-                        ? reconcileAnswerBlockStyle(block, subject)
-                        : block,
-                    ),
-                  })
-                }}
-              />
-            </label>
-            <label className="side-field">
-              <span>Параллель</span>
-              <Select
-                options={GRADES}
-                placeholder="Выберите параллель"
-                value={draft.grade}
-                onChange={(e) => onChangeDraft?.({ ...draft, grade: e.target.value })}
-              />
-            </label>
-            <div className="side-switch-row">
-              <span>Показать ответы</span>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={draft.showAnswers}
-                className={`switch ${draft.showAnswers ? 'on' : ''}`}
-                onClick={() => onChangeDraft?.({ ...draft, showAnswers: !draft.showAnswers })}
-              >
-                <span className="knob" />
-              </button>
-            </div>
-            <div className="side-switch-row">
-              <span>Показывать сложность</span>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={draft.showDifficulty}
-                className={`switch ${draft.showDifficulty ? 'on' : ''}`}
-                onClick={() => onChangeDraft?.({ ...draft, showDifficulty: !draft.showDifficulty })}
-              >
-                <span className="knob" />
-              </button>
-            </div>
-            {!draft.createdManually ? (
-              <>
-                <div className="settings-divider" />
-                <div className="side-switch-row">
-                  <span>Оценить генерацию</span>
-                  <div className="settings-rate-icons">
-                    <button type="button" className="rate-icon-btn" onClick={() => onSoon?.('Спасибо за оценку')} aria-label="Нравится">
-                      <FigmaIcon src={iconThumbUp} size={20} />
-                    </button>
-                    <button type="button" className="rate-icon-btn" onClick={() => onSoon?.('Спасибо за оценку')} aria-label="Не нравится">
-                      <FigmaIcon src={iconThumbDown} size={20} />
+              {!hasTaskSettings || sheetSettingsOpen ? (
+                <div className="ws-sidepanel-scroll ws-sheet-settings-scroll">
+                  <label className="side-field">
+                    <span>Предмет</span>
+                    <Select
+                      options={SUBJECTS}
+                      placeholder="Выберите предмет"
+                      value={draft.subject}
+                      onChange={(e) => {
+                        const subject = e.target.value
+                        onChangeDraft?.({
+                          ...draft,
+                          subject,
+                          blocks: draft.blocks.map((block) =>
+                            block.type === 'short_answer' || block.type === 'extended_answer'
+                              ? reconcileAnswerBlockStyle(block, subject)
+                              : block,
+                          ),
+                        })
+                      }}
+                    />
+                  </label>
+                  <label className="side-field">
+                    <span>Параллель</span>
+                    <Select
+                      options={GRADES}
+                      placeholder="Выберите параллель"
+                      value={draft.grade}
+                      onChange={(e) => onChangeDraft?.({ ...draft, grade: e.target.value })}
+                    />
+                  </label>
+                  <div className="side-switch-row">
+                    <span>Показать ответы</span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={draft.showAnswers}
+                      className={`switch ${draft.showAnswers ? 'on' : ''}`}
+                      onClick={() => onChangeDraft?.({ ...draft, showAnswers: !draft.showAnswers })}
+                    >
+                      <span className="knob" />
                     </button>
                   </div>
+                  <div className="side-switch-row">
+                    <span>Показывать сложность</span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={draft.showDifficulty}
+                      className={`switch ${draft.showDifficulty ? 'on' : ''}`}
+                      onClick={() => onChangeDraft?.({ ...draft, showDifficulty: !draft.showDifficulty })}
+                    >
+                      <span className="knob" />
+                    </button>
+                  </div>
+                  {!draft.createdManually ? (
+                    <>
+                      <div className="settings-divider" />
+                      <div className="side-switch-row">
+                        <span>Оценить генерацию</span>
+                        <div className="settings-rate-icons">
+                          <button type="button" className="rate-icon-btn" onClick={() => onSoon?.('Спасибо за оценку')} aria-label="Нравится">
+                            <FigmaIcon src={iconThumbUp} size={20} />
+                          </button>
+                          <button type="button" className="rate-icon-btn" onClick={() => onSoon?.('Спасибо за оценку')} aria-label="Не нравится">
+                            <FigmaIcon src={iconThumbDown} size={20} />
+                          </button>
+                        </div>
+                      </div>
+                      <button type="button" className="side-switch-row settings-regenerate" onClick={onRegenerate}>
+                        <span>Перегенерировать</span>
+                        <AiOrb size={24} />
+                      </button>
+                    </>
+                  ) : null}
                 </div>
-                <button type="button" className="side-switch-row settings-regenerate" onClick={onRegenerate}>
-                  <span>Перегенерировать</span>
-                  <AiOrb size={24} />
-                </button>
-              </>
-            ) : null}
-            <div className="settings-divider" />
+              ) : null}
+            </div>
+
             <div className="settings-actions">
               <button type="button" className="history-btn" onClick={onUndo} aria-label="Отменить">
                 <FigmaIcon src={iconUndo} size={20} />
@@ -557,10 +573,7 @@ export function WorksheetScreen({
                 <FigmaIcon src={iconRedo} size={20} />
               </button>
             </div>
-            </div>
-            ) : null}
           </aside>
-          </div>
         ) : null}
       </div>
     </div>

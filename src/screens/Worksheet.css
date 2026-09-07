@@ -314,10 +314,70 @@
   border-bottom: 1px solid var(--border-secondary);
 }
 
+.ws-right-sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border-secondary);
+  padding: 8px 0 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-white);
+}
+
+.ws-task-settings-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 8px;
+}
+
+.ws-sheet-settings-block {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.ws-right-sidebar.has-task-settings .ws-sheet-settings-block {
+  margin-top: auto;
+  border-top: 1px solid var(--border-secondary);
+  padding-top: 8px;
+}
+
+.ws-right-sidebar.has-task-settings.is-collapsed .ws-sheet-settings-scroll {
+  display: none;
+}
+
+.ws-right-sidebar:not(.has-task-settings) .ws-sheet-settings-toggle {
+  display: none;
+}
+
+.ws-sheet-settings-heading {
+  padding-bottom: 8px;
+}
+
+.ws-sheet-settings-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 8px 72px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.ws-right-sidebar:not(.has-task-settings) .ws-sheet-settings-scroll {
+  padding-top: 0;
+}
+
 .ws-task-settings-panel,
 .ws-block-settings-panel {
   flex-shrink: 0;
-  padding: 8px 0 0;
+  padding: 0;
 }
 
 .ws-task-settings-panel h3,
@@ -329,7 +389,7 @@
 
 .side-section-heading {
   margin: 0;
-  padding: 12px 20px 2px;
+  padding: 12px 12px 2px;
   font-size: 12px;
   line-height: 16px;
   font-weight: 400;
@@ -337,7 +397,7 @@
 }
 
 .ws-task-settings-panel .side-field {
-  padding: 8px 20px;
+  padding: 8px 12px;
   gap: 8px;
 }
 
@@ -359,7 +419,7 @@
 }
 
 .ws-task-settings-panel .side-switch-row {
-  padding: 8px 20px;
+  padding: 8px 12px;
 }
 
 .ws-task-settings-panel .side-field-hint {
@@ -371,10 +431,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
+  width: calc(100% - 16px);
   min-height: 40px;
+  margin: 0 8px;
   padding: 0 12px;
-  margin: 0;
   border: none;
   background: transparent;
   font-size: 14px;
@@ -382,32 +442,25 @@
   line-height: 20px;
   color: var(--text-default);
   cursor: pointer;
+  border-radius: 6px;
+  flex-shrink: 0;
 }
 
 .ws-sheet-settings-toggle:hover {
   background: var(--bg-secondary);
-  border-radius: 6px;
 }
 
-.ws-settings-panel.is-collapsed .ws-sidepanel-scroll {
+.ws-right-sidebar.is-collapsed .ws-sheet-settings-scroll {
   display: none;
 }
 
-.ws-settings-panel.is-open:not(.has-task-settings) .ws-sheet-settings-toggle {
-  display: none;
+.ws-right-sidebar:not(.has-task-settings) .ws-sheet-settings-scroll {
+  display: flex;
 }
 
-.ws-settings-panel.is-collapsed {
-  flex: 0 0 auto;
-}
-
-.ws-settings-panel.has-task-settings .ws-sheet-settings-toggle {
-  margin: 0 8px;
-  width: calc(100% - 16px);
-}
-
-.ws-settings-panel.has-task-settings.is-collapsed .ws-sheet-settings-toggle {
-  margin: 8px 8px 0;
+.ws-right-sidebar.has-task-settings .ws-sheet-settings-scroll {
+  max-height: min(40vh, 360px);
+  padding-bottom: 16px;
 }
 
 .ws-task-settings-panel .ws-sidepanel-scroll,
@@ -424,13 +477,6 @@
   width: 280px;
   border-left: 1px solid var(--border-secondary);
   background: var(--bg-white);
-}
-
-.ws-right-column .ws-settings-panel {
-  flex: 1;
-  min-height: 0;
-  border-left: none;
-  width: 100%;
 }
 
 .side-field-hint {
@@ -2364,9 +2410,23 @@
   gap: 16px;
 }
 
-.ws-settings-panel .ws-sidepanel-scroll {
-  padding-top: 20px;
+.ws-sheet-settings-scroll .side-field {
+  padding: 8px 12px;
+  gap: 8px;
 }
+
+.ws-sheet-settings-scroll .side-field > span {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  color: var(--text-default);
+}
+
+.ws-sheet-settings-scroll .side-switch-row {
+  padding: 8px 12px;
+  min-height: 40px;
+}
+
 
 .side-field-textarea,
 .side-field textarea,
@@ -2799,30 +2859,37 @@
   background: var(--bg-secondary);
 }
 
-.ws-settings-panel {
-  padding-bottom: 72px;
-}
 
 .settings-actions {
-  position: fixed;
+  position: absolute;
   right: 20px;
   bottom: 20px;
-  z-index: 25;
+  z-index: 1;
   display: flex;
+  flex-direction: row;
+  align-items: center;
   gap: 4px;
-  margin-top: 0;
-  padding-top: 0;
+  padding: 0;
+  width: 84px;
+  height: 40px;
+  flex: none;
 }
 
 .history-btn {
   width: 40px;
   height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  max-height: 40px;
+  padding: 10px;
   border-radius: 8px;
   display: grid;
   place-items: center;
-  color: var(--text-secondary);
+  flex-shrink: 0;
+  color: var(--text-default);
   background: var(--bg-white);
   border: 1px solid var(--border-secondary);
+  box-sizing: border-box;
 }
 
 .history-btn:hover {

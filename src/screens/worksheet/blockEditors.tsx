@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import type { WorksheetBlock } from '@/data/worksheet'
 import {
   answerHeightOptionsForStyle,
+  answerHeightFieldLabel,
   answerLabelFromStyle,
   answerStyleFromLabel,
   answerStyleOptionsForSubject,
@@ -67,7 +68,7 @@ export function AnswerTaskSettingsPanel({
         />
       </label>
       <label className="side-field">
-        <span>Высота блока</span>
+        <span>{answerHeightFieldLabel(style)}</span>
         <Select
           options={answerHeightOptionsForStyle(style)}
           value={String(block.answerLines ?? defaultAnswerHeight(style))}
@@ -270,9 +271,9 @@ export function BlockEditorPanel({
 }) {
   const shell = (title: string, children: ReactNode) =>
     embedded ? (
-      <section className="ws-block-settings-panel">
-        <h3>{title}</h3>
-        <div className="ws-sidepanel-scroll">{children}</div>
+      <section className="ws-task-settings-panel">
+        <p className="side-section-heading">{title}</p>
+        {children}
       </section>
     ) : (
       <aside className="ws-sidepanel ws-block-settings-panel">
@@ -339,7 +340,7 @@ export function BlockEditorPanel({
   }
 
   return shell(
-    'Настройки блока',
+    'Настройки задания',
     <>
       {block.type === 'matching' ? <MatchingEditor block={block} onChange={onChange} /> : null}
       {block.type === 'ordering' ? <OrderingEditor block={block} onChange={onChange} /> : null}

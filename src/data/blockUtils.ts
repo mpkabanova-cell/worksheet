@@ -73,9 +73,9 @@ export const MATCHING_PAIR_COUNT_OPTIONS = Array.from(
 
 export const ANSWER_CELL_SIZE = 16
 
-/** Линии: 10–20 строк. */
-export const ANSWER_HEIGHT_LINES_MIN = 10
-export const ANSWER_HEIGHT_LINES_MAX = 20
+/** Линии: 2–10 строк. */
+export const ANSWER_HEIGHT_LINES_MIN = 2
+export const ANSWER_HEIGHT_LINES_MAX = 10
 /** Клетки, блок, оси, координатная прямая, луч: 5–10. */
 export const ANSWER_HEIGHT_COMPACT_MIN = 5
 export const ANSWER_HEIGHT_COMPACT_MAX = 10
@@ -137,6 +137,11 @@ export function answerStyleFromLabel(label: string): AnswerAreaStyle {
 
 export function answerLabelFromStyle(style: AnswerAreaStyle): string {
   return ANSWER_STYLE_LABELS[style]
+}
+
+export function answerHeightFieldLabel(style: AnswerAreaStyle): string {
+  if (style === 'lines') return 'Количество строк для ответа'
+  return 'Высота блока'
 }
 
 export function answerHeightRange(style: AnswerAreaStyle): { min: number; max: number } {
