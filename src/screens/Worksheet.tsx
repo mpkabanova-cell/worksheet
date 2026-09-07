@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { BlockPreviewState, TaskType, WorksheetBlock, WorksheetDraft } from '@/data/worksheet'
-import { GRADES, SUBJECTS, formatSavedAgo } from '@/data/worksheet'
+import type { TaskType, WorksheetBlock, WorksheetDraft } from '@/data/worksheet'
+import { GRADES, SUBJECTS, breadcrumbLabel, formatSavedAgo, sheetTopicLabel } from '@/data/worksheet'
 import { countTaskBlocksBefore, reconcileAnswerBlockStyle } from '@/data/blockUtils'
 import { Button, FigmaIcon, Icon, Select } from '@/components/ui'
 import { BlockCard } from '@/screens/worksheet/BlockCard'
@@ -118,7 +118,6 @@ interface WorksheetScreenProps {
   onUndo?: () => void
   onRedo?: () => void
   onSoon?: (message: string) => void
-  blockPreviewState?: BlockPreviewState | null
 }
 
 export function WorksheetScreen({
@@ -153,11 +152,12 @@ export function WorksheetScreen({
   onUndo,
   onRedo,
   onSoon,
-  blockPreviewState,
 }: WorksheetScreenProps) {
   const selected = draft.blocks.find((b) => b.id === selectedBlockId) ?? null
   const isEdit = mode === 'edit' || mode === 'edit-widget' || mode === 'add-block'
   const minimalManualSheet = Boolean(draft.createdManually)
+  const materialTitle = breadcrumbLabel(draft)
+  const sheetTopic = sheetTopicLabel(draft)
   const showAnswers = mode === 'answers' || draft.showAnswers
   const [dragBlockId, setDragBlockId] = useState<string | null>(null)
   const [dropTargetId, setDropTargetId] = useState<string | null>(null)
@@ -233,7 +233,7 @@ export function WorksheetScreen({
               Материалы
             </button>
             <span>/</span>
-            <span className="current">{draft.title || 'Без названия'}</span>
+            <span className="current">{materialTitle}</span>
           </nav>
           <span className="ws-saved">{formatSavedAgo(draft.savedAt)}</span>
         </div>
@@ -298,21 +298,20 @@ export function WorksheetScreen({
         <main className="ws-canvas">
           <div className={`ws-sheet ${isEdit ? 'editing' : ''} ${draft.print.orientation}`}>
             <div className={`sheet-header ${minimalManualSheet ? 'sheet-header--manual-only' : ''}`}>
-              {!minimalManualSheet ? (
-                <div className="student-line">
-                  <span>Ученик:</span>
-                  <i />
-                </div>
-              ) : null}
+              <div className="student-line">
+                <span>Ученик:</span>
+                <i />
+              </div>
 
               {isEdit ? (
                 <input
                   className="sheet-title-input"
-                  value={draft.title}
-                  onChange={(e) => onChangeDraft?.({ ...draft, title: e.target.value })}
+                  value={draft.topic}
+                  placeholder="Тема рабочего листа"
+                  onChange={(e) => onChangeDraft?.({ ...draft, topic: e.target.value })}
                 />
               ) : (
-                <h1 className="sheet-title">{draft.title}</h1>
+                <h1 className="sheet-title">{sheetTopic}</h1>
               )}
             </div>
 
@@ -386,7 +385,7 @@ export function WorksheetScreen({
                     selected={selectedBlockId === block.id}
                     showAnswer={showAnswers}
                     showDifficulty={draft.showDifficulty}
-                    previewState={blockPreviewState}
+                    previewState={null}
                     dragging={dragBlockId === block.id}
                     onSelect={() => onSelectBlock?.(block.id)}
                     onChangeBlock={isEdit ? onChangeBlock : undefined}
@@ -529,22 +528,26 @@ export function WorksheetScreen({
                 <span className="knob" />
               </button>
             </div>
-            <div className="settings-divider" />
-            <div className="side-switch-row">
-              <span>Оценить генерацию</span>
-              <div className="settings-rate-icons">
-                <button type="button" className="rate-icon-btn" onClick={() => onSoon?.('Спасибо за оценку')} aria-label="Нравится">
-                  <FigmaIcon src={iconThumbUp} size={20} />
+            {!draft.createdManually ? (
+              <>
+                <div className="settings-divider" />
+                <div className="side-switch-row">
+                  <span>Оценить генерацию</span>
+                  <div className="settings-rate-icons">
+                    <button type="button" className="rate-icon-btn" onClick={() => onSoon?.('Спасибо за оценку')} aria-label="Нравится">
+                      <FigmaIcon src={iconThumbUp} size={20} />
+                    </button>
+                    <button type="button" className="rate-icon-btn" onClick={() => onSoon?.('Спасибо за оценку')} aria-label="Не нравится">
+                      <FigmaIcon src={iconThumbDown} size={20} />
+                    </button>
+                  </div>
+                </div>
+                <button type="button" className="side-switch-row settings-regenerate" onClick={onRegenerate}>
+                  <span>Перегенерировать</span>
+                  <AiOrb size={24} />
                 </button>
-                <button type="button" className="rate-icon-btn" onClick={() => onSoon?.('Спасибо за оценку')} aria-label="Не нравится">
-                  <FigmaIcon src={iconThumbDown} size={20} />
-                </button>
-              </div>
-            </div>
-            <button type="button" className="side-switch-row settings-regenerate" onClick={onRegenerate}>
-              <span>Перегенерировать</span>
-              <AiOrb size={24} />
-            </button>
+              </>
+            ) : null}
             <div className="settings-divider" />
             <div className="settings-actions">
               <button type="button" className="history-btn" onClick={onUndo} aria-label="Отменить">

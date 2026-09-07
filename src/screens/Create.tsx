@@ -227,20 +227,14 @@ export function Create({
                   <Input
                     placeholder="Например, умножение дробей"
                     value={draft.topic}
-                    onChange={(e) =>
-                      onChange({
-                        ...draft,
-                        topic: e.target.value,
-                        title: e.target.value || draft.title,
-                      })
-                    }
+                    onChange={(e) => onChange({ ...draft, topic: e.target.value })}
                   />
                   {draft.topic ? (
                     <button
                       type="button"
                       className="clear-btn"
                       aria-label="Очистить"
-                      onClick={() => onChange({ ...draft, topic: '', title: '' })}
+                      onClick={() => onChange({ ...draft, topic: '' })}
                     >
                       <FigmaIcon src={iconClear} size={20} />
                     </button>

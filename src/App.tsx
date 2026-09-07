@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { Sidebar } from '@/components/Sidebar'
-import { PrototypeNav } from '@/components/PrototypeNav'
 import { generateSingleTaskAI, generateWorksheetAI } from '@/data/ai'
 import type { GenerateMode } from '@/data/ai'
 import {
@@ -9,13 +8,19 @@ import {
   generateWorksheet,
 } from '@/data/generator'
 import {
+  breadcrumbLabel,
   emptyDraft,
   filledCreateDraft,
   loadWorksheet,
   uid,
+  type Modal,
+  type NavId,
+  type Screen,
+  type TaskType,
+  type WorksheetBlock,
+  type WorksheetDraft,
 } from '@/data/worksheet'
 import { cloneBlock, isPageEmpty, removePageFromDraft, syncPagesFromBreaks } from '@/data/blockUtils'
-import type { BlockPreviewState, Modal, NavId, Screen, TaskType, WorksheetBlock, WorksheetDraft } from '@/data/worksheet'
 import { Home } from '@/screens/Home'
 import { Create } from '@/screens/Create'
 import { Loader } from '@/screens/Loader'
@@ -28,8 +33,8 @@ import { PrintScreen } from '@/screens/Print'
 function demoDraft(): WorksheetDraft {
   return generateWorksheet({
     ...filledCreateDraft(),
-    topic: 'Закрепление материала',
     title: 'Закрепление материала',
+    topic: 'Закрепление материала',
     wishes: 'Класс только начал тему',
   })
 }
@@ -53,12 +58,11 @@ export default function App() {
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(0)
   const [deletePageIndex, setDeletePageIndex] = useState<number | null>(null)
-  const [pendingGenerate, setPendingGenerate] = useState(false)
+  const [, setPendingGenerate] = useState(false)
   const [generateMode, setGenerateMode] = useState<GenerateMode>('create')
   const [generateTaskType, setGenerateTaskType] = useState<TaskType>('short_answer')
   const [generateTaskHint, setGenerateTaskHint] = useState('')
   const [generateTaskBusy, setGenerateTaskBusy] = useState(false)
-  const [blockPreviewState, setBlockPreviewState] = useState<BlockPreviewState | null>(null)
   const [toastMessage, setToastMessage] = useState('')
   const [listRefresh, setListRefresh] = useState(0)
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -201,11 +205,11 @@ export default function App() {
     setCreateAdvanced(false)
     setDraft((d) => ({
       ...d,
-      title: d.topic || d.title,
       blocks: createMode === 'manual' ? [] : d.blocks,
       intro: createMode === 'manual' ? '' : d.intro,
       createdManually: createMode === 'manual',
       addIntro: createMode === 'manual' ? false : d.addIntro,
+      ...(createMode === 'manual' ? { subject: '', grade: '' } : {}),
     }))
     if (createMode === 'manual') {
       setSelectedBlockId(null)
@@ -416,52 +420,6 @@ export default function App() {
     setScreen('edit')
   }
 
-  const goScreen = (next: Screen) => {
-    if (next === 'create') {
-      setDraft(emptyDraft())
-      setCreateOpen(true)
-      setCreateAdvanced(false)
-      setScreen('home')
-      return
-    }
-    if (next === 'create-advanced') {
-      setDraft(emptyDraft())
-      setCreateOpen(true)
-      setCreateAdvanced(true)
-      setScreen('home')
-      return
-    }
-    if (next === 'create-filled') {
-      setDraft(filledCreateDraft())
-      setCreateOpen(true)
-      setCreateAdvanced(true)
-      setScreen('home')
-      return
-    }
-    if (next === 'worksheets-list') {
-      setScreen('worksheets-list')
-      return
-    }
-    if (next === 'coming-soon') {
-      setStubNav('ai')
-      setScreen('coming-soon')
-      return
-    }
-    if (
-      (next === 'preview' ||
-        next === 'edit' ||
-        next === 'show-answers' ||
-        next === 'edit-widget' ||
-        next === 'add-block' ||
-        next === 'print') &&
-      draft.blocks.length === 0 &&
-      !pendingGenerate
-    ) {
-      setDraft(demoDraft())
-    }
-    setScreen(next)
-  }
-
   const worksheetMode =
     screen === 'preview'
       ? 'preview'
@@ -550,7 +508,7 @@ export default function App() {
 
       {screen === 'loader' ? (
         <Loader
-          title={draft.title || draft.topic || 'Рабочий лист'}
+          title={breadcrumbLabel(draft)}
           message={
             generateMode === 'regenerate'
               ? 'Пересобираю задания…'
@@ -611,7 +569,6 @@ export default function App() {
           onUndo={undo}
           onRedo={redo}
           onSoon={showToast}
-          blockPreviewState={blockPreviewState}
         />
         </ErrorBoundary>
       ) : null}
@@ -677,14 +634,6 @@ export default function App() {
         onSoon={showToast}
       />
 
-      <PrototypeNav
-        screen={screen}
-        onScreen={goScreen}
-        onModal={setModal}
-        blockPreviewState={blockPreviewState}
-        onBlockPreviewState={setBlockPreviewState}
-        hidden={showCreateOverlay}
-      />
     </>
   )
 }

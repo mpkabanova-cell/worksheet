@@ -194,7 +194,7 @@ export function generateWorksheet(draft: WorksheetDraft): WorksheetDraft {
     id: draft.id || uid('ws'),
     taskCount: count,
     plan,
-    title: draft.topic || draft.title || 'Рабочий лист',
+    title: draft.title || 'Закрепление материала',
     intro,
     blocks,
     pages: 1,

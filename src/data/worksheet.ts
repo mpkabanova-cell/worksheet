@@ -282,6 +282,16 @@ export function createPlan(count: number, seed: TaskType[] = DEFAULT_PLAN_TYPES)
   }))
 }
 
+export const DEFAULT_MATERIAL_TITLE = 'Закрепление материала'
+
+export function breadcrumbLabel(draft: WorksheetDraft): string {
+  return draft.title || DEFAULT_MATERIAL_TITLE
+}
+
+export function sheetTopicLabel(draft: WorksheetDraft): string {
+  return draft.topic.trim() || draft.title || 'Без названия'
+}
+
 export function emptyDraft(): WorksheetDraft {
   return {
     id: `ws-${Date.now()}`,
@@ -290,7 +300,7 @@ export function emptyDraft(): WorksheetDraft {
     taskCount: 5,
     topic: '',
     wishes: '',
-    title: '',
+    title: DEFAULT_MATERIAL_TITLE,
     intro: '',
     difficulty: 'differentiated',
     showDifficulty: true,
@@ -311,7 +321,7 @@ export function filledCreateDraft(): WorksheetDraft {
     grade: '6',
     taskCount: 5,
     topic: 'Закрепление материалов',
-    title: 'Закрепление материалов',
+    title: DEFAULT_MATERIAL_TITLE,
     plan: createPlan(5),
   }
 }
