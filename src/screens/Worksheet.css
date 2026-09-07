@@ -351,6 +351,31 @@
   padding-bottom: 8px;
 }
 
+.ws-sheet-settings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 40px;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+  color: var(--text-default);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.ws-sheet-settings-toggle:hover {
+  background: var(--bg-secondary);
+}
+
+.ws-sheet-settings-block.is-collapsed .ws-sheet-settings-scroll {
+  display: none;
+}
+
 .ws-sheet-settings-scroll {
   flex: 1;
   min-height: 0;
@@ -575,7 +600,8 @@
   top: 0;
   left: 0;
   right: 0;
-  padding: 0 24px 0 32px;
+  height: 20px;
+  line-height: 20px;
   pointer-events: none;
   z-index: 1;
 }
@@ -845,6 +871,11 @@
   padding: 0;
   box-shadow: none;
   color: var(--text-default);
+  resize: none;
+  min-height: 24px;
+  height: 24px;
+  overflow: hidden;
+  line-height: 24px;
 }
 
 .ws-task.answer-task.editing-inline .ws-inline-textarea::placeholder {

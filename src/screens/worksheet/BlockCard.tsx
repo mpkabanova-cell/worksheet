@@ -274,7 +274,7 @@ export function BlockCard({
                 {isEditing && editingQuestion ? (
                   <WysiwygTextarea
                     className="ws-inline-textarea"
-                    rows={2}
+                    rows={1}
                     value={showsQuestionPlaceholder ? '' : (block.question ?? question)}
                     maxLength={questionMaxLength}
                     placeholder={questionPlaceholder}
