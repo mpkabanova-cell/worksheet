@@ -118,7 +118,7 @@
   align-items: flex-start;
 }
 
-/* Sheet — Figma: 800px, radius 16, gap 8 between header / divider / content */
+/* Sheet — Figma: 800px, radius 16, gap 8 between header and content */
 .ws-sheet {
   width: min(800px, 100%);
   background: var(--bg-white);
@@ -136,18 +136,23 @@
   display: flex;
   flex-direction: column;
   gap: 24px;
-  padding: 24px 32px 16px;
+  padding: 24px 32px 0;
   width: 100%;
 }
 
 .sheet-header--manual-only {
-  padding-bottom: 16px;
+  padding-bottom: 0;
 }
 
+.ws-sheet.editing .sheet-title-input,
 .sheet-header--manual-only .sheet-title-input {
   background: transparent;
   padding: 0;
   border-radius: 0;
+}
+
+.ws-sheet.editing .sheet-title-input::placeholder {
+  color: var(--text-secondary);
 }
 
 .student-line {
@@ -198,15 +203,6 @@
   line-height: 26px;
   letter-spacing: -0.2px;
   color: var(--text-default);
-}
-
-/* Full-width divider under title — edge to edge of sheet */
-.sheet-divider {
-  height: 0;
-  width: 100%;
-  border-bottom: 1px solid var(--border-secondary);
-  margin: 0;
-  flex-shrink: 0;
 }
 
 .sheet-content {
@@ -670,11 +666,11 @@
 }
 
 .ws-task-wrap.editable.selected {
-  margin-top: 32px;
+  margin-top: 40px;
 }
 
 .ws-task-wrap.editable.selected:has(.block-wysiwyg) {
-  margin-top: 56px;
+  margin-top: 64px;
 }
 
 .block-wysiwyg {
@@ -815,7 +811,7 @@
   font-weight: 500;
   line-height: 24px;
   letter-spacing: -0.1px;
-  color: var(--text-secondary);
+  color: var(--text-default);
   text-align: center;
 }
 
@@ -2566,14 +2562,18 @@
 
 .block-tools {
   position: absolute;
-  top: -32px;
-  right: 0;
+  top: -40px;
+  right: 8px;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 8px;
-  background: var(--bg-secondary);
-  border-radius: 8px 8px 0 0;
+  background: var(--bg-white);
+  border-radius: 8px;
+  box-shadow:
+    0 8px 8px rgba(38, 52, 96, 0.05),
+    0 10px 14px rgba(38, 52, 96, 0.05),
+    0 12px 27px rgba(38, 52, 96, 0.05);
   z-index: 2;
 }
 

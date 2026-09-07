@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button, Field, Icon, Input, ModalShell, Select, Textarea } from '@/components/ui'
-import { GRADES, PLAN_TASK_TYPES, SUBJECTS, labelForType, WISHES_MAX_LENGTH } from '@/data/worksheet'
+import { GRADES, PLAN_TASK_TYPES, SUBJECTS, labelForType, WISHES_MAX_LENGTH, worksheetDisplayName } from '@/data/worksheet'
 import type { Modal, TaskType, WorksheetDraft } from '@/data/worksheet'
 import './Modals.css'
 
@@ -55,13 +55,15 @@ export function Modals({
   const [convertGrade, setConvertGrade] = useState('')
   const [convertDue, setConvertDue] = useState('')
 
+  const materialName = worksheetDisplayName(draft)
+
   useEffect(() => {
     if (modal === 'convert') {
-      setConvertTitle(draft.title)
+      setConvertTitle(draft.topic.trim() || draft.title.trim())
       setConvertGrade(draft.grade ? `${draft.grade} класс` : '')
       setConvertDue('')
     }
-  }, [modal, draft.title, draft.grade])
+  }, [modal, draft.topic, draft.title, draft.grade])
 
   const canConvert = convertTitle.trim().length > 0
 
@@ -76,7 +78,7 @@ export function Modals({
             </button>
           </div>
           <p className="modal-desc">
-            Рабочий лист «{draft.title}» станет заданием для выдачи ученикам.
+            Рабочий лист «{materialName}» станет заданием для выдачи ученикам.
           </p>
           <Field label="Название задания" required>
             <Input value={convertTitle} onChange={(e) => setConvertTitle(e.target.value)} />
@@ -127,10 +129,13 @@ export function Modals({
               <Icon name="close" />
             </button>
           </div>
-          <Field label="Название">
+          <Field label="Тема рабочего листа">
             <Input
-              value={draft.title}
-              onChange={(e) => onChangeDraft({ ...draft, title: e.target.value })}
+              value={draft.topic}
+              onChange={(e) => {
+                const topic = e.target.value
+                onChangeDraft({ ...draft, topic, title: topic })
+              }}
             />
           </Field>
           <div className="modal-row">
@@ -294,7 +299,7 @@ export function Modals({
               <Icon name="close" />
             </button>
           </div>
-          <p className="modal-desc">Будет создана копия «{draft.title}».</p>
+          <p className="modal-desc">Будет создана копия «{materialName}».</p>
           <div className="modal-actions">
             <Button variant="secondary" size="lg" onClick={onClose}>
               Отмена
@@ -314,7 +319,7 @@ export function Modals({
               <Icon name="close" />
             </button>
           </div>
-          <p className="modal-desc">«{draft.title}» будет удалён безвозвратно.</p>
+          <p className="modal-desc">«{materialName}» будет удалён безвозвратно.</p>
           <div className="modal-actions">
             <Button variant="secondary" size="lg" onClick={onClose}>
               Отмена

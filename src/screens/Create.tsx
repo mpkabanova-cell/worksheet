@@ -54,8 +54,8 @@ export function Create({
   }, [advancedOpen])
 
   const canSubmit = useMemo(
-    () => Boolean(draft.subject && draft.grade && draft.topic.trim()),
-    [draft],
+    () => mode === 'manual' || Boolean(draft.subject && draft.grade && draft.topic.trim()),
+    [draft, mode],
   )
 
   const syncTaskCount = (countStr: string) => {
@@ -184,7 +184,12 @@ export function Create({
               <button
                 type="button"
                 className={mode === 'manual' ? 'active' : ''}
-                onClick={() => setMode('manual')}
+                onClick={() => {
+                  setMode('manual')
+                  if (!draft.topic.trim()) {
+                    onChange({ ...draft, topic: 'Задание', title: 'Задание' })
+                  }
+                }}
               >
                 Создать вручную
               </button>
@@ -194,7 +199,8 @@ export function Create({
           <div className="create-form">
             <div className="create-form-scroll">
             <div className="create-main">
-              <div className={mode === 'generate' ? 'row-3' : 'row-2'}>
+              {mode === 'generate' ? (
+              <div className="row-3">
                 <Field label="Предмет" required>
                   <Select
                     options={SUBJECTS}
@@ -211,7 +217,6 @@ export function Create({
                     onChange={(e) => onChange({ ...draft, grade: e.target.value })}
                   />
                 </Field>
-                {mode === 'generate' ? (
                   <Field label="Количество заданий" required>
                     <Select
                       options={TASK_COUNTS}
@@ -219,22 +224,25 @@ export function Create({
                       onChange={(e) => syncTaskCount(e.target.value)}
                     />
                   </Field>
-                ) : null}
               </div>
+              ) : null}
 
-              <Field label="Тема рабочего листа" required>
+              <Field label="Тема рабочего листа" required={mode === 'generate'}>
                 <div className="input-with-clear">
                   <Input
                     placeholder="Например, умножение дробей"
                     value={draft.topic}
-                    onChange={(e) => onChange({ ...draft, topic: e.target.value })}
+                    onChange={(e) => {
+                      const topic = e.target.value
+                      onChange({ ...draft, topic, title: topic })
+                    }}
                   />
                   {draft.topic ? (
                     <button
                       type="button"
                       className="clear-btn"
                       aria-label="Очистить"
-                      onClick={() => onChange({ ...draft, topic: '' })}
+                      onClick={() => onChange({ ...draft, topic: '', title: '' })}
                     >
                       <FigmaIcon src={iconClear} size={20} />
                     </button>

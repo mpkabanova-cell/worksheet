@@ -33,8 +33,8 @@ import { PrintScreen } from '@/screens/Print'
 function demoDraft(): WorksheetDraft {
   return generateWorksheet({
     ...filledCreateDraft(),
-    title: 'Закрепление материала',
-    topic: 'Закрепление материала',
+    topic: 'Закрепление материалов',
+    title: 'Закрепление материалов',
     wishes: 'Класс только начал тему',
   })
 }
@@ -203,14 +203,19 @@ export default function App() {
   const submitCreate = (createMode: 'generate' | 'manual' = 'generate') => {
     setCreateOpen(false)
     setCreateAdvanced(false)
-    setDraft((d) => ({
-      ...d,
-      blocks: createMode === 'manual' ? [] : d.blocks,
-      intro: createMode === 'manual' ? '' : d.intro,
-      createdManually: createMode === 'manual',
-      addIntro: createMode === 'manual' ? false : d.addIntro,
-      ...(createMode === 'manual' ? { subject: '', grade: '' } : {}),
-    }))
+    setDraft((d) => {
+      const topic = d.topic.trim() || (createMode === 'manual' ? 'Задание' : '')
+      return {
+        ...d,
+        topic,
+        title: topic,
+        blocks: createMode === 'manual' ? [] : d.blocks,
+        intro: createMode === 'manual' ? '' : d.intro,
+        createdManually: createMode === 'manual',
+        addIntro: createMode === 'manual' ? false : d.addIntro,
+        ...(createMode === 'manual' ? { subject: '', grade: '' } : {}),
+      }
+    })
     if (createMode === 'manual') {
       setSelectedBlockId(null)
       setScreen('edit')

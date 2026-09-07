@@ -284,12 +284,17 @@ export function createPlan(count: number, seed: TaskType[] = DEFAULT_PLAN_TYPES)
 
 export const DEFAULT_MATERIAL_TITLE = 'Закрепление материала'
 
+/** Название материала в хлебных крошках и на листе — одна тема, которую редактирует учитель. */
+export function worksheetDisplayName(draft: WorksheetDraft): string {
+  return draft.topic.trim() || draft.title.trim() || 'Без названия'
+}
+
 export function breadcrumbLabel(draft: WorksheetDraft): string {
-  return draft.title || DEFAULT_MATERIAL_TITLE
+  return worksheetDisplayName(draft)
 }
 
 export function sheetTopicLabel(draft: WorksheetDraft): string {
-  return draft.topic.trim() || draft.title || 'Без названия'
+  return worksheetDisplayName(draft)
 }
 
 export function emptyDraft(): WorksheetDraft {
@@ -300,7 +305,7 @@ export function emptyDraft(): WorksheetDraft {
     taskCount: 5,
     topic: '',
     wishes: '',
-    title: DEFAULT_MATERIAL_TITLE,
+    title: '',
     intro: '',
     difficulty: 'differentiated',
     showDifficulty: true,
@@ -321,7 +326,7 @@ export function filledCreateDraft(): WorksheetDraft {
     grade: '6',
     taskCount: 5,
     topic: 'Закрепление материалов',
-    title: DEFAULT_MATERIAL_TITLE,
+    title: 'Закрепление материалов',
     plan: createPlan(5),
   }
 }

@@ -61,8 +61,10 @@ const QUESTION_PLACEHOLDERS = new Set([
   ANSWER_QUESTION_PLACEHOLDER,
   'Введите условие...',
   'Введите текст',
+  'Введите текст…',
   CHOICE_QUESTION_PLACEHOLDER,
   'Введите вопрос...',
+  'Введите вопрос…',
 ])
 
 export function isQuestionPlaceholder(text: string): boolean {

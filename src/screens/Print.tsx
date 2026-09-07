@@ -1,5 +1,5 @@
 import { Button, Field, Select } from '@/components/ui'
-import type { WorksheetDraft } from '@/data/worksheet'
+import { sheetTopicLabel, type WorksheetDraft } from '@/data/worksheet'
 import './Print.css'
 
 interface PrintScreenProps {
@@ -20,7 +20,7 @@ export function PrintScreen({ draft, onChangeDraft, onBack, onPrint, onPdf }: Pr
           </button>
         </nav>
         <h1>Печать рабочего листа</h1>
-        <p>«{draft.title || 'Без названия'}»</p>
+        <p>«{sheetTopicLabel(draft)}»</p>
       </header>
 
       <div className="print-settings">

@@ -337,7 +337,10 @@ export function WorksheetScreen({
                   className="sheet-title-input"
                   value={draft.topic}
                   placeholder="Тема рабочего листа"
-                  onChange={(e) => onChangeDraft?.({ ...draft, topic: e.target.value })}
+                  onChange={(e) => {
+                    const topic = e.target.value
+                    onChangeDraft?.({ ...draft, topic, title: topic })
+                  }}
                 />
               ) : (
                 <h1 className="sheet-title">{sheetTopic}</h1>
