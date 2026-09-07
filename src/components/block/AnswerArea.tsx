@@ -155,12 +155,12 @@ function LinesAnswerSlot({
           </div>
         ) : (
           <>
-            <div className="answer-lines-head">
-              <AnswerLabel />
-            </div>
             <div
-              className={`answer-lines-body ${mode === 'edit' ? 'answer-area-editable' : ''}`}
+              className={`answer-lines-body ${mode === 'edit' ? 'answer-area-editable' : ''} answer-lines-body--ruled`}
             >
+              <div className="answer-lines-label-overlay">
+                <AnswerLabel />
+              </div>
               <AnswerLineRules count={lines} />
               {mode === 'edit' ? (
                 <AnswerInlineEditor value={value} lines={lines} style="lines" onChange={onChange} />
@@ -287,14 +287,7 @@ export function AnswerArea({
       )
     }
 
-    return (
-      <LinesAnswerSlot
-        lines={lines}
-        mode="edit"
-        value={rawAnswerText}
-        onChange={onChangeAnswer}
-      />
-    )
+    return <LinesAnswerSlot lines={lines} mode="empty" value="" />
   }
 
   if (isCellGridStyle(style)) {

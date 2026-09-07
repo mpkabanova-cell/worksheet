@@ -268,6 +268,11 @@
   box-shadow: none;
 }
 
+.ws-task.editable.selected,
+.ws-task.ws-task--active.editable {
+  position: relative;
+}
+
 .ws-task-wrap.has-preview-state .ws-task.editable:hover:not(.ws-task--hover) {
   border-color: var(--border-secondary);
   background: var(--bg-white);
@@ -555,11 +560,24 @@
 }
 
 .answer-lines-body {
-  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
   width: 100%;
+}
+
+.answer-lines-body--ruled {
+  position: relative;
+}
+
+.answer-lines-label-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 0 24px 0 32px;
+  pointer-events: none;
+  z-index: 1;
 }
 
 .answer-slot {
@@ -653,6 +671,21 @@
   z-index: 3;
 }
 
+.block-wysiwyg .wysiwyg-tools {
+  position: relative;
+}
+
+.block-wysiwyg .wysiwyg-tools::after {
+  content: '';
+  position: absolute;
+  left: 125px;
+  top: 26px;
+  width: 14px;
+  height: 2px;
+  background: var(--icon-default);
+  pointer-events: none;
+}
+
 .wysiwyg-tools {
   display: flex;
   align-items: center;
@@ -742,8 +775,10 @@
   left: -29px;
   top: 50%;
   transform: translateY(-50%);
+  padding: 10px;
   width: 20px;
   height: 20px;
+  box-sizing: content-box;
   display: grid;
   place-items: center;
   cursor: grab;
@@ -864,6 +899,17 @@
   font-weight: 500;
   line-height: 24px;
   letter-spacing: -0.1px;
+}
+
+.ws-task.answer-task .ws-task-num {
+  color: var(--text-secondary);
+}
+
+.ws-task.answer-task .ws-task-head:has(.ws-task-text:not(.is-placeholder)) .ws-task-num,
+.ws-task.answer-task.editing-inline
+  .ws-task-head:has(.ws-inline-textarea:not(:placeholder-shown))
+  .ws-task-num {
+  color: var(--text-default);
 }
 
 .diff-label {
@@ -1078,7 +1124,7 @@
 
 .wysiwyg-field--block {
   width: 100%;
-  position: relative;
+  position: static;
 }
 
 .wysiwyg-field--block .ws-inline-textarea {
@@ -1087,6 +1133,7 @@
 
 /* Answer lines — Figma: 28px row, 4px gap, pl 32 / pr 24 / pt 8 */
 .ws-task-slot.lines {
+  position: relative;
   gap: 4px;
   padding-top: 8px;
 }

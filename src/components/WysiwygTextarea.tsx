@@ -54,7 +54,7 @@ function ToolButton({
       onClick={onClick}
       aria-label={label}
     >
-      <FigmaIcon src={icon} size={floating ? 16 : 18} />
+      <FigmaIcon src={icon} size={18} />
     </button>
   )
 }
@@ -89,7 +89,6 @@ function WysiwygToolbar({
           label="Надстрочный"
           onClick={() => onInsert('$^{', '}$', 'x')}
         />
-        <span className="wysiwyg-hr" aria-hidden />
         <ToolButton
           floating
           icon={iconImage}
@@ -100,7 +99,7 @@ function WysiwygToolbar({
         <ToolButton
           floating
           icon={iconMore}
-          label="Ещё"
+          label="Разделитель"
           onClick={() => onInsert('\n\n---\n\n', '', '')}
         />
       </>
@@ -201,7 +200,7 @@ export function WysiwygTextarea({
   )
 
   const counter =
-    maxLength ? (
+    maxLength && !floatingToolbar ? (
       <span className="wysiwyg-counter">
         {value.length}/{maxLength}
       </span>

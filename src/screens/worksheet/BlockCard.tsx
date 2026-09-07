@@ -55,11 +55,9 @@ function Stars({ value }: { value: number }) {
 function DifficultyPicker({
   value,
   onChange,
-  onClear,
 }: {
   value?: number
   onChange: (value: 1 | 2 | 3) => void
-  onClear: () => void
 }) {
   return (
     <span className="diff-picker diff-picker--inline" onClick={(e) => e.stopPropagation()}>
@@ -79,11 +77,6 @@ function DifficultyPicker({
           />
         </button>
       ))}
-      {value ? (
-        <button type="button" className="diff-clear" onClick={onClear}>
-          Сбросить
-        </button>
-      ) : null}
     </span>
   )
 }
@@ -177,21 +170,21 @@ export function BlockCard({
   if (block.type === 'answer_field') {
     return (
       <div className={`ws-task-wrap ${selected ? 'selected' : ''} ${editable ? 'editable' : ''}`}>
-        {editable && selected ? (
-          <BlockTools
-            onMoveUp={onMoveUp}
-            onMoveDown={onMoveDown}
-            onRemove={onRemove}
-            onDuplicate={onDuplicate}
-            onRegenerateBlock={onRegenerateBlock}
-            onDragStart={onDragStart}
-            onDragEnd={onDragEnd}
-          />
-        ) : null}
         <article
           className={`ws-task plain media-task ${selected ? 'selected' : ''} ${editable ? 'editable' : ''}`}
           onClick={editable ? onSelect : undefined}
         >
+          {editable && selected ? (
+            <BlockTools
+              onMoveUp={onMoveUp}
+              onMoveDown={onMoveDown}
+              onRemove={onRemove}
+              onDuplicate={onDuplicate}
+              onRegenerateBlock={onRegenerateBlock}
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+            />
+          ) : null}
           <MediaBlockView
             block={block}
             editable={editable}
@@ -241,20 +234,6 @@ export function BlockCard({
     <div
       className={`ws-task-wrap ${selected ? 'selected' : ''} ${editable ? 'editable' : ''} ${previewState && supportsPreviewState ? 'has-preview-state' : ''} ${isIssued ? 'is-issued' : ''}`}
     >
-      {editable && selected && !isIssued ? (
-        <BlockTools
-          onMoveUp={onMoveUp}
-          onMoveDown={onMoveDown}
-          onRemove={onRemove}
-          onDuplicate={onDuplicate}
-          onRegenerateBlock={onRegenerateBlock}
-          onDragStart={onDragStart}
-          onDragEnd={onDragEnd}
-        />
-      ) : null}
-      {editable && selected && isIssued ? (
-        <BlockTools duplicateOnly onDuplicate={onDuplicate} />
-      ) : null}
       <article
         className={`ws-task ws-task--${visualState} ${selected && visualState === 'active' ? 'selected' : ''} ${editable && !isIssued ? 'editable' : ''} ${isIssued ? 'issued' : ''} ${isPlainText ? 'plain' : ''} ${isAnswerBlock ? 'answer-task' : ''} ${isEditing ? 'editing-inline' : ''} ${dragging ? 'dragging' : ''}`}
         onClick={
@@ -269,6 +248,20 @@ export function BlockCard({
         }
         title={isIssued ? 'Задание выдано. Создайте копию для редактирования.' : undefined}
       >
+        {editable && selected && !isIssued ? (
+          <BlockTools
+            onMoveUp={onMoveUp}
+            onMoveDown={onMoveDown}
+            onRemove={onRemove}
+            onDuplicate={onDuplicate}
+            onRegenerateBlock={onRegenerateBlock}
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
+          />
+        ) : null}
+        {editable && selected && isIssued ? (
+          <BlockTools duplicateOnly onDuplicate={onDuplicate} />
+        ) : null}
         {isIssued && (isAnswerBlock || isChoiceTask) ? (
           <p className="ws-task-issued-label">Выдано — создайте копию для редактирования</p>
         ) : null}
@@ -318,7 +311,6 @@ export function BlockCard({
                     <DifficultyPicker
                       value={block.difficulty}
                       onChange={(n) => patchBlock({ difficulty: n })}
-                      onClear={() => patchBlock({ difficulty: undefined })}
                     />
                   ) : (
                     <Stars value={block.difficulty ?? 0} />
