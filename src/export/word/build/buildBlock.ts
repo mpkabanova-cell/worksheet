@@ -55,6 +55,37 @@ import {
 
 type DocxBlock = Paragraph | Table
 
+const HIDDEN_BORDER = { style: BorderStyle.NONE, size: 0, color: COLORS.white } as const
+
+function hiddenCellBorders() {
+  return {
+    top: HIDDEN_BORDER,
+    bottom: HIDDEN_BORDER,
+    left: HIDDEN_BORDER,
+    right: HIDDEN_BORDER,
+  }
+}
+
+/** Keep task condition and interactive body on the same page. */
+function wrapTaskBlock(head: Table, body: DocxBlock[]): Table {
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: hiddenCellBorders(),
+    rows: [
+      new TableRow({
+        cantSplit: true,
+        children: [
+          new TableCell({
+            borders: hiddenCellBorders(),
+            margins: { top: 0, bottom: 0, left: 0, right: 0 },
+            children: [head, ...body],
+          }),
+        ],
+      }),
+    ],
+  })
+}
+
 async function choiceMarkerRun(
   block: WorksheetBlock,
   ctx: ExportContext,
@@ -437,37 +468,39 @@ export async function buildBlockContent(
   const displayQuestion = showsPlaceholder ? questionPlaceholderForBlock(block) : (block.question ?? question)
   const isAnswerBlock = block.type === 'short_answer' || block.type === 'extended_answer'
 
-  result.push(await buildTaskHeadTable(taskNumber, displayQuestion, isAnswerBlock, block, ctx))
+  const head = await buildTaskHeadTable(taskNumber, displayQuestion, isAnswerBlock, block, ctx)
+  const bodyParts: DocxBlock[] = []
 
   if (isChoiceBlock(block)) {
-    result.push(...(await buildChoiceOptions(block, showAnswer, ctx)))
+    bodyParts.push(...(await buildChoiceOptions(block, showAnswer, ctx)))
   }
 
   if (isAnswerBlock) {
     const style = getBlockAnswerStyle(block, ctx.subject)
-    result.push(...(await buildAnswerArea(block, style, ctx.subject, showAnswer, ctx)))
+    bodyParts.push(...(await buildAnswerArea(block, style, ctx.subject, showAnswer, ctx)))
   }
 
   if (block.type === 'fill_gaps') {
-    result.push(...(await buildFillGaps(block, showAnswer, ctx)))
+    bodyParts.push(...(await buildFillGaps(block, showAnswer, ctx)))
   }
 
   if (block.type === 'matching') {
-    result.push(...(await buildMatching(block, showAnswer, ctx)))
+    bodyParts.push(...(await buildMatching(block, showAnswer, ctx)))
   }
 
   if (block.type === 'ordering') {
-    result.push(...(await buildOrdering(block, ctx)))
+    bodyParts.push(...(await buildOrdering(block, ctx)))
   }
 
   if (block.type === 'grouping') {
-    result.push(...(await buildGrouping(block, ctx)))
+    bodyParts.push(...(await buildGrouping(block, ctx)))
   }
 
   if (block.type === 'table') {
-    result.push(...(await buildTableBlock(block, ctx)))
+    bodyParts.push(...(await buildTableBlock(block, ctx)))
   }
 
+  result.push(wrapTaskBlock(head, bodyParts))
   result.push(spacerParagraph(LAYOUT.taskGap))
   return result
 }
