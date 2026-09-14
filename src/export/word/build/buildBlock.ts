@@ -15,20 +15,24 @@ import {
 } from '@/data/blockUtils'
 import { getBlockQuestion } from '@/data/taskContent'
 import {
+  getChoiceCheckboxCheckedPng,
   getChoiceCheckboxMarkerPng,
+  getChoiceRadioCheckedPng,
   getChoiceRadioMarkerPng,
 } from '@/export/word/assets/uiAssets'
 import { buildAnswerArea } from '@/export/word/build/buildAnswerArea'
 import {
-  buildBodyContentRow,
   buildTaskHeadTable,
-  type TaskHeadExtraRows,
+  buildWidgetBodyRow,
+  type TaskHeadTableOptions,
 } from '@/export/word/build/buildTaskHeadTable'
 import { rasterizeMatching } from '@/export/word/rasterize/renderMatchingDom'
 import {
   COLORS,
   LAYOUT,
+  SLOT_CONTENT_WIDTH_PX,
   TYPO,
+  pxToDxa,
   pxToHalfPoints,
   pxToTwips,
   runFont,
@@ -61,18 +65,25 @@ type DocxBlock = Paragraph | Table
 
 async function choiceMarkerRun(
   block: WorksheetBlock,
+  showAnswer: boolean,
+  correct: boolean,
   ctx: ExportContext,
 ): Promise<ImageRun> {
   const isSingle = block.type === 'single_choice'
+  const showCorrect = showAnswer && correct
   const png = isSingle
-    ? await getChoiceRadioMarkerPng(ctx, LAYOUT.choiceMarkerSize)
-    : await getChoiceCheckboxMarkerPng(ctx, LAYOUT.choiceMarkerSize)
+    ? showCorrect
+      ? await getChoiceRadioCheckedPng(ctx, LAYOUT.choiceMarkerSize)
+      : await getChoiceRadioMarkerPng(ctx, LAYOUT.choiceMarkerSize)
+    : showCorrect
+      ? await getChoiceCheckboxCheckedPng(ctx, LAYOUT.choiceMarkerSize)
+      : await getChoiceCheckboxMarkerPng(ctx, LAYOUT.choiceMarkerSize)
   return imageRunFromPng(png, LAYOUT.choiceMarkerSize)
 }
 
 async function buildChoiceOptionParagraphs(
   block: WorksheetBlock,
-  _showAnswer: boolean,
+  showAnswer: boolean,
   ctx: ExportContext,
 ): Promise<Paragraph[]> {
   let options = getChoiceDisplayOptions(block, false, false)
@@ -96,7 +107,11 @@ async function buildChoiceOptionParagraphs(
           before: index === 0 ? pxToTwips(LAYOUT.slotPaddingTop) : 0,
           after: pxToTwips(8),
         },
-        children: [await choiceMarkerRun(block, ctx), new TextRun({ text: ' ' }), ...runs],
+        children: [
+          await choiceMarkerRun(block, showAnswer, isOptionCorrect(block, opt.id), ctx),
+          new TextRun({ text: ' ' }),
+          ...runs,
+        ],
       }),
     )
   }
@@ -152,7 +167,11 @@ async function buildChoiceOptions(
           const { runs } = await segmentsToRuns(parseContent(caption), TYPO.option, ctx)
           children.push(
             new Paragraph({
-              children: [await choiceMarkerRun(block, ctx), new TextRun({ text: ' ' }), ...runs],
+              children: [
+                await choiceMarkerRun(block, showAnswer, isOptionCorrect(block, opt.id), ctx),
+                new TextRun({ text: ' ' }),
+                ...runs,
+              ],
             }),
           )
         }
@@ -168,7 +187,7 @@ async function buildChoiceOptions(
           },
           children: children.length > 0
             ? children
-            : [new Paragraph({ children: [await choiceMarkerRun(block, ctx)] })],
+            : [new Paragraph({ children: [await choiceMarkerRun(block, showAnswer, isOptionCorrect(block, opt.id), ctx)] })],
         }),
       )
     }
@@ -192,7 +211,11 @@ async function buildChoiceOptions(
           before: index === 0 ? pxToTwips(LAYOUT.slotPaddingTop) : 0,
           after: pxToTwips(8),
         },
-        children: [await choiceMarkerRun(block, ctx), new TextRun({ text: ' ' }), ...runs],
+        children: [
+          await choiceMarkerRun(block, showAnswer, isOptionCorrect(block, opt.id), ctx),
+          new TextRun({ text: ' ' }),
+          ...runs,
+        ],
       }),
     )
   }
@@ -225,11 +248,12 @@ async function buildFillGaps(
   )
   result.push(...paras)
 
-  const words = !showAnswer && block.gapsShuffleAnswers
-    ? getGapsDisplayAnswers(block, false, false)
-    : (block.gapsAnswers ?? [])
+  const showWordBank = !showAnswer && Boolean(block.gapsShuffleAnswers)
+  const shuffledWords = showWordBank ? getGapsDisplayAnswers(block, false, false) : []
+  const gapWords = block.gapsAnswers ?? []
+  const words = showWordBank && shuffledWords.length > 0 ? shuffledWords : gapWords
 
-  if (!showAnswer && words.length > 0) {
+  if (words.length > 0) {
     const bankRuns: (TextRun | ImageRun)[] = [
       new TextRun({
         text: 'Пропущенные слова:',
@@ -272,15 +296,18 @@ async function buildMatching(
   block: WorksheetBlock,
   showAnswer: boolean,
   ctx: ExportContext,
-): Promise<Paragraph[]> {
+): Promise<{ paragraphs: Paragraph[]; widthPx: number }> {
   const image = await rasterizeMatching(block, showAnswer, ctx)
 
-  return [
-    new Paragraph({
-      spacing: { before: pxToTwips(LAYOUT.slotPaddingTop), after: pxToTwips(4) },
-      children: [imageRunFromPngSized(image.data, image.width, image.height)],
-    }),
-  ]
+  return {
+    widthPx: image.width,
+    paragraphs: [
+      new Paragraph({
+        spacing: { before: pxToTwips(LAYOUT.slotPaddingTop), after: pxToTwips(4) },
+        children: [imageRunFromPngSized(image.data, image.width, image.height)],
+      }),
+    ],
+  }
 }
 
 async function buildOrdering(block: WorksheetBlock, ctx: ExportContext): Promise<DocxBlock[]> {
@@ -490,14 +517,22 @@ export async function buildBlockContent(
   const displayQuestion = showsPlaceholder ? questionPlaceholderForBlock(block) : (block.question ?? question)
   const isAnswerBlock = block.type === 'short_answer' || block.type === 'extended_answer'
   const choiceFormat = block.choiceOptionFormat ?? 'text'
-  let extraRows: TaskHeadExtraRows | undefined
+  let headOptions: TaskHeadTableOptions = {}
 
   if (isChoiceBlock(block) && choiceFormat === 'text') {
     const optionParagraphs = await buildChoiceOptionParagraphs(block, showAnswer, ctx)
-    extraRows = (grid) => [buildBodyContentRow(grid, optionParagraphs)]
+    const widgetWidthDxa = pxToDxa(SLOT_CONTENT_WIDTH_PX)
+    headOptions = {
+      contentWidthCapDxa: widgetWidthDxa,
+      extraRows: (grid) => [buildWidgetBodyRow(grid, optionParagraphs, widgetWidthDxa)],
+    }
   } else if (block.type === 'matching') {
-    const matchingParagraphs = await buildMatching(block, showAnswer, ctx)
-    extraRows = (grid) => [buildBodyContentRow(grid, matchingParagraphs)]
+    const { paragraphs, widthPx } = await buildMatching(block, showAnswer, ctx)
+    const widgetWidthDxa = pxToDxa(widthPx)
+    headOptions = {
+      contentWidthCapDxa: widgetWidthDxa,
+      extraRows: (grid) => [buildWidgetBodyRow(grid, paragraphs, widgetWidthDxa)],
+    }
   }
 
   const head = await buildTaskHeadTable(
@@ -506,7 +541,7 @@ export async function buildBlockContent(
     isAnswerBlock,
     block,
     ctx,
-    extraRows,
+    headOptions,
   )
   const bodyParts: DocxBlock[] = []
 

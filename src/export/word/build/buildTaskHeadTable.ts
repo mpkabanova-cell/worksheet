@@ -56,6 +56,11 @@ const CELL_MARGIN_TWIPS = 40
 const MIN_QUESTION_FONT_PX = 12
 const MAX_CONTENT_WIDTH_PX = SHEET_CONTENT_WIDTH_PX - LAYOUT.taskNumWidth
 const HIDDEN_BORDER = { style: BorderStyle.NONE, size: 0, color: COLORS.white } as const
+const WIDGET_BORDER = { style: BorderStyle.SINGLE, size: 1, color: COLORS.gridLine } as const
+
+function dxaToPx(dxa: number): number {
+  return dxa / 15
+}
 
 function hiddenCellBorders() {
   return {
@@ -180,6 +185,7 @@ async function fitInlineLineStyle(
   cells: InlineCell[],
   baseStyle: TextStyleSpec,
   ctx: ExportContext,
+  maxContentWidthPx: number,
 ): Promise<TextStyleSpec> {
   let sizePx = baseStyle.sizePx
   let linePx = baseStyle.linePx
@@ -189,7 +195,7 @@ async function fitInlineLineStyle(
     const totalWidth = measureInlineLineWidthPx(cells, sizePx, mathWidths)
     const { sizePx: nextSize, linePx: nextLine, fits } = fitFontScale(
       totalWidth,
-      MAX_CONTENT_WIDTH_PX,
+      maxContentWidthPx,
       sizePx,
       linePx,
       MIN_QUESTION_FONT_PX,
@@ -214,9 +220,16 @@ export type TaskHeadGrid = {
 
 export type TaskHeadExtraRows = (grid: TaskHeadGrid) => TableRow[] | Promise<TableRow[]>
 
-export function buildBodyContentRow(
+export type TaskHeadTableOptions = {
+  extraRows?: TaskHeadExtraRows
+  /** Cap content area width (e.g. to raster widget width). */
+  contentWidthCapDxa?: number
+}
+
+export function buildWidgetBodyRow(
   grid: TaskHeadGrid,
   paragraphs: Paragraph[],
+  widgetWidthDxa: number,
 ): TableRow {
   return new TableRow({
     cantSplit: true,
@@ -224,14 +237,27 @@ export function buildBodyContentRow(
       buildEmptyNumCell(grid.numCellWidthDxa),
       new TableCell({
         columnSpan: grid.maxContentCols,
-        width: { size: grid.contentWidthDxa, type: WidthType.DXA },
-        borders: hiddenCellBorders(),
-        margins: cellMargins(),
+        width: { size: widgetWidthDxa, type: WidthType.DXA },
+        borders: {
+          top: WIDGET_BORDER,
+          bottom: WIDGET_BORDER,
+          left: WIDGET_BORDER,
+          right: WIDGET_BORDER,
+        },
+        margins: { top: 0, bottom: 0, left: 0, right: 0 },
         verticalAlign: VerticalAlignTable.TOP,
         children: paragraphs.length > 0 ? paragraphs : [new Paragraph({ children: [new TextRun({ text: '' })] })],
       }),
     ],
   })
+}
+
+/** @deprecated Use buildWidgetBodyRow when widget width is known. */
+export function buildBodyContentRow(
+  grid: TaskHeadGrid,
+  paragraphs: Paragraph[],
+): TableRow {
+  return buildWidgetBodyRow(grid, paragraphs, grid.contentWidthDxa)
 }
 
 async function buildDifficultyParagraph(
@@ -263,6 +289,7 @@ async function buildDifficultyParagraph(
   })
 
   return new Paragraph({
+    tabStops: [],
     spacing: {
       before: pxToTwips(4),
       after: pxToTwips(4),
@@ -334,6 +361,7 @@ function buildTextCell(
     verticalAlign: VerticalAlignTable.CENTER,
     children: [
       new Paragraph({
+        tabStops: [],
         spacing: paragraphLineSpacing(style),
         children:
           runs.length > 0
@@ -365,8 +393,9 @@ async function buildInlineContentCells(
   ctx: ExportContext,
   numCellWidthDxa: number,
   maxTableWidthDxa: number,
+  maxContentWidthPx: number,
 ): Promise<{ cells: TableCell[]; columnWidthsDxa: number[] }> {
-  const lineStyle = await fitInlineLineStyle(cells, style, ctx)
+  const lineStyle = await fitInlineLineStyle(cells, style, ctx, maxContentWidthPx)
   const effectiveCells = cells.length > 0 ? cells : [{ kind: 'text' as const, segments: [] }]
   const mathImages = new Map<string, MathImageResult>()
   const tableCells: TableCell[] = []
@@ -446,16 +475,20 @@ export async function buildTaskHeadTable(
   isAnswerBlock: boolean,
   block: WorksheetBlock,
   ctx: ExportContext,
-  extraRows?: TaskHeadExtraRows,
+  options: TaskHeadTableOptions = {},
 ): Promise<Table> {
+  const { extraRows, contentWidthCapDxa } = options
   const numStyle = isAnswerBlock ? TYPO.answerTaskNum : TYPO.taskNum
   const qStyle = isAnswerBlock ? TYPO.answerTaskQuestion : TYPO.taskQuestion
   const numColor = isAnswerBlock ? COLORS.textSecondary : COLORS.textDefault
   const showDifficulty = ctx.options.showDifficulty && (isAnswerBlock || !!block.difficulty)
 
   const numCellWidthDxa = pxToDxa(LAYOUT.taskNumWidth)
-  const maxTableWidthDxa = pxToDxa(SHEET_CONTENT_WIDTH_PX)
-  const contentWidthDxa = pxToDxa(SHEET_CONTENT_WIDTH_PX - LAYOUT.taskNumWidth)
+  const contentWidthCapPx = contentWidthCapDxa != null ? dxaToPx(contentWidthCapDxa) : null
+  const maxContentWidthPx = contentWidthCapPx ?? MAX_CONTENT_WIDTH_PX
+  const maxTableWidthDxa =
+    contentWidthCapDxa != null ? numCellWidthDxa + contentWidthCapDxa : pxToDxa(SHEET_CONTENT_WIDTH_PX)
+  const contentWidthDxa = contentWidthCapDxa ?? pxToDxa(SHEET_CONTENT_WIDTH_PX - LAYOUT.taskNumWidth)
   const lines = splitQuestionIntoLines(parseContent(questionText))
   const maxContentCols = maxInlineCellCount(lines)
   const rows: TableRow[] = []
@@ -483,6 +516,7 @@ export async function buildTaskHeadTable(
         ctx,
         numCellWidthDxa,
         maxTableWidthDxa,
+        maxContentWidthPx,
       )
       rowChildren.push(...cells)
       if (lineIndex === 0) {
@@ -504,9 +538,9 @@ export async function buildTaskHeadTable(
   }
 
   if (showDifficulty) {
-    const contentWidthFromFirstRow = firstRowColumnWidths
-      .slice(1)
-      .reduce((sum, width) => sum + width, 0)
+    const contentWidthFromFirstRow =
+      contentWidthCapDxa ??
+      firstRowColumnWidths.slice(1).reduce((sum, width) => sum + width, 0)
 
     rows.push(
       new TableRow({
@@ -537,6 +571,7 @@ export async function buildTaskHeadTable(
       ctx,
       numCellWidthDxa,
       maxTableWidthDxa,
+      maxContentWidthPx,
     )
     firstRowColumnWidths = scaleColumnWidthsToMax(
       [numCellWidthDxa, ...columnWidthsDxa],
@@ -555,7 +590,9 @@ export async function buildTaskHeadTable(
   const grid: TaskHeadGrid = {
     maxContentCols,
     numCellWidthDxa,
-    contentWidthDxa: firstRowColumnWidths.slice(1).reduce((sum, width) => sum + width, 0),
+    contentWidthDxa:
+      contentWidthCapDxa ??
+      firstRowColumnWidths.slice(1).reduce((sum, width) => sum + width, 0),
   }
 
   if (extraRows) {

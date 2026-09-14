@@ -1,10 +1,11 @@
 import type { ContentSegment } from '@/export/word/richText/parseRichText'
+import { normalizeExportText } from '@/export/word/richText/normalizeExportText'
 import { FONT } from '@/export/word/layoutTokens'
 
-export const TEXT_CELL_PADDING_PX = 8
+export const TEXT_CELL_PADDING_PX = 4
 export const MATH_CELL_PADDING_PX = 4
 /** Word often renders STIX slightly wider than canvas measureText. */
-export const TEXT_MEASURE_SAFETY = 1.08
+export const TEXT_MEASURE_SAFETY = 1.04
 
 export type InlineWidthCell =
   | { kind: 'text'; segments: ContentSegment[] }
@@ -24,13 +25,14 @@ export function measureTextWidthPx(
   fontSizePx: number,
   bold = false,
 ): number {
-  if (!text) return 0
+  const normalized = normalizeExportText(text)
+  if (!normalized) return 0
 
   const ctx = getCanvasContext()
-  if (!ctx) return Math.ceil(text.length * fontSizePx * 0.55)
+  if (!ctx) return Math.ceil(normalized.length * fontSizePx * 0.55)
 
   ctx.font = `${bold ? '600' : '400'} ${fontSizePx}px "${FONT}", "Times New Roman", serif`
-  return Math.ceil(ctx.measureText(text).width)
+  return Math.ceil(ctx.measureText(normalized).width)
 }
 
 export function measureSegmentsWidthPx(

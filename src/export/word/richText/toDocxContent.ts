@@ -13,6 +13,7 @@ import {
   runFont,
 } from '@/export/word/layoutTokens'
 import { parseContent, type ContentSegment } from '@/export/word/richText/parseRichText'
+import { normalizeExportText } from '@/export/word/richText/normalizeExportText'
 import { renderMathToPng } from '@/export/word/richText/mathToImage'
 import type { ExportContext, MathImageResult, TextStyleSpec } from '@/export/word/types'
 
@@ -82,7 +83,7 @@ export async function segmentsToRuns(
     runs.push(
       new TextRun({
         ...baseRunOptions(style),
-        text: segment.value,
+        text: normalizeExportText(segment.value),
         bold: style.bold || segment.bold,
         italics: segment.italic,
         strike: segment.strike,

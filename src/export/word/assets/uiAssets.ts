@@ -1,3 +1,5 @@
+import choiceCheckboxCheckedUrl from '@/assets/worksheet/choice-checkbox-checked.svg?url'
+import choiceRadioCheckedUrl from '@/assets/worksheet/choice-radio-checked.svg?url'
 import starFilledUrl from '@/assets/worksheet/star-filled.svg?url'
 import starEmptyUrl from '@/assets/worksheet/star-empty.svg?url'
 import type { ExportContext } from '@/export/word/types'
@@ -77,6 +79,14 @@ export async function getStarEmptyPng(ctx: ExportContext, size = 16): Promise<Ui
 
 export async function getChoiceRadioMarkerPng(ctx: ExportContext, size = 16): Promise<Uint8Array> {
   return cachedAsset(ctx, `choice-radio-${size}`, async () => drawCircle(size, '#E4E6F7'))
+}
+
+export async function getChoiceRadioCheckedPng(ctx: ExportContext, size = 16): Promise<Uint8Array> {
+  return cachedAsset(ctx, `choice-radio-checked-${size}`, () => rasterizeSvg(choiceRadioCheckedUrl, size))
+}
+
+export async function getChoiceCheckboxCheckedPng(ctx: ExportContext, size = 16): Promise<Uint8Array> {
+  return cachedAsset(ctx, `choice-checkbox-checked-${size}`, () => rasterizeSvg(choiceCheckboxCheckedUrl, size))
 }
 
 export async function getChoiceCheckboxMarkerPng(ctx: ExportContext, size = 16): Promise<Uint8Array> {

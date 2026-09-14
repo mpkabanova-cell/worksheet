@@ -39,7 +39,7 @@ function createDot(highlighted: boolean): HTMLSpanElement {
   dot.style.border = `1px solid ${highlighted ? BORDER_BRAND : BORDER_TERTIARY}`
   dot.style.borderRadius = '50%'
   dot.style.flexShrink = '0'
-  dot.style.background = BG_WHITE
+  dot.style.background = highlighted ? BORDER_BRAND : BG_WHITE
   dot.style.boxSizing = 'border-box'
   return dot
 }
