@@ -22,7 +22,6 @@ import {
   LAYOUT,
   TYPO,
   pxToDxa,
-  pxToEmu,
   pxToHalfPoints,
   pxToTwips,
 } from '@/export/word/layoutTokens'
@@ -144,8 +143,8 @@ async function buildChoiceOptions(block: WorksheetBlock, showAnswer: boolean, ct
                 type: imageBytes[0] === 0xff && imageBytes[1] === 0xd8 ? 'jpg' : 'png',
                 data: imageBytes,
                 transformation: {
-                  width: pxToEmu(120),
-                  height: pxToEmu(120),
+                  width: 120,
+                  height: 120,
                 },
               }),
             ],
@@ -446,8 +445,8 @@ async function buildMediaBlock(block: WorksheetBlock, ctx: ExportContext): Promi
               type: 'png',
               data: qrBytes,
               transformation: {
-                width: pxToEmu(LAYOUT.qrSize),
-                height: pxToEmu(LAYOUT.qrSize),
+                width: LAYOUT.qrSize,
+                height: LAYOUT.qrSize,
               },
             }),
           ],

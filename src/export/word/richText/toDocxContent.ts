@@ -10,7 +10,6 @@ import {
   FONT,
   FONT_FALLBACK,
   lineSpacingPx,
-  pxToEmu,
   pxToHalfPoints,
   pxToTwips,
 } from '@/export/word/layoutTokens'
@@ -53,8 +52,8 @@ export async function segmentsToRuns(
           type: 'png',
           data: img.data,
           transformation: {
-            width: pxToEmu(img.width),
-            height: pxToEmu(img.height),
+            width: img.width,
+            height: img.height,
           },
         }),
       )
