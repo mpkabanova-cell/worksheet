@@ -7,15 +7,14 @@ import {
 } from 'docx'
 import {
   COLORS,
-  FONT,
-  FONT_FALLBACK,
   lineSpacingPx,
   pxToHalfPoints,
   pxToTwips,
+  runFont,
 } from '@/export/word/layoutTokens'
 import { parseContent, type ContentSegment } from '@/export/word/richText/parseRichText'
 import { renderMathToPng } from '@/export/word/richText/mathToImage'
-import type { ExportContext, TextStyleSpec } from '@/export/word/types'
+import type { ExportContext, MathImageResult, TextStyleSpec } from '@/export/word/types'
 
 function resolveColor(style: TextStyleSpec): string {
   if (style.color) return style.color
@@ -25,11 +24,22 @@ function resolveColor(style: TextStyleSpec): string {
 
 function baseRunOptions(style: TextStyleSpec): IRunOptions {
   return {
-    font: { ascii: FONT, hAnsi: FONT, cs: FONT, eastAsia: FONT },
+    font: runFont(),
     size: pxToHalfPoints(style.sizePx),
     bold: style.bold,
     color: resolveColor(style),
   }
+}
+
+function inlineMathImageRun(img: MathImageResult): ImageRun {
+  return new ImageRun({
+    type: 'png',
+    data: img.data,
+    transformation: {
+      width: img.width,
+      height: img.height,
+    },
+  })
 }
 
 export async function segmentsToRuns(
@@ -47,16 +57,7 @@ export async function segmentsToRuns(
 
     if (segment.kind === 'math') {
       const img = await renderMathToPng(segment.value, segment.display, style.sizePx, ctx)
-      runs.push(
-        new ImageRun({
-          type: 'png',
-          data: img.data,
-          transformation: {
-            width: img.width,
-            height: img.height,
-          },
-        }),
-      )
+      runs.push(inlineMathImageRun(img))
       continue
     }
 
@@ -72,12 +73,41 @@ export async function segmentsToRuns(
         underline: segment.underline ? {} : undefined,
         font: segment.code
           ? { ascii: 'Courier New', hAnsi: 'Courier New' }
-          : { ascii: FONT, hAnsi: FONT, cs: FONT, eastAsia: FONT, hint: FONT_FALLBACK },
+          : runFont(),
       }),
     )
   }
 
   return runs
+}
+
+/** Convert gap underscore runs to underlined spaces for stable Word rendering. */
+export function parseGapsContent(input: string): ContentSegment[] {
+  const segments = parseContent(input)
+  const result: ContentSegment[] = []
+
+  for (const segment of segments) {
+    if (segment.kind !== 'text') {
+      result.push(segment)
+      continue
+    }
+
+    const parts = segment.value.split(/(_{3,})/g)
+    for (const part of parts) {
+      if (!part) continue
+      if (/^_{3,}$/.test(part)) {
+        result.push({
+          kind: 'text',
+          value: ' '.repeat(Math.max(4, part.length)),
+          underline: true,
+        })
+      } else {
+        result.push({ ...segment, value: part })
+      }
+    }
+  }
+
+  return result
 }
 
 export async function richParagraph(
@@ -105,8 +135,9 @@ export async function richParagraphs(
   style: TextStyleSpec,
   ctx: ExportContext,
   options: IParagraphOptions = {},
+  segmentParser: (input: string) => ContentSegment[] = parseContent,
 ): Promise<Paragraph[]> {
-  const segments = parseContent(text)
+  const segments = segmentParser(text)
   const paragraphs: Paragraph[] = []
   let inline: ContentSegment[] = []
 
@@ -185,6 +216,16 @@ export function spacerParagraph(heightPx: number): Paragraph {
   })
 }
 
-export function starsText(value: number): string {
-  return `${'★'.repeat(Math.min(3, Math.max(0, value)))}${'☆'.repeat(Math.max(0, 3 - value))}`
+export async function imageRunFromPng(
+  data: Uint8Array,
+  sizePx: number,
+): Promise<ImageRun> {
+  return new ImageRun({
+    type: 'png',
+    data,
+    transformation: {
+      width: sizePx,
+      height: sizePx,
+    },
+  })
 }

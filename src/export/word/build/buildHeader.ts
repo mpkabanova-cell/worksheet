@@ -1,11 +1,24 @@
 import { sheetTopicLabel } from '@/data/worksheet'
-import { LAYOUT, TYPO } from '@/export/word/layoutTokens'
+import {
+  LAYOUT,
+  PAGE_MARGIN_TWIPS,
+  TYPO,
+  pxToHalfPoints,
+  pxToTwips,
+  runFont,
+} from '@/export/word/layoutTokens'
 import { plainParagraph, richParagraphs, spacerParagraph } from '@/export/word/richText/toDocxContent'
 import type { ExportContext } from '@/export/word/types'
-import { Paragraph, Tab, TabStopType, TextRun } from 'docx'
-import { pxToTwips } from '@/export/word/layoutTokens'
+import {
+  BorderStyle,
+  Paragraph,
+  Tab,
+  TabStopPosition,
+  TabStopType,
+  TextRun,
+} from 'docx'
 
-export async function buildHeader(ctx: ExportContext): Promise<(Paragraph)[]> {
+export async function buildHeader(ctx: ExportContext): Promise<Paragraph[]> {
   const { draft } = ctx
   const minimal = draft.createdManually === true
   const title = sheetTopicLabel(draft)
@@ -15,12 +28,17 @@ export async function buildHeader(ctx: ExportContext): Promise<(Paragraph)[]> {
     result.push(
       new Paragraph({
         spacing: { after: pxToTwips(24) },
-        tabStops: [{ type: TabStopType.LEFT, position: pxToTwips(72) }],
+        tabStops: [
+          {
+            type: TabStopType.RIGHT,
+            position: TabStopPosition.MAX,
+          },
+        ],
         children: [
           new TextRun({
             text: 'Ученик:',
-            size: 21,
-            font: 'Onest',
+            size: pxToHalfPoints(TYPO.studentLine.sizePx),
+            font: runFont(),
             color: '656C94',
           }),
           new TextRun({ children: [new Tab()] }),
@@ -29,6 +47,14 @@ export async function buildHeader(ctx: ExportContext): Promise<(Paragraph)[]> {
             underline: {},
           }),
         ],
+        border: {
+          bottom: {
+            color: 'E4E6F7',
+            space: 1,
+            style: BorderStyle.SINGLE,
+            size: 1,
+          },
+        },
       }),
     )
   }
@@ -57,9 +83,9 @@ export function buildPageFooter(pageNumber: number): Paragraph {
     children: [
       new TextRun({
         text: String(pageNumber + 1),
-        size: 21,
+        size: pxToHalfPoints(TYPO.difficulty.sizePx),
         color: '656C94',
-        font: 'Onest',
+        font: runFont(),
       }),
     ],
   })
@@ -70,3 +96,5 @@ export function buildAnswersTitle(): Paragraph {
     spacing: { before: pxToTwips(24), after: pxToTwips(16) },
   })
 }
+
+export { PAGE_MARGIN_TWIPS }

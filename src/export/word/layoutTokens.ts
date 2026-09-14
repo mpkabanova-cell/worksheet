@@ -1,7 +1,14 @@
 /** Typography and spacing mirrored from Worksheet.css (px → docx units). */
 
-export const FONT = 'Onest'
-export const FONT_FALLBACK = 'Calibri'
+/** Calibri is a reliable sans-serif fallback when Onest is not installed in Word. */
+export const FONT = 'Calibri'
+export const FONT_FALLBACK = 'Arial'
+
+/** Portal sheet content width: 800px − 2×32px header padding. */
+export const SHEET_CONTENT_WIDTH_PX = 736
+
+/** A4 content width with portal-like margins (~29px each side). */
+export const PAGE_MARGIN_TWIPS = 432
 
 /** px → half-points (docx TextRun.size). */
 export function pxToHalfPoints(px: number): number {
@@ -13,14 +20,13 @@ export function pxToTwips(px: number): number {
   return Math.round(px * 15)
 }
 
-/** px → EMU (docx ImageRun dimensions). */
-export function pxToEmu(px: number): number {
-  return Math.round(px * 9525)
-}
-
 /** px → DXA (table cell width). */
 export function pxToDxa(px: number): number {
   return Math.round(px * 15)
+}
+
+export function runFont(name: string = FONT) {
+  return { ascii: name, hAnsi: name, cs: name, eastAsia: name }
 }
 
 export const COLORS = {
@@ -29,6 +35,7 @@ export const COLORS = {
   textTertiary: '9399BD',
   textPositive: '0DB56C',
   borderSecondary: 'E4E6F7',
+  gridLine: 'C8CCE0',
   borderPositive: '0DB56C',
   bgTertiary: 'E4E6F7',
   bgPositiveSoft: 'E8F8F0',
@@ -45,6 +52,7 @@ export const TYPO = {
   answerTaskNum: { sizePx: 16, linePx: 24, weight: 500 },
   answerTaskQuestion: { sizePx: 16, linePx: 24, weight: 500 },
   plainBody: { sizePx: 14, linePx: 20, weight: 400 },
+  gapsText: { sizePx: 14, linePx: 20, weight: 400 },
   option: { sizePx: 14, linePx: 20, weight: 400 },
   answerLabel: { sizePx: 14, linePx: 20, weight: 400 },
   answerValue: { sizePx: 14, linePx: 28, weight: 400 },
@@ -68,6 +76,7 @@ export const LAYOUT = {
   slotPaddingLeft: 32,
   slotGap: 8,
   taskNumWidth: 32,
+  diffLabelWidth: 80,
   answerLineHeight: 28,
   answerLineGap: 4,
   choiceMarkerSize: 16,
@@ -78,4 +87,10 @@ export const LAYOUT = {
 
 export function lineSpacingPx(linePx: number, sizePx: number): number {
   return pxToTwips(linePx - sizePx)
+}
+
+/** Grid columns for answer cells matching portal AnswerCellsGrid logic. */
+export function answerCellsColumnCount(contentWidthPx = SHEET_CONTENT_WIDTH_PX): number {
+  const slotWidth = contentWidthPx - LAYOUT.slotPaddingLeft
+  return Math.max(1, Math.floor((slotWidth - 1) / LAYOUT.answerCellSize))
 }

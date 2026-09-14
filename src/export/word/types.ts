@@ -11,6 +11,7 @@ export interface MathImageResult {
   data: Uint8Array
   width: number
   height: number
+  baselineOffsetPx?: number
 }
 
 export interface ExportContext {

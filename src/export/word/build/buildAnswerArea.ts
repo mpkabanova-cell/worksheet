@@ -7,10 +7,13 @@ import {
 import {
   COLORS,
   LAYOUT,
+  SHEET_CONTENT_WIDTH_PX,
   TYPO,
+  answerCellsColumnCount,
   pxToDxa,
   pxToHalfPoints,
   pxToTwips,
+  runFont,
 } from '@/export/word/layoutTokens'
 import { parseContent } from '@/export/word/richText/parseRichText'
 import { segmentsToRuns } from '@/export/word/richText/toDocxContent'
@@ -26,10 +29,17 @@ import {
   WidthType,
 } from 'docx'
 
+const GRID_BORDER = {
+  top: { style: BorderStyle.SINGLE, size: 4, color: COLORS.gridLine },
+  bottom: { style: BorderStyle.SINGLE, size: 4, color: COLORS.gridLine },
+  left: { style: BorderStyle.SINGLE, size: 4, color: COLORS.gridLine },
+  right: { style: BorderStyle.SINGLE, size: 4, color: COLORS.gridLine },
+}
+
 function answerLabelRun(): TextRun {
   return new TextRun({
     text: 'Ответ:',
-    font: 'Onest',
+    font: runFont(),
     size: pxToHalfPoints(TYPO.answerLabel.sizePx),
     color: COLORS.textSecondary,
   })
@@ -140,24 +150,32 @@ async function buildBlockAnswer(
   ]
 }
 
-function buildCellsTable(rows: number, cols: number): Table {
+function buildCellsTable(rows: number, cols: number, overlayLabel: boolean): Table {
   const cellWidth = pxToDxa(ANSWER_CELL_SIZE)
   const tableRows: TableRow[] = []
 
   for (let r = 0; r < rows; r += 1) {
     const cells: TableCell[] = []
     for (let c = 0; c < cols; c += 1) {
+      const isLabelCell = overlayLabel && r === 0 && c === 0
       cells.push(
         new TableCell({
           width: { size: cellWidth, type: WidthType.DXA },
-          margins: { top: 0, bottom: 0, left: 0, right: 0 },
-          borders: {
-            top: { style: BorderStyle.SINGLE, size: 1, color: COLORS.borderSecondary },
-            bottom: { style: BorderStyle.SINGLE, size: 1, color: COLORS.borderSecondary },
-            left: { style: BorderStyle.SINGLE, size: 1, color: COLORS.borderSecondary },
-            right: { style: BorderStyle.SINGLE, size: 1, color: COLORS.borderSecondary },
+          margins: {
+            top: 20,
+            bottom: 20,
+            left: isLabelCell ? 40 : 0,
+            right: 0,
           },
-          children: [new Paragraph({ children: [new TextRun({ text: ' ' })] })],
+          borders: GRID_BORDER,
+          children: [
+            new Paragraph({
+              spacing: { line: pxToTwips(ANSWER_CELL_SIZE), lineRule: 'exact' },
+              children: isLabelCell
+                ? [answerLabelRun()]
+                : [new TextRun({ text: ' ', size: 2 })],
+            }),
+          ],
         }),
       )
     }
@@ -165,7 +183,7 @@ function buildCellsTable(rows: number, cols: number): Table {
   }
 
   return new Table({
-    width: { size: cellWidth * cols, type: WidthType.DXA },
+    width: { size: 100, type: WidthType.PERCENTAGE },
     indent: { size: pxToTwips(LAYOUT.slotPaddingLeft), type: WidthType.DXA },
     rows: tableRows,
   })
@@ -178,15 +196,8 @@ async function buildCellsAnswer(
   ctx: ExportContext,
 ): Promise<(Paragraph | Table)[]> {
   const rows = getEffectiveAnswerLines(block, subject, showAnswer)
-  const cols = Math.max(12, Math.floor(480 / ANSWER_CELL_SIZE))
-  const result: (Paragraph | Table)[] = [
-    new Paragraph({
-      indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) },
-      spacing: { after: pxToTwips(4) },
-      children: [answerLabelRun()],
-    }),
-    buildCellsTable(rows, cols),
-  ]
+  const cols = answerCellsColumnCount(SHEET_CONTENT_WIDTH_PX)
+  const result: (Paragraph | Table)[] = [buildCellsTable(rows, cols, !showAnswer)]
 
   if (showAnswer) {
     const answerText = getDisplayAnswerText(block)
@@ -200,7 +211,7 @@ async function buildCellsAnswer(
         new Paragraph({
           indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) },
           spacing: { before: pxToTwips(8) },
-          children: valueRuns,
+          children: [answerLabelRun(), new TextRun({ text: ' ' }), ...valueRuns],
         }),
       )
     }

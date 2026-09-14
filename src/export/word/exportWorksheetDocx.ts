@@ -1,6 +1,8 @@
 import type { WorksheetDraft } from '@/data/worksheet'
 import { worksheetDisplayName } from '@/data/worksheet'
 import { buildWorksheetDocumentChildren } from '@/export/word/build/buildSheet'
+import { PAGE_MARGIN_TWIPS } from '@/export/word/build/buildHeader'
+import { runFont } from '@/export/word/layoutTokens'
 import type { ExportContext, ExportOptions } from '@/export/word/types'
 import {
   Document,
@@ -44,7 +46,7 @@ export async function exportWorksheetDocx(draft: WorksheetDraft): Promise<void> 
       default: {
         document: {
           run: {
-            font: 'Onest',
+            font: runFont(),
             size: 21,
             color: '161A33',
           },
@@ -56,10 +58,10 @@ export async function exportWorksheetDocx(draft: WorksheetDraft): Promise<void> 
         properties: {
           page: {
             margin: {
-              top: 720,
-              bottom: 720,
-              left: 720,
-              right: 720,
+              top: PAGE_MARGIN_TWIPS,
+              bottom: PAGE_MARGIN_TWIPS,
+              left: PAGE_MARGIN_TWIPS,
+              right: PAGE_MARGIN_TWIPS,
             },
             size: {
               orientation:

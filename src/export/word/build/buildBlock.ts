@@ -16,6 +16,12 @@ import {
   qrCodeUrl,
 } from '@/data/blockUtils'
 import { getBlockQuestion } from '@/data/taskContent'
+import {
+  getChoiceCheckboxMarkerPng,
+  getChoiceRadioMarkerPng,
+  getStarEmptyPng,
+  getStarFilledPng,
+} from '@/export/word/assets/uiAssets'
 import { buildAnswerArea } from '@/export/word/build/buildAnswerArea'
 import {
   COLORS,
@@ -24,15 +30,17 @@ import {
   pxToDxa,
   pxToHalfPoints,
   pxToTwips,
+  runFont,
 } from '@/export/word/layoutTokens'
 import { fetchImageBytes } from '@/export/word/imageUtils'
 import { parseContent } from '@/export/word/richText/parseRichText'
 import {
+  imageRunFromPng,
+  parseGapsContent,
   plainParagraph,
   richParagraphs,
   segmentsToRuns,
   spacerParagraph,
-  starsText,
 } from '@/export/word/richText/toDocxContent'
 import type { ExportContext } from '@/export/word/types'
 import {
@@ -50,10 +58,45 @@ import {
 
 type DocxBlock = Paragraph | Table
 
+async function buildDifficultyParagraph(
+  block: WorksheetBlock,
+  ctx: ExportContext,
+): Promise<Paragraph> {
+  const starRuns: ImageRun[] = []
+  for (let n = 1; n <= 3; n += 1) {
+    const png =
+      n <= (block.difficulty ?? 0)
+        ? await getStarFilledPng(ctx, 16)
+        : await getStarEmptyPng(ctx, 16)
+    starRuns.push(await imageRunFromPng(png, 16))
+  }
+
+  const children: (TextRun | ImageRun)[] = [
+    new TextRun({
+      text: 'Сложность:',
+      font: runFont(),
+      size: pxToHalfPoints(TYPO.difficulty.sizePx),
+      color: COLORS.textSecondary,
+    }),
+    new TextRun({ text: ' ' }),
+  ]
+
+  starRuns.forEach((star, index) => {
+    if (index > 0) children.push(new TextRun({ text: ' ' }))
+    children.push(star)
+  })
+
+  return new Paragraph({
+    spacing: { before: pxToTwips(4), after: pxToTwips(4) },
+    children,
+  })
+}
+
 async function taskHeadTable(
   taskNumber: number | null,
   questionText: string,
   isAnswerBlock: boolean,
+  block: WorksheetBlock,
   ctx: ExportContext,
 ): Promise<Table> {
   const numStyle = isAnswerBlock ? TYPO.answerTaskNum : TYPO.taskNum
@@ -61,6 +104,12 @@ async function taskHeadTable(
   const numColor = isAnswerBlock ? COLORS.textSecondary : COLORS.textDefault
 
   const questionParas = await richParagraphs(questionText, qStyle, ctx)
+  const questionChildren: Paragraph[] = [...questionParas]
+
+  if (ctx.options.showDifficulty && (isAnswerBlock || block.difficulty)) {
+    questionChildren.push(await buildDifficultyParagraph(block, ctx))
+  }
+
   const numCell = new TableCell({
     width: { size: pxToDxa(LAYOUT.taskNumWidth), type: WidthType.DXA },
     borders: {
@@ -76,9 +125,8 @@ async function taskHeadTable(
         children: [
           new TextRun({
             text: taskNumber != null ? `${taskNumber}.` : '',
-            font: 'Onest',
+            font: runFont(),
             size: pxToHalfPoints(numStyle.sizePx),
-            bold: true,
             color: numColor,
           }),
         ],
@@ -94,7 +142,7 @@ async function taskHeadTable(
       right: { style: BorderStyle.NONE, size: 0, color: COLORS.white },
     },
     verticalAlign: VerticalAlign.TOP,
-    children: questionParas,
+    children: questionChildren,
   })
 
   return new Table({
@@ -103,26 +151,22 @@ async function taskHeadTable(
   })
 }
 
-function difficultyParagraph(block: WorksheetBlock): Paragraph {
-  return plainParagraph(
-    `Сложность: ${starsText(block.difficulty ?? 0)}`,
-    { ...TYPO.difficulty, secondary: true },
-    { spacing: { before: pxToTwips(4), after: pxToTwips(4) } },
-  )
-}
-
-function choiceMarkerRun(block: WorksheetBlock, correct: boolean): TextRun {
+async function choiceMarkerRun(
+  block: WorksheetBlock,
+  ctx: ExportContext,
+): Promise<ImageRun> {
   const isSingle = block.type === 'single_choice'
-  const marker = isSingle ? (correct ? '◉' : '○') : (correct ? '☑' : '☐')
-  return new TextRun({
-    text: `${marker} `,
-    font: 'Onest',
-    size: pxToHalfPoints(TYPO.option.sizePx),
-    color: correct ? COLORS.textPositive : COLORS.textDefault,
-  })
+  const png = isSingle
+    ? await getChoiceRadioMarkerPng(ctx, LAYOUT.choiceMarkerSize)
+    : await getChoiceCheckboxMarkerPng(ctx, LAYOUT.choiceMarkerSize)
+  return imageRunFromPng(png, LAYOUT.choiceMarkerSize)
 }
 
-async function buildChoiceOptions(block: WorksheetBlock, showAnswer: boolean, ctx: ExportContext): Promise<DocxBlock[]> {
+async function buildChoiceOptions(
+  block: WorksheetBlock,
+  showAnswer: boolean,
+  ctx: ExportContext,
+): Promise<DocxBlock[]> {
   const format = block.choiceOptionFormat ?? 'text'
   const options = getChoiceDisplayOptions(block, false, false)
   const result: DocxBlock[] = []
@@ -156,7 +200,11 @@ async function buildChoiceOptions(block: WorksheetBlock, showAnswer: boolean, ct
         const caption = format === 'text_image' ? opt.text || 'Ответ' : ''
         if (caption) {
           const runs = await segmentsToRuns(parseContent(caption), TYPO.option, ctx)
-          children.push(new Paragraph({ children: [choiceMarkerRun(block, correct), ...runs] }))
+          children.push(
+            new Paragraph({
+              children: [await choiceMarkerRun(block, ctx), new TextRun({ text: ' ' }), ...runs],
+            }),
+          )
         }
       }
 
@@ -168,7 +216,9 @@ async function buildChoiceOptions(block: WorksheetBlock, showAnswer: boolean, ct
             left: { style: BorderStyle.SINGLE, size: 1, color: correct ? COLORS.borderPositive : COLORS.borderSecondary },
             right: { style: BorderStyle.SINGLE, size: 1, color: correct ? COLORS.borderPositive : COLORS.borderSecondary },
           },
-          children: children.length > 0 ? children : [new Paragraph({ children: [choiceMarkerRun(block, correct)] })],
+          children: children.length > 0
+            ? children
+            : [new Paragraph({ children: [await choiceMarkerRun(block, ctx)] })],
         }),
       )
     }
@@ -183,20 +233,23 @@ async function buildChoiceOptions(block: WorksheetBlock, showAnswer: boolean, ct
   }
 
   for (const opt of options) {
-    const correct = isOptionCorrect(block, opt.id) && showAnswer
     const runs = await segmentsToRuns(parseContent(opt.text || 'Ответ'), TYPO.option, ctx)
     result.push(
       new Paragraph({
         indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) },
         spacing: { after: pxToTwips(8) },
-        children: [choiceMarkerRun(block, correct), ...runs],
+        children: [await choiceMarkerRun(block, ctx), new TextRun({ text: ' ' }), ...runs],
       }),
     )
   }
   return result
 }
 
-async function buildFillGaps(block: WorksheetBlock, showAnswer: boolean, ctx: ExportContext): Promise<DocxBlock[]> {
+async function buildFillGaps(
+  block: WorksheetBlock,
+  showAnswer: boolean,
+  ctx: ExportContext,
+): Promise<DocxBlock[]> {
   const text = showAnswer ? getGapsSourceText(block) : getGapsStudentText(block)
   const result: DocxBlock[] = []
 
@@ -209,9 +262,13 @@ async function buildFillGaps(block: WorksheetBlock, showAnswer: boolean, ctx: Ex
     return result
   }
 
-  const paras = await richParagraphs(text, TYPO.taskQuestion, ctx, {
-    indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) },
-  })
+  const paras = await richParagraphs(
+    text,
+    TYPO.gapsText,
+    ctx,
+    { indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) } },
+    parseGapsContent,
+  )
   result.push(...paras)
 
   const words = !showAnswer && block.gapsShuffleAnswers
@@ -219,11 +276,31 @@ async function buildFillGaps(block: WorksheetBlock, showAnswer: boolean, ctx: Ex
     : (block.gapsAnswers ?? [])
 
   if (!showAnswer && words.length > 0) {
-    const wordTexts = words.map((w) => w).join(', ')
+    const bankRuns: (TextRun | ImageRun)[] = [
+      new TextRun({
+        text: 'Пропущенные слова:',
+        font: runFont(),
+        size: pxToHalfPoints(TYPO.gapsBank.sizePx),
+        color: COLORS.textSecondary,
+      }),
+    ]
+
+    for (let i = 0; i < words.length; i += 1) {
+      bankRuns.push(
+        new TextRun({
+          text: i === 0 ? ' ' : ', ',
+          font: runFont(),
+          size: pxToHalfPoints(TYPO.gapsBank.sizePx),
+        }),
+      )
+      bankRuns.push(...(await segmentsToRuns(parseContent(words[i]), TYPO.gapsBank, ctx)))
+    }
+
     result.push(
-      plainParagraph(`Пропущенные слова: ${wordTexts}`, { ...TYPO.gapsBank, secondary: true }, {
+      new Paragraph({
         indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) },
-        spacing: { before: pxToTwips(8) },
+        spacing: { before: pxToTwips(8), after: pxToTwips(4) },
+        children: bankRuns,
       }),
     )
   }
@@ -300,7 +377,7 @@ async function buildOrdering(block: WorksheetBlock, ctx: ExportContext): Promise
         children: [
           new TextRun({
             text: `${i + 1}. `,
-            font: 'Onest',
+            font: runFont(),
             size: pxToHalfPoints(TYPO.option.sizePx),
             color: COLORS.textSecondary,
           }),
@@ -328,7 +405,7 @@ async function buildGrouping(block: WorksheetBlock, ctx: ExportContext): Promise
       itemParas.push(
         new Paragraph({
           children: [
-            new TextRun({ text: '• ', font: 'Onest', size: pxToHalfPoints(TYPO.option.sizePx) }),
+            new TextRun({ text: '• ', font: runFont(), size: pxToHalfPoints(TYPO.option.sizePx) }),
             ...runs,
           ],
         }),
@@ -375,7 +452,7 @@ async function buildTableBlock(block: WorksheetBlock, ctx: ExportContext): Promi
               children: [
                 new TextRun({
                   text: headers[colIndex] || 'Название группы',
-                  font: 'Onest',
+                  font: runFont(),
                   size: pxToHalfPoints(TYPO.option.sizePx),
                   bold: true,
                 }),
@@ -492,15 +569,8 @@ export async function buildBlockContent(
   const showsPlaceholder = isQuestionPlaceholder(questionText)
   const displayQuestion = showsPlaceholder ? questionPlaceholderForBlock(block) : (block.question ?? question)
   const isAnswerBlock = block.type === 'short_answer' || block.type === 'extended_answer'
-  const isPlainTask = false
 
-  if (!isPlainTask) {
-    result.push(await taskHeadTable(taskNumber, displayQuestion, isAnswerBlock, ctx))
-
-    if (ctx.options.showDifficulty && (isAnswerBlock || block.difficulty)) {
-      result.push(difficultyParagraph(block))
-    }
-  }
+  result.push(await taskHeadTable(taskNumber, displayQuestion, isAnswerBlock, block, ctx))
 
   if (isChoiceBlock(block)) {
     result.push(...(await buildChoiceOptions(block, showAnswer, ctx)))
