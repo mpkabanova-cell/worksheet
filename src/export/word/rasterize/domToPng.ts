@@ -56,12 +56,21 @@ export async function captureDomToPng(
   captureRoot.style.display = 'inline-block'
   captureRoot.style.background = '#ffffff'
   captureRoot.style.fontFamily = FONT_CSS
+  captureRoot.style.overflow = 'visible'
+  node.style.overflow = 'visible'
   captureRoot.appendChild(node)
   mount.replaceChildren(captureRoot)
 
   await waitForLayout()
   await waitForImages(node)
   beforeCapture?.(node)
+
+  const captureWidth = Math.max(node.scrollWidth, node.offsetWidth, node.clientWidth)
+  if (captureWidth > 0) {
+    captureRoot.style.width = `${captureWidth}px`
+  }
+
+  await waitForLayout()
 
   const dataUrl = await toPng(captureRoot, {
     pixelRatio: 2,

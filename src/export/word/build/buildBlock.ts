@@ -50,6 +50,7 @@ import {
   TableCell,
   TableRow,
   TextRun,
+  VerticalAlignTable,
   WidthType,
 } from 'docx'
 
@@ -78,6 +79,7 @@ function wrapTaskBlock(head: Table, body: DocxBlock[]): Table {
           new TableCell({
             borders: hiddenCellBorders(),
             margins: { top: 0, bottom: 0, left: 0, right: 0 },
+            verticalAlign: VerticalAlignTable.CENTER,
             children: [head, ...body],
           }),
         ],

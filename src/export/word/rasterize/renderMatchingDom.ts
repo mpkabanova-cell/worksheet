@@ -3,13 +3,13 @@ import {
   getMatchingCorrectLinks,
   getMatchingRightItems,
 } from '@/data/blockUtils'
-import { LAYOUT, SHEET_CONTENT_WIDTH_PX } from '@/export/word/layoutTokens'
+import { SLOT_CONTENT_WIDTH_PX } from '@/export/word/layoutTokens'
 import { captureDomToPng } from '@/export/word/rasterize/domToPng'
 import { appendMathText, ensureKatexStyles } from '@/export/word/rasterize/renderMathHtml'
 import type { DomImageResult, ExportContext } from '@/export/word/types'
 import choiceImagePlaceholder from '@/assets/worksheet/choice-image-placeholder.png'
 
-const SLOT_WIDTH_PX = SHEET_CONTENT_WIDTH_PX - LAYOUT.slotPaddingLeft
+const SLOT_WIDTH_PX = SLOT_CONTENT_WIDTH_PX
 const BORDER_TERTIARY = '#9399BD'
 const BORDER_BRAND = '#503AE0'
 const BG_BRAND = '#503AE0'

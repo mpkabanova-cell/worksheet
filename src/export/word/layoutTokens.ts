@@ -93,6 +93,10 @@ export function lineSpacingPx(linePx: number, sizePx: number): number {
   return pxToTwips(linePx - sizePx)
 }
 
+/** Useful width inside a task slot (sheet content minus left/right slot padding). */
+export const SLOT_CONTENT_WIDTH_PX =
+  SHEET_CONTENT_WIDTH_PX - LAYOUT.slotPaddingLeft - LAYOUT.slotPaddingRight
+
 /** Grid columns for answer cells matching portal AnswerCellsGrid logic. */
 export function answerCellsColumnCount(contentWidthPx = SHEET_CONTENT_WIDTH_PX): number {
   const slotWidth = contentWidthPx - LAYOUT.slotPaddingLeft

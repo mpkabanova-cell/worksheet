@@ -8,6 +8,7 @@ import {
   COLORS,
   LAYOUT,
   SHEET_CONTENT_WIDTH_PX,
+  SLOT_CONTENT_WIDTH_PX,
   answerCellsColumnCount,
 } from '@/export/word/layoutTokens'
 import { captureDomToPng } from '@/export/word/rasterize/domToPng'
@@ -16,7 +17,7 @@ import type { DomImageResult, ExportContext } from '@/export/word/types'
 
 type GridOverlayType = 'axes' | 'number_line' | 'ray'
 
-const SLOT_WIDTH_PX = SHEET_CONTENT_WIDTH_PX - LAYOUT.slotPaddingLeft
+const SLOT_WIDTH_PX = SLOT_CONTENT_WIDTH_PX
 const BORDER_SECONDARY = `#${COLORS.borderSecondary}`
 const GRID_LINE = `#${COLORS.gridLine}`
 const TEXT_SECONDARY = `#${COLORS.textSecondary}`
