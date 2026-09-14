@@ -112,27 +112,3 @@ export function scaleColumnWidthsToMax(
     ...contentWidths.map((width) => Math.max(1, Math.round(width * scale))),
   ]
 }
-
-/** Expand content columns so their total is at least minContentTotal (fixed prefix unchanged). */
-export function scaleColumnWidthsToMin(
-  columnWidths: number[],
-  minContentTotal: number,
-  fixedPrefixCount = 1,
-): number[] {
-  const contentWidths = columnWidths.slice(fixedPrefixCount)
-  const contentTotal = contentWidths.reduce((sum, width) => sum + width, 0)
-  if (contentTotal >= minContentTotal) return columnWidths
-
-  if (contentTotal === 0) {
-    return [...columnWidths.slice(0, fixedPrefixCount), minContentTotal]
-  }
-
-  const scale = minContentTotal / contentTotal
-  const scaled = contentWidths.map((width) => Math.max(1, Math.round(width * scale)))
-  const scaledTotal = scaled.reduce((sum, width) => sum + width, 0)
-  if (scaledTotal !== minContentTotal && scaled.length > 0) {
-    scaled[scaled.length - 1] += minContentTotal - scaledTotal
-  }
-
-  return [...columnWidths.slice(0, fixedPrefixCount), ...scaled]
-}

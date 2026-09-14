@@ -296,18 +296,17 @@ async function buildMatching(
   block: WorksheetBlock,
   showAnswer: boolean,
   ctx: ExportContext,
-): Promise<{ paragraphs: Paragraph[]; widthPx: number }> {
+): Promise<Paragraph[]> {
   const image = await rasterizeMatching(block, showAnswer, ctx)
+  const displayWidth = Math.min(image.width, SLOT_CONTENT_WIDTH_PX)
+  const displayHeight = Math.max(1, Math.round(image.height * (displayWidth / image.width)))
 
-  return {
-    widthPx: image.width,
-    paragraphs: [
-      new Paragraph({
-        spacing: { before: pxToTwips(LAYOUT.slotPaddingTop), after: pxToTwips(4) },
-        children: [imageRunFromPngSized(image.data, image.width, image.height)],
-      }),
-    ],
-  }
+  return [
+    new Paragraph({
+      spacing: { before: pxToTwips(LAYOUT.slotPaddingTop), after: pxToTwips(4) },
+      children: [imageRunFromPngSized(image.data, displayWidth, displayHeight)],
+    }),
+  ]
 }
 
 async function buildOrdering(block: WorksheetBlock, ctx: ExportContext): Promise<DocxBlock[]> {
@@ -519,19 +518,21 @@ export async function buildBlockContent(
   const choiceFormat = block.choiceOptionFormat ?? 'text'
   let headOptions: TaskHeadTableOptions = {}
 
+  const slotWidthDxa = pxToDxa(SLOT_CONTENT_WIDTH_PX)
+
   if (isChoiceBlock(block) && choiceFormat === 'text') {
     const optionParagraphs = await buildChoiceOptionParagraphs(block, showAnswer, ctx)
-    const widgetWidthDxa = pxToDxa(SLOT_CONTENT_WIDTH_PX)
     headOptions = {
-      contentWidthCapDxa: widgetWidthDxa,
-      extraRows: (grid) => [buildWidgetBodyRow(grid, optionParagraphs, widgetWidthDxa)],
+      contentWidthCapDxa: slotWidthDxa,
+      extraRows: (grid) => [
+        buildWidgetBodyRow(grid, optionParagraphs, { cellMarginLeftPx: LAYOUT.slotPaddingLeft }),
+      ],
     }
   } else if (block.type === 'matching') {
-    const { paragraphs, widthPx } = await buildMatching(block, showAnswer, ctx)
-    const widgetWidthDxa = pxToDxa(widthPx)
+    const matchingParagraphs = await buildMatching(block, showAnswer, ctx)
     headOptions = {
-      contentWidthCapDxa: widgetWidthDxa,
-      extraRows: (grid) => [buildWidgetBodyRow(grid, paragraphs, widgetWidthDxa)],
+      contentWidthCapDxa: slotWidthDxa,
+      extraRows: (grid) => [buildWidgetBodyRow(grid, matchingParagraphs)],
     }
   }
 

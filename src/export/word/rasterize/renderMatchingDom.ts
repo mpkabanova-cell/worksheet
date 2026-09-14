@@ -222,6 +222,9 @@ export async function rasterizeMatching(
   const board = document.createElement('div')
   board.style.position = 'relative'
   board.style.width = `${SLOT_WIDTH_PX}px`
+  board.style.maxWidth = `${SLOT_WIDTH_PX}px`
+  board.style.boxSizing = 'border-box'
+  board.style.overflow = 'hidden'
 
   const rowsWrap = document.createElement('div')
   rowsWrap.style.display = 'flex'

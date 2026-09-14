@@ -67,9 +67,18 @@ export async function captureDomToPng(
   await waitForImages(node)
   beforeCapture?.(node)
 
-  const captureWidth = Math.max(node.scrollWidth, node.offsetWidth, node.clientWidth)
+  const declaredWidth = parseInt(node.style.width, 10)
+  const captureWidth =
+    Number.isFinite(declaredWidth) && declaredWidth > 0
+      ? declaredWidth
+      : Math.max(node.scrollWidth, node.offsetWidth, node.clientWidth)
+
   if (captureWidth > 0) {
     captureRoot.style.width = `${captureWidth}px`
+    node.style.width = `${captureWidth}px`
+    node.style.maxWidth = `${captureWidth}px`
+    node.style.boxSizing = 'border-box'
+    node.style.overflow = 'hidden'
   }
 
   await waitForLayout()
