@@ -56,6 +56,13 @@ export async function segmentsToRuns(
     }
 
     if (segment.kind === 'math') {
+      const tex = segment.value.trim()
+      if (!tex || /^[=,\.;:\-]+$/.test(tex)) {
+        if (segment.value) {
+          runs.push(new TextRun({ ...baseRunOptions(style), text: segment.value }))
+        }
+        continue
+      }
       const img = await renderMathToPng(segment.value, segment.display, style.sizePx, ctx)
       runs.push(inlineMathImageRun(img))
       continue
@@ -81,7 +88,7 @@ export async function segmentsToRuns(
   return runs
 }
 
-/** Convert gap underscore runs to underlined spaces for stable Word rendering. */
+/** Keep gap underscore runs as literal `_` characters (matches portal, avoids Word underline artifacts). */
 export function parseGapsContent(input: string): ContentSegment[] {
   const segments = parseContent(input)
   const result: ContentSegment[] = []
@@ -98,8 +105,7 @@ export function parseGapsContent(input: string): ContentSegment[] {
       if (/^_{3,}$/.test(part)) {
         result.push({
           kind: 'text',
-          value: ' '.repeat(Math.max(4, part.length)),
-          underline: true,
+          value: part,
         })
       } else {
         result.push({ ...segment, value: part })

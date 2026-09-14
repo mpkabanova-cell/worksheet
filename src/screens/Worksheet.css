@@ -1395,13 +1395,6 @@
   color: var(--text-default);
 }
 
-.gaps-text {
-  margin: 0;
-  font-size: 14px;
-  line-height: 20px;
-  color: var(--text-secondary);
-}
-
 .sheet-page-footer {
   display: flex;
   justify-content: center;

@@ -264,7 +264,7 @@ async function buildFillGaps(
 
   const paras = await richParagraphs(
     text,
-    TYPO.gapsText,
+    { ...TYPO.gapsText, color: COLORS.textDefault },
     ctx,
     { indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) } },
     parseGapsContent,
@@ -293,7 +293,13 @@ async function buildFillGaps(
           size: pxToHalfPoints(TYPO.gapsBank.sizePx),
         }),
       )
-      bankRuns.push(...(await segmentsToRuns(parseContent(words[i]), TYPO.gapsBank, ctx)))
+      bankRuns.push(
+        ...(await segmentsToRuns(
+          parseContent(words[i]),
+          { ...TYPO.gapsBank, color: COLORS.textDefault },
+          ctx,
+        )),
+      )
     }
 
     result.push(
