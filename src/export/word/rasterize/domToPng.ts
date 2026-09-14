@@ -1,3 +1,4 @@
+import { FONT_CSS } from '@/export/word/layoutTokens'
 import { toPng } from 'html-to-image'
 import type { DomImageResult, ExportContext } from '@/export/word/types'
 
@@ -54,6 +55,7 @@ export async function captureDomToPng(
   const captureRoot = document.createElement('div')
   captureRoot.style.display = 'inline-block'
   captureRoot.style.background = '#ffffff'
+  captureRoot.style.fontFamily = FONT_CSS
   captureRoot.appendChild(node)
   mount.replaceChildren(captureRoot)
 

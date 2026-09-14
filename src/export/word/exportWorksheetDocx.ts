@@ -2,6 +2,7 @@ import type { WorksheetDraft } from '@/data/worksheet'
 import { worksheetDisplayName } from '@/data/worksheet'
 import { buildWorksheetDocumentChildren } from '@/export/word/build/buildSheet'
 import { PAGE_MARGIN_TWIPS } from '@/export/word/build/buildHeader'
+import { ensureExportFontsLoaded } from '@/export/word/loadExportFonts'
 import { runFont } from '@/export/word/layoutTokens'
 import type { ExportContext, ExportOptions } from '@/export/word/types'
 import {
@@ -40,6 +41,7 @@ export async function exportWorksheetDocx(draft: WorksheetDraft): Promise<void> 
     domImageCache: new Map(),
   }
 
+  await ensureExportFontsLoaded()
   const children = await buildWorksheetDocumentChildren(ctx)
 
   const doc = new Document({
