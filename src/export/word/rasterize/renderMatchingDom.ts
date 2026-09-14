@@ -12,7 +12,6 @@ import choiceImagePlaceholder from '@/assets/worksheet/choice-image-placeholder.
 const SLOT_WIDTH_PX = SLOT_CONTENT_WIDTH_PX
 const BORDER_TERTIARY = '#9399BD'
 const BORDER_BRAND = '#503AE0'
-const BG_BRAND = '#503AE0'
 const BG_WHITE = '#ffffff'
 const TEXT_TERTIARY = '#9399BD'
 const TEXT_DEFAULT = '#161A33'
@@ -28,6 +27,11 @@ function isImageFormat(format: ChoiceOptionFormat): boolean {
   return format === 'image' || format === 'text_image'
 }
 
+/** Platform correct-match frame: brand border only, no background fill. */
+function applyCorrectBorder(el: HTMLElement): void {
+  el.style.border = `1px solid ${BORDER_BRAND}`
+}
+
 function createDot(highlighted: boolean): HTMLSpanElement {
   const dot = document.createElement('span')
   dot.style.width = '20px'
@@ -35,7 +39,7 @@ function createDot(highlighted: boolean): HTMLSpanElement {
   dot.style.border = `1px solid ${highlighted ? BORDER_BRAND : BORDER_TERTIARY}`
   dot.style.borderRadius = '50%'
   dot.style.flexShrink = '0'
-  dot.style.background = highlighted ? BG_BRAND : BG_WHITE
+  dot.style.background = BG_WHITE
   dot.style.boxSizing = 'border-box'
   return dot
 }
@@ -56,7 +60,7 @@ function createTextBox(text: string, highlighted: boolean): HTMLDivElement {
   box.style.color = TEXT_DEFAULT
   box.style.background = BG_WHITE
   if (highlighted) {
-    box.style.boxShadow = `0 0 0 1px ${BORDER_BRAND}`
+    applyCorrectBorder(box)
   }
 
   const trimmed = text.trim()
@@ -82,7 +86,7 @@ function createImageBox(item: MatchPair, highlighted: boolean): HTMLDivElement {
   box.style.overflow = 'hidden'
   box.style.background = '#E4E6F7'
   if (highlighted) {
-    box.style.boxShadow = `0 0 0 1px ${BORDER_BRAND}`
+    applyCorrectBorder(box)
   }
 
   const img = document.createElement('img')

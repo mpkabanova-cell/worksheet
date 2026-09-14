@@ -19,7 +19,11 @@ import {
   getChoiceRadioMarkerPng,
 } from '@/export/word/assets/uiAssets'
 import { buildAnswerArea } from '@/export/word/build/buildAnswerArea'
-import { buildTaskHeadTable } from '@/export/word/build/buildTaskHeadTable'
+import {
+  buildBodyContentRow,
+  buildTaskHeadTable,
+  type TaskHeadExtraRows,
+} from '@/export/word/build/buildTaskHeadTable'
 import { rasterizeMatching } from '@/export/word/rasterize/renderMatchingDom'
 import {
   COLORS,
@@ -64,6 +68,40 @@ async function choiceMarkerRun(
     ? await getChoiceRadioMarkerPng(ctx, LAYOUT.choiceMarkerSize)
     : await getChoiceCheckboxMarkerPng(ctx, LAYOUT.choiceMarkerSize)
   return imageRunFromPng(png, LAYOUT.choiceMarkerSize)
+}
+
+async function buildChoiceOptionParagraphs(
+  block: WorksheetBlock,
+  _showAnswer: boolean,
+  ctx: ExportContext,
+): Promise<Paragraph[]> {
+  let options = getChoiceDisplayOptions(block, false, false)
+
+  if (options.length === 0) {
+    console.warn('[export] choice block has no options, using placeholders', block.id)
+    options = Array.from({ length: 4 }, (_, index) => ({
+      id: `fallback_${index}`,
+      text: `Ответ ${index + 1}`,
+    }))
+  }
+
+  const paragraphs: Paragraph[] = []
+
+  for (let index = 0; index < options.length; index += 1) {
+    const opt = options[index]
+    const { runs } = await segmentsToRuns(parseContent(opt.text || 'Ответ'), TYPO.option, ctx)
+    paragraphs.push(
+      new Paragraph({
+        spacing: {
+          before: index === 0 ? pxToTwips(LAYOUT.slotPaddingTop) : 0,
+          after: pxToTwips(8),
+        },
+        children: [await choiceMarkerRun(block, ctx), new TextRun({ text: ' ' }), ...runs],
+      }),
+    )
+  }
+
+  return paragraphs
 }
 
 async function buildChoiceOptions(
@@ -230,12 +268,15 @@ async function buildFillGaps(
   return result
 }
 
-async function buildMatching(block: WorksheetBlock, showAnswer: boolean, ctx: ExportContext): Promise<DocxBlock[]> {
+async function buildMatching(
+  block: WorksheetBlock,
+  showAnswer: boolean,
+  ctx: ExportContext,
+): Promise<Paragraph[]> {
   const image = await rasterizeMatching(block, showAnswer, ctx)
 
   return [
     new Paragraph({
-      indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) },
       spacing: { before: pxToTwips(LAYOUT.slotPaddingTop), after: pxToTwips(4) },
       children: [imageRunFromPngSized(image.data, image.width, image.height)],
     }),
@@ -448,6 +489,16 @@ export async function buildBlockContent(
   const showsPlaceholder = isQuestionPlaceholder(questionText)
   const displayQuestion = showsPlaceholder ? questionPlaceholderForBlock(block) : (block.question ?? question)
   const isAnswerBlock = block.type === 'short_answer' || block.type === 'extended_answer'
+  const choiceFormat = block.choiceOptionFormat ?? 'text'
+  let extraRows: TaskHeadExtraRows | undefined
+
+  if (isChoiceBlock(block) && choiceFormat === 'text') {
+    const optionParagraphs = await buildChoiceOptionParagraphs(block, showAnswer, ctx)
+    extraRows = (grid) => [buildBodyContentRow(grid, optionParagraphs)]
+  } else if (block.type === 'matching') {
+    const matchingParagraphs = await buildMatching(block, showAnswer, ctx)
+    extraRows = (grid) => [buildBodyContentRow(grid, matchingParagraphs)]
+  }
 
   const head = await buildTaskHeadTable(
     taskNumber,
@@ -455,10 +506,11 @@ export async function buildBlockContent(
     isAnswerBlock,
     block,
     ctx,
+    extraRows,
   )
   const bodyParts: DocxBlock[] = []
 
-  if (isChoiceBlock(block)) {
+  if (isChoiceBlock(block) && choiceFormat !== 'text') {
     bodyParts.push(...(await buildChoiceOptions(block, showAnswer, ctx)))
   }
 
@@ -469,10 +521,6 @@ export async function buildBlockContent(
 
   if (block.type === 'fill_gaps') {
     bodyParts.push(...(await buildFillGaps(block, showAnswer, ctx)))
-  }
-
-  if (block.type === 'matching') {
-    bodyParts.push(...(await buildMatching(block, showAnswer, ctx)))
   }
 
   if (block.type === 'ordering') {

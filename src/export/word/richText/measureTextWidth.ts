@@ -3,6 +3,8 @@ import { FONT } from '@/export/word/layoutTokens'
 
 export const TEXT_CELL_PADDING_PX = 8
 export const MATH_CELL_PADDING_PX = 4
+/** Word often renders STIX slightly wider than canvas measureText. */
+export const TEXT_MEASURE_SAFETY = 1.08
 
 export type InlineWidthCell =
   | { kind: 'text'; segments: ContentSegment[] }
@@ -48,7 +50,7 @@ export function measureSegmentsWidthPx(
 export function textCellWidthPx(segments: ContentSegment[], fontSizePx: number): number {
   const contentWidth = measureSegmentsWidthPx(segments, fontSizePx)
   if (contentWidth <= 0) return TEXT_CELL_PADDING_PX
-  return contentWidth + TEXT_CELL_PADDING_PX
+  return Math.ceil((contentWidth + TEXT_CELL_PADDING_PX) * TEXT_MEASURE_SAFETY)
 }
 
 export function measureInlineLineWidthPx(
@@ -75,13 +77,36 @@ export function fitFontScale(
   baseSizePx: number,
   baseLinePx: number,
   minSizePx = 12,
-): { sizePx: number; linePx: number } {
+): { sizePx: number; linePx: number; fits: boolean } {
   if (totalWidthPx <= availableWidthPx || totalWidthPx <= 0) {
-    return { sizePx: baseSizePx, linePx: baseLinePx }
+    return { sizePx: baseSizePx, linePx: baseLinePx, fits: true }
   }
 
   const scale = availableWidthPx / totalWidthPx
   const sizePx = Math.max(minSizePx, Math.floor(baseSizePx * scale))
   const linePx = Math.max(sizePx + 6, Math.round(baseLinePx * scale))
-  return { sizePx, linePx }
+  const fittedWidth = (totalWidthPx * sizePx) / baseSizePx
+  return { sizePx, linePx, fits: fittedWidth <= availableWidthPx || sizePx <= minSizePx }
+}
+
+export function scaleColumnWidthsToMax(
+  columnWidths: number[],
+  maxTotal: number,
+  fixedPrefixCount = 1,
+): number[] {
+  const total = columnWidths.reduce((sum, width) => sum + width, 0)
+  if (total <= maxTotal) return columnWidths
+
+  const fixed = columnWidths.slice(0, fixedPrefixCount).reduce((sum, width) => sum + width, 0)
+  const contentWidths = columnWidths.slice(fixedPrefixCount)
+  const contentTotal = contentWidths.reduce((sum, width) => sum + width, 0)
+  const maxContent = Math.max(1, maxTotal - fixed)
+
+  if (contentTotal <= maxContent) return columnWidths
+
+  const scale = maxContent / contentTotal
+  return [
+    ...columnWidths.slice(0, fixedPrefixCount),
+    ...contentWidths.map((width) => Math.max(1, Math.round(width * scale))),
+  ]
 }
