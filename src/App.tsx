@@ -377,6 +377,17 @@ export default function App() {
     showToast('Рабочий лист сохранён')
   }
 
+  const handleExportDocx = async () => {
+    setModal(null)
+    try {
+      const { exportWorksheetDocx } = await import('@/export/word/exportWorksheetDocx')
+      await exportWorksheetDocx(draft)
+      showToast('DOCX сохранён')
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Ошибка экспорта DOCX')
+    }
+  }
+
   const handlePrint = () => {
     setModal(null)
     const prevAnswers = draft.showAnswers
@@ -631,6 +642,7 @@ export default function App() {
         }}
         onConfirmGenerateTask={confirmGenerateTask}
         onPrint={handlePrint}
+        onExportDocx={handleExportDocx}
         onSave={handleSave}
         onSoon={showToast}
       />
