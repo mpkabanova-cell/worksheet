@@ -55,19 +55,6 @@ import {
 
 type DocxBlock = Paragraph | Table
 
-function taskHasBody(block: WorksheetBlock): boolean {
-  return (
-    isChoiceBlock(block) ||
-    block.type === 'short_answer' ||
-    block.type === 'extended_answer' ||
-    block.type === 'fill_gaps' ||
-    block.type === 'matching' ||
-    block.type === 'ordering' ||
-    block.type === 'grouping' ||
-    block.type === 'table'
-  )
-}
-
 async function choiceMarkerRun(
   block: WorksheetBlock,
   ctx: ExportContext,
@@ -85,8 +72,16 @@ async function buildChoiceOptions(
   ctx: ExportContext,
 ): Promise<DocxBlock[]> {
   const format = block.choiceOptionFormat ?? 'text'
-  const options = getChoiceDisplayOptions(block, false, false)
+  let options = getChoiceDisplayOptions(block, false, false)
   const result: DocxBlock[] = []
+
+  if (options.length === 0) {
+    console.warn('[export] choice block has no options, using placeholders', block.id)
+    options = Array.from({ length: 4 }, (_, index) => ({
+      id: `fallback_${index}`,
+      text: `Ответ ${index + 1}`,
+    }))
+  }
 
   if (format === 'image' || format === 'text_image') {
     const cells: TableCell[] = []
@@ -149,12 +144,16 @@ async function buildChoiceOptions(
     return result
   }
 
-  for (const opt of options) {
+  for (let index = 0; index < options.length; index += 1) {
+    const opt = options[index]
     const { runs } = await segmentsToRuns(parseContent(opt.text || 'Ответ'), TYPO.option, ctx)
     result.push(
       new Paragraph({
         indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) },
-        spacing: { after: pxToTwips(8) },
+        spacing: {
+          before: index === 0 ? pxToTwips(LAYOUT.slotPaddingTop) : 0,
+          after: pxToTwips(8),
+        },
         children: [await choiceMarkerRun(block, ctx), new TextRun({ text: ' ' }), ...runs],
       }),
     )
@@ -456,7 +455,6 @@ export async function buildBlockContent(
     isAnswerBlock,
     block,
     ctx,
-    { keepNext: taskHasBody(block) },
   )
   const bodyParts: DocxBlock[] = []
 

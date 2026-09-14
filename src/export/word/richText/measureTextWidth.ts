@@ -1,7 +1,12 @@
 import type { ContentSegment } from '@/export/word/richText/parseRichText'
 import { FONT } from '@/export/word/layoutTokens'
 
-const TEXT_CELL_PADDING_PX = 8
+export const TEXT_CELL_PADDING_PX = 8
+export const MATH_CELL_PADDING_PX = 4
+
+export type InlineWidthCell =
+  | { kind: 'text'; segments: ContentSegment[] }
+  | { kind: 'math'; tex: string }
 
 let canvas: HTMLCanvasElement | null = null
 
@@ -44,4 +49,39 @@ export function textCellWidthPx(segments: ContentSegment[], fontSizePx: number):
   const contentWidth = measureSegmentsWidthPx(segments, fontSizePx)
   if (contentWidth <= 0) return TEXT_CELL_PADDING_PX
   return contentWidth + TEXT_CELL_PADDING_PX
+}
+
+export function measureInlineLineWidthPx(
+  cells: InlineWidthCell[],
+  fontSizePx: number,
+  mathWidthsPx: ReadonlyMap<string, number>,
+): number {
+  let total = 0
+
+  for (const cell of cells) {
+    if (cell.kind === 'math') {
+      total += (mathWidthsPx.get(cell.tex) ?? 0) + MATH_CELL_PADDING_PX
+      continue
+    }
+    total += textCellWidthPx(cell.segments, fontSizePx)
+  }
+
+  return total
+}
+
+export function fitFontScale(
+  totalWidthPx: number,
+  availableWidthPx: number,
+  baseSizePx: number,
+  baseLinePx: number,
+  minSizePx = 12,
+): { sizePx: number; linePx: number } {
+  if (totalWidthPx <= availableWidthPx || totalWidthPx <= 0) {
+    return { sizePx: baseSizePx, linePx: baseLinePx }
+  }
+
+  const scale = availableWidthPx / totalWidthPx
+  const sizePx = Math.max(minSizePx, Math.floor(baseSizePx * scale))
+  const linePx = Math.max(sizePx + 6, Math.round(baseLinePx * scale))
+  return { sizePx, linePx }
 }
