@@ -42,12 +42,18 @@ function inlineMathImageRun(img: MathImageResult): ImageRun {
   })
 }
 
+export interface SegmentsToRunsResult {
+  runs: (TextRun | ImageRun)[]
+  maxInlineMathHeight: number
+}
+
 export async function segmentsToRuns(
   segments: ContentSegment[],
   style: TextStyleSpec,
   ctx: ExportContext,
-): Promise<(TextRun | ImageRun)[]> {
+): Promise<SegmentsToRunsResult> {
   const runs: (TextRun | ImageRun)[] = []
+  let maxInlineMathHeight = 0
 
   for (const segment of segments) {
     if (segment.kind === 'break') {
@@ -64,6 +70,9 @@ export async function segmentsToRuns(
         continue
       }
       const img = await renderMathToPng(segment.value, segment.display, style.sizePx, ctx)
+      if (!segment.display) {
+        maxInlineMathHeight = Math.max(maxInlineMathHeight, img.height)
+      }
       runs.push(inlineMathImageRun(img))
       continue
     }
@@ -85,7 +94,7 @@ export async function segmentsToRuns(
     )
   }
 
-  return runs
+  return { runs, maxInlineMathHeight }
 }
 
 /** Keep gap underscore runs as literal `_` characters (matches portal, avoids Word underline artifacts). */
@@ -123,7 +132,7 @@ export async function richParagraph(
   options: IParagraphOptions = {},
 ): Promise<Paragraph> {
   const segments = parseContent(text)
-  const runs = await segmentsToRuns(segments, style, ctx)
+  const { runs } = await segmentsToRuns(segments, style, ctx)
   return new Paragraph({
     ...options,
     spacing: {
@@ -149,13 +158,14 @@ export async function richParagraphs(
 
   async function flushInline(): Promise<void> {
     if (inline.length === 0) return
-    const runs = await segmentsToRuns(inline, style, ctx)
+    const { runs, maxInlineMathHeight } = await segmentsToRuns(inline, style, ctx)
+    const linePx = Math.max(style.linePx, maxInlineMathHeight)
     paragraphs.push(
       new Paragraph({
         ...options,
         spacing: {
           after: pxToTwips(4),
-          line: lineSpacingPx(style.linePx, style.sizePx),
+          line: lineSpacingPx(linePx, style.sizePx),
           lineRule: 'atLeast',
           ...options.spacing,
         },
@@ -168,7 +178,7 @@ export async function richParagraphs(
   for (const segment of segments) {
     if (segment.kind === 'math' && segment.display) {
       await flushInline()
-      const runs = await segmentsToRuns([segment], style, ctx)
+      const { runs } = await segmentsToRuns([segment], style, ctx)
       paragraphs.push(
         new Paragraph({
           ...options,

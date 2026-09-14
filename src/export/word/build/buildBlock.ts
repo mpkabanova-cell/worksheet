@@ -25,7 +25,9 @@ import { rasterizeMatching } from '@/export/word/rasterize/renderMatchingDom'
 import {
   COLORS,
   LAYOUT,
+  SHEET_CONTENT_WIDTH_PX,
   TYPO,
+  lineSpacingPx,
   pxToDxa,
   pxToHalfPoints,
   pxToTwips,
@@ -110,18 +112,26 @@ async function taskHeadTable(
     questionChildren.push(await buildDifficultyParagraph(block, ctx))
   }
 
+  const numCellWidth = pxToDxa(LAYOUT.taskNumWidth)
+  const questionCellWidth = pxToDxa(SHEET_CONTENT_WIDTH_PX - LAYOUT.taskNumWidth)
+
   const numCell = new TableCell({
-    width: { size: pxToDxa(LAYOUT.taskNumWidth), type: WidthType.DXA },
+    width: { size: numCellWidth, type: WidthType.DXA },
     borders: {
       top: { style: BorderStyle.NONE, size: 0, color: COLORS.white },
       bottom: { style: BorderStyle.NONE, size: 0, color: COLORS.white },
       left: { style: BorderStyle.NONE, size: 0, color: COLORS.white },
       right: { style: BorderStyle.NONE, size: 0, color: COLORS.white },
     },
+    margins: { top: 0, bottom: 0, left: 0, right: 100 },
     verticalAlign: VerticalAlign.TOP,
     children: [
       new Paragraph({
         alignment: 'center',
+        spacing: {
+          line: lineSpacingPx(qStyle.linePx, qStyle.sizePx),
+          lineRule: 'atLeast',
+        },
         children: [
           new TextRun({
             text: taskNumber != null ? `${taskNumber}.` : '',
@@ -135,19 +145,22 @@ async function taskHeadTable(
   })
 
   const questionCell = new TableCell({
+    width: { size: questionCellWidth, type: WidthType.DXA },
     borders: {
       top: { style: BorderStyle.NONE, size: 0, color: COLORS.white },
       bottom: { style: BorderStyle.NONE, size: 0, color: COLORS.white },
       left: { style: BorderStyle.NONE, size: 0, color: COLORS.white },
       right: { style: BorderStyle.NONE, size: 0, color: COLORS.white },
     },
+    margins: { top: 0, bottom: 0, left: 0, right: 0 },
     verticalAlign: VerticalAlign.TOP,
     children: questionChildren,
   })
 
   return new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
-    rows: [new TableRow({ children: [numCell, questionCell] })],
+    columnWidths: [numCellWidth, questionCellWidth],
+    rows: [new TableRow({ cantSplit: true, children: [numCell, questionCell] })],
   })
 }
 
@@ -199,7 +212,7 @@ async function buildChoiceOptions(
       if (format === 'text_image' || format === 'image') {
         const caption = format === 'text_image' ? opt.text || 'Ответ' : ''
         if (caption) {
-          const runs = await segmentsToRuns(parseContent(caption), TYPO.option, ctx)
+          const { runs } = await segmentsToRuns(parseContent(caption), TYPO.option, ctx)
           children.push(
             new Paragraph({
               children: [await choiceMarkerRun(block, ctx), new TextRun({ text: ' ' }), ...runs],
@@ -233,7 +246,7 @@ async function buildChoiceOptions(
   }
 
   for (const opt of options) {
-    const runs = await segmentsToRuns(parseContent(opt.text || 'Ответ'), TYPO.option, ctx)
+    const { runs } = await segmentsToRuns(parseContent(opt.text || 'Ответ'), TYPO.option, ctx)
     result.push(
       new Paragraph({
         indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) },
@@ -298,7 +311,7 @@ async function buildFillGaps(
           parseContent(words[i]),
           { ...TYPO.gapsBank, color: COLORS.textDefault },
           ctx,
-        )),
+        )).runs,
       )
     }
 
@@ -332,7 +345,7 @@ async function buildOrdering(block: WorksheetBlock, ctx: ExportContext): Promise
 
   for (let i = 0; i < items.length; i += 1) {
     const text = items[i]?.trim() || 'Текст'
-    const runs = await segmentsToRuns(parseContent(text), TYPO.option, ctx)
+    const { runs } = await segmentsToRuns(parseContent(text), TYPO.option, ctx)
     result.push(
       new Paragraph({
         indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) },
@@ -357,14 +370,14 @@ async function buildGrouping(block: WorksheetBlock, ctx: ExportContext): Promise
   const cells: TableCell[] = []
 
   for (const group of groups) {
-    const titleRuns = await segmentsToRuns(
+    const { runs: titleRuns } = await segmentsToRuns(
       parseContent(group.title || 'Название группы'),
       { ...TYPO.option, bold: true },
       ctx,
     )
     const itemParas: Paragraph[] = []
     for (const item of group.items ?? []) {
-      const runs = await segmentsToRuns(parseContent(item.trim() || 'Элемент'), TYPO.option, ctx)
+      const { runs } = await segmentsToRuns(parseContent(item.trim() || 'Элемент'), TYPO.option, ctx)
       itemParas.push(
         new Paragraph({
           children: [
@@ -432,7 +445,7 @@ async function buildTableBlock(block: WorksheetBlock, ctx: ExportContext): Promi
     for (let c = 0; c < cols; c += 1) {
       const value = cells[r]?.[c] ?? ''
       const runs = value
-        ? await segmentsToRuns(parseContent(value), TYPO.option, ctx)
+        ? (await segmentsToRuns(parseContent(value), TYPO.option, ctx)).runs
         : [new TextRun({ text: ' ' })]
       rowCells.push(
         new TableCell({
