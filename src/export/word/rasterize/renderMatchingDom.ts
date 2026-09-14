@@ -33,15 +33,29 @@ function applyCorrectBorder(el: HTMLElement): void {
 }
 
 function createDot(highlighted: boolean): HTMLSpanElement {
-  const dot = document.createElement('span')
-  dot.style.width = '20px'
-  dot.style.height = '20px'
-  dot.style.border = `1px solid ${highlighted ? BORDER_BRAND : BORDER_TERTIARY}`
-  dot.style.borderRadius = '50%'
-  dot.style.flexShrink = '0'
-  dot.style.background = highlighted ? BORDER_BRAND : BG_WHITE
-  dot.style.boxSizing = 'border-box'
-  return dot
+  const wrap = document.createElement('span')
+  wrap.style.display = 'inline-flex'
+  wrap.style.width = '20px'
+  wrap.style.height = '20px'
+  wrap.style.flexShrink = '0'
+  wrap.style.alignItems = 'center'
+  wrap.style.justifyContent = 'center'
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  svg.setAttribute('width', '20')
+  svg.setAttribute('height', '20')
+  svg.setAttribute('viewBox', '0 0 20 20')
+
+  const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+  circle.setAttribute('cx', '10')
+  circle.setAttribute('cy', '10')
+  circle.setAttribute('r', '9')
+  circle.setAttribute('fill', highlighted ? BORDER_BRAND : BG_WHITE)
+  circle.setAttribute('stroke', highlighted ? BORDER_BRAND : BORDER_TERTIARY)
+  circle.setAttribute('stroke-width', '1')
+  svg.appendChild(circle)
+  wrap.appendChild(svg)
+  return wrap
 }
 
 function createTextBox(text: string, highlighted: boolean): HTMLDivElement {

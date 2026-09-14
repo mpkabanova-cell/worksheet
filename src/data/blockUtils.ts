@@ -778,10 +778,29 @@ export function toggleCorrectOption(
 }
 
 export function isOptionCorrect(block: WorksheetBlock, optionId: string): boolean {
-  if (block.type === 'single_choice') return block.correctOptionId === optionId
-  if (block.type === 'multiple_choice') {
-    return (block.correctOptionIds ?? []).includes(optionId)
+  const options = block.options ?? []
+  const option = options.find((item) => item.id === optionId)
+
+  if (block.type === 'single_choice') {
+    if (block.correctOptionId === optionId) return true
+    const correctOption = block.correctOptionId
+      ? options.find((item) => item.id === block.correctOptionId)
+      : undefined
+    const answerText = block.correctAnswers?.[0]?.trim()
+    if (option && answerText && normalizeMatchText(option.text) === normalizeMatchText(answerText)) {
+      return true
+    }
+    if (option && correctOption && option.id === correctOption.id) return true
+    return false
   }
+
+  if (block.type === 'multiple_choice') {
+    if ((block.correctOptionIds ?? []).includes(optionId)) return true
+    const answerTexts = (block.correctAnswers ?? []).map((item) => normalizeMatchText(item))
+    if (option && answerTexts.includes(normalizeMatchText(option.text))) return true
+    return false
+  }
+
   return false
 }
 

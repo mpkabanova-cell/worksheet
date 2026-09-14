@@ -57,6 +57,8 @@ export async function captureDomToPng(
   captureRoot.style.background = '#ffffff'
   captureRoot.style.fontFamily = FONT_CSS
   captureRoot.style.overflow = 'visible'
+  captureRoot.style.setProperty('-webkit-print-color-adjust', 'exact')
+  captureRoot.style.setProperty('print-color-adjust', 'exact')
   node.style.overflow = 'visible'
   captureRoot.appendChild(node)
   mount.replaceChildren(captureRoot)

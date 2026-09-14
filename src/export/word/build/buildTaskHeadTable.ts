@@ -387,6 +387,45 @@ function buildMathCell(widthDxa: number, imageRun: ImageRun): TableCell {
   })
 }
 
+async function buildInlineLineCell(
+  cells: InlineCell[],
+  style: TextStyleSpec,
+  ctx: ExportContext,
+  maxContentWidthPx: number,
+  contentWidthDxa: number,
+): Promise<TableCell> {
+  const lineStyle = await fitInlineLineStyle(cells, style, ctx, maxContentWidthPx)
+  const effectiveCells = cells.length > 0 ? cells : [{ kind: 'text' as const, segments: [] }]
+  const children: (TextRun | ImageRun)[] = []
+
+  for (const cell of effectiveCells) {
+    if (cell.kind === 'math') {
+      const img = await renderMathToPng(cell.tex, false, lineStyle.sizePx, ctx)
+      children.push(await imageRunFromPngSized(img.data, img.width, img.height))
+      continue
+    }
+    const { runs } = await segmentsToRuns(cell.segments, lineStyle, ctx)
+    children.push(...runs)
+  }
+
+  return new TableCell({
+    width: { size: contentWidthDxa, type: WidthType.DXA },
+    borders: hiddenCellBorders(),
+    margins: cellMargins(),
+    verticalAlign: VerticalAlignTable.CENTER,
+    children: [
+      new Paragraph({
+        tabStops: [],
+        spacing: paragraphLineSpacing(lineStyle),
+        children:
+          children.length > 0
+            ? children
+            : [new TextRun({ text: '', font: runFont(), size: pxToHalfPoints(lineStyle.sizePx) })],
+      }),
+    ],
+  })
+}
+
 async function buildInlineContentCells(
   cells: InlineCell[],
   style: TextStyleSpec,
@@ -489,10 +528,15 @@ export async function buildTaskHeadTable(
   const maxTableWidthDxa =
     contentWidthCapDxa != null ? numCellWidthDxa + contentWidthCapDxa : pxToDxa(SHEET_CONTENT_WIDTH_PX)
   const contentWidthDxa = contentWidthCapDxa ?? pxToDxa(SHEET_CONTENT_WIDTH_PX - LAYOUT.taskNumWidth)
+  const useFixedContentColumn = contentWidthCapDxa != null
   const lines = splitQuestionIntoLines(parseContent(questionText))
-  const maxContentCols = maxInlineCellCount(lines)
+  const maxContentCols = useFixedContentColumn ? 1 : maxInlineCellCount(lines)
   const rows: TableRow[] = []
   let firstRowColumnWidths: number[] = [numCellWidthDxa]
+
+  if (useFixedContentColumn) {
+    firstRowColumnWidths = [numCellWidthDxa, contentWidthDxa]
+  }
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
     const line = lines[lineIndex]
@@ -506,9 +550,13 @@ export async function buildTaskHeadTable(
 
     if (line.kind === 'display') {
       rowChildren.push(await buildDisplayContentCell(line.tex, qStyle, ctx, contentWidthDxa))
-      if (lineIndex === 0) {
+      if (lineIndex === 0 && !useFixedContentColumn) {
         firstRowColumnWidths = [numCellWidthDxa, contentWidthDxa]
       }
+    } else if (useFixedContentColumn) {
+      rowChildren.push(
+        await buildInlineLineCell(line.cells, qStyle, ctx, maxContentWidthPx, contentWidthDxa),
+      )
     } else {
       const { cells, columnWidthsDxa } = await buildInlineContentCells(
         line.cells,
@@ -600,12 +648,17 @@ export async function buildTaskHeadTable(
     rows.push(...appended)
   }
 
-  const tableWidthDxa = firstRowColumnWidths.reduce((sum, width) => sum + width, 0)
+  const tableWidthDxa = useFixedContentColumn
+    ? numCellWidthDxa + contentWidthDxa
+    : firstRowColumnWidths.reduce((sum, width) => sum + width, 0)
+  const columnWidths = useFixedContentColumn
+    ? [numCellWidthDxa, contentWidthDxa]
+    : firstRowColumnWidths
 
   return new Table({
     width: { size: tableWidthDxa, type: WidthType.DXA },
     layout: TableLayoutType.FIXED,
-    columnWidths: firstRowColumnWidths,
+    columnWidths,
     borders: hiddenCellBorders(),
     rows,
   })
