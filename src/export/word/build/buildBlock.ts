@@ -5,8 +5,6 @@ import {
   getGapsDisplayAnswers,
   getGapsSourceText,
   getGapsStudentText,
-  getMatchingCorrectLinks,
-  getMatchingRightItems,
   getOrderDisplayItems,
   getTableAnswerBank,
   isChoiceBlock,
@@ -23,6 +21,7 @@ import {
   getStarFilledPng,
 } from '@/export/word/assets/uiAssets'
 import { buildAnswerArea } from '@/export/word/build/buildAnswerArea'
+import { rasterizeMatching } from '@/export/word/rasterize/renderMatchingDom'
 import {
   COLORS,
   LAYOUT,
@@ -36,6 +35,7 @@ import { fetchImageBytes } from '@/export/word/imageUtils'
 import { parseContent } from '@/export/word/richText/parseRichText'
 import {
   imageRunFromPng,
+  imageRunFromPngSized,
   parseGapsContent,
   plainParagraph,
   richParagraphs,
@@ -309,56 +309,13 @@ async function buildFillGaps(
 }
 
 async function buildMatching(block: WorksheetBlock, showAnswer: boolean, ctx: ExportContext): Promise<DocxBlock[]> {
-  const left = block.leftItems ?? []
-  const right = getMatchingRightItems(block, false, false)
-  const links = showAnswer ? getMatchingCorrectLinks(block, right) : []
-  const highlightedLeft = new Set(links.map((l) => l.leftIndex))
-  const highlightedRight = new Set(links.map((l) => l.rightIndex))
-  const rowCount = Math.max(left.length, right.length)
-  const rows: TableRow[] = []
-
-  for (let i = 0; i < rowCount; i += 1) {
-    const leftText = left[i]?.text?.trim() || 'Ответ'
-    const rightText = right[i]?.text?.trim() || 'Ответ'
-    const leftRuns = await segmentsToRuns(parseContent(leftText), TYPO.option, ctx)
-    const rightRuns = await segmentsToRuns(parseContent(rightText), TYPO.option, ctx)
-    const leftHighlight = highlightedLeft.has(i)
-    const rightHighlight = highlightedRight.has(i)
-    const borderColor = (highlight: boolean) => (highlight ? COLORS.borderPositive : COLORS.borderSecondary)
-
-    rows.push(
-      new TableRow({
-        children: [
-          new TableCell({
-            borders: {
-              top: { style: BorderStyle.SINGLE, size: 1, color: borderColor(leftHighlight) },
-              bottom: { style: BorderStyle.SINGLE, size: 1, color: borderColor(leftHighlight) },
-              left: { style: BorderStyle.SINGLE, size: 1, color: borderColor(leftHighlight) },
-              right: { style: BorderStyle.SINGLE, size: 1, color: borderColor(leftHighlight) },
-            },
-            shading: leftHighlight ? { fill: COLORS.bgPositiveSoft } : undefined,
-            children: [new Paragraph({ children: leftRuns })],
-          }),
-          new TableCell({
-            borders: {
-              top: { style: BorderStyle.SINGLE, size: 1, color: borderColor(rightHighlight) },
-              bottom: { style: BorderStyle.SINGLE, size: 1, color: borderColor(rightHighlight) },
-              left: { style: BorderStyle.SINGLE, size: 1, color: borderColor(rightHighlight) },
-              right: { style: BorderStyle.SINGLE, size: 1, color: borderColor(rightHighlight) },
-            },
-            shading: rightHighlight ? { fill: COLORS.bgPositiveSoft } : undefined,
-            children: [new Paragraph({ children: rightRuns })],
-          }),
-        ],
-      }),
-    )
-  }
+  const image = await rasterizeMatching(block, showAnswer, ctx)
 
   return [
-    new Table({
-      width: { size: 100, type: WidthType.PERCENTAGE },
-      columnWidths: [4500, 4500],
-      rows,
+    new Paragraph({
+      indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) },
+      spacing: { before: pxToTwips(LAYOUT.slotPaddingTop), after: pxToTwips(4) },
+      children: [imageRunFromPngSized(image.data, image.width, image.height)],
     }),
   ]
 }

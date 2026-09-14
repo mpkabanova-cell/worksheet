@@ -183,7 +183,7 @@ export function Modals({
         </div>
       </ModalShell>
 
-      <ModalShell open={modal === 'download'} onClose={onClose} width={520}>
+      <ModalShell open={modal === 'download'} onClose={onClose} width={520} className="download-modal">
         <div className="modal-pad">
           <div className="modal-title-row">
             <h2>Подготовка к печати</h2>

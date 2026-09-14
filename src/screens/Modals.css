@@ -82,6 +82,23 @@
   opacity: 1;
 }
 
+.download-modal .modal-actions {
+  flex-wrap: wrap;
+  justify-content: stretch;
+  gap: 8px;
+}
+
+.download-modal .modal-actions .btn {
+  flex: 1 1 calc(50% - 4px);
+  min-width: 0;
+}
+
+.download-modal .modal-actions .btn-lg,
+.download-modal .modal-actions .btn-md {
+  min-width: 0;
+  height: 44px;
+}
+
 .modal-actions.center {
   justify-content: center;
   width: 100%;

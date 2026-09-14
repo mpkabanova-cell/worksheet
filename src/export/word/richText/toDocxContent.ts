@@ -220,12 +220,20 @@ export async function imageRunFromPng(
   data: Uint8Array,
   sizePx: number,
 ): Promise<ImageRun> {
+  return imageRunFromPngSized(data, sizePx, sizePx)
+}
+
+export function imageRunFromPngSized(
+  data: Uint8Array,
+  widthPx: number,
+  heightPx: number,
+): ImageRun {
   return new ImageRun({
     type: 'png',
     data,
     transformation: {
-      width: sizePx,
-      height: sizePx,
+      width: Math.max(1, Math.round(widthPx)),
+      height: Math.max(1, Math.round(heightPx)),
     },
   })
 }

@@ -14,12 +14,19 @@ export interface MathImageResult {
   baselineOffsetPx?: number
 }
 
+export interface DomImageResult {
+  data: Uint8Array
+  width: number
+  height: number
+}
+
 export interface ExportContext {
   draft: WorksheetDraft
   options: ExportOptions
   subject: string
   mathCache: Map<string, MathImageResult>
   imageCache: Map<string, Uint8Array | null>
+  domImageCache: Map<string, DomImageResult>
 }
 
 export interface TextStyleSpec {

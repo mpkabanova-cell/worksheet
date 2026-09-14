@@ -37,6 +37,7 @@ export async function exportWorksheetDocx(draft: WorksheetDraft): Promise<void> 
     subject: draft.subject,
     mathCache: new Map(),
     imageCache: new Map(),
+    domImageCache: new Map(),
   }
 
   const children = await buildWorksheetDocumentChildren(ctx)
