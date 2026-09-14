@@ -50,42 +50,22 @@ import {
   TableCell,
   TableRow,
   TextRun,
-  VerticalAlignTable,
   WidthType,
 } from 'docx'
 
 type DocxBlock = Paragraph | Table
 
-const HIDDEN_BORDER = { style: BorderStyle.NONE, size: 0, color: COLORS.white } as const
-
-function hiddenCellBorders() {
-  return {
-    top: HIDDEN_BORDER,
-    bottom: HIDDEN_BORDER,
-    left: HIDDEN_BORDER,
-    right: HIDDEN_BORDER,
-  }
-}
-
-/** Keep task condition and interactive body on the same page. */
-function wrapTaskBlock(head: Table, body: DocxBlock[]): Table {
-  return new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    borders: hiddenCellBorders(),
-    rows: [
-      new TableRow({
-        cantSplit: true,
-        children: [
-          new TableCell({
-            borders: hiddenCellBorders(),
-            margins: { top: 0, bottom: 0, left: 0, right: 0 },
-            verticalAlign: VerticalAlignTable.CENTER,
-            children: [head, ...body],
-          }),
-        ],
-      }),
-    ],
-  })
+function taskHasBody(block: WorksheetBlock): boolean {
+  return (
+    isChoiceBlock(block) ||
+    block.type === 'short_answer' ||
+    block.type === 'extended_answer' ||
+    block.type === 'fill_gaps' ||
+    block.type === 'matching' ||
+    block.type === 'ordering' ||
+    block.type === 'grouping' ||
+    block.type === 'table'
+  )
 }
 
 async function choiceMarkerRun(
@@ -470,7 +450,14 @@ export async function buildBlockContent(
   const displayQuestion = showsPlaceholder ? questionPlaceholderForBlock(block) : (block.question ?? question)
   const isAnswerBlock = block.type === 'short_answer' || block.type === 'extended_answer'
 
-  const head = await buildTaskHeadTable(taskNumber, displayQuestion, isAnswerBlock, block, ctx)
+  const head = await buildTaskHeadTable(
+    taskNumber,
+    displayQuestion,
+    isAnswerBlock,
+    block,
+    ctx,
+    { keepNext: taskHasBody(block) },
+  )
   const bodyParts: DocxBlock[] = []
 
   if (isChoiceBlock(block)) {
@@ -502,7 +489,8 @@ export async function buildBlockContent(
     bodyParts.push(...(await buildTableBlock(block, ctx)))
   }
 
-  result.push(wrapTaskBlock(head, bodyParts))
+  result.push(head)
+  result.push(...bodyParts)
   result.push(spacerParagraph(LAYOUT.taskGap))
   return result
 }
