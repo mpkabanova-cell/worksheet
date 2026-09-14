@@ -1290,9 +1290,15 @@
   outline: none;
   background: transparent;
   color: transparent;
+  -webkit-text-fill-color: transparent;
   caret-color: var(--text-default);
   font: inherit;
   resize: none;
+}
+
+.math-editable--focused .math-editable-input {
+  color: var(--text-default);
+  -webkit-text-fill-color: currentColor;
 }
 
 .math-editable:not(.math-editable--multiline) .math-editable-input {
@@ -1312,12 +1318,6 @@
 .match-answer-box .math-editable {
   width: 100%;
   min-height: 24px;
-}
-
-.match-answer-box .math-editable-input {
-  padding: 0;
-  min-height: 24px;
-  line-height: 24px;
 }
 
 .answer-inline-input.math-editable,

@@ -8,6 +8,12 @@ import {
 import { promptsForPlan, promptsForSingleTask, promptsForWorksheet } from './aiPrompts'
 import { sanitizeBlock, clampAnswerHeight, defaultAnswerHeight, defaultAnswerStyle } from './blockUtils'
 import { normalizeAiTask } from './taskContent'
+import { repairJsonLatexEscapes } from './mathTextUtils'
+
+function sanitizeAiText(text: string | undefined): string {
+  if (!text) return ''
+  return repairJsonLatexEscapes(text)
+}
 
 export type GenerateMode = 'create' | 'regenerate'
 
@@ -71,11 +77,11 @@ function toBlock(
   const normalized = normalizeAiTask(task, type, planExpectation)
   const options = (task.options ?? []).map((text, i) => ({
     id: `option_${i + 1}`,
-    text,
+    text: sanitizeAiText(text),
   }))
-  const leftItems = task.left_items?.map((text, i) => ({ id: `left_${i + 1}`, text }))
-  const rightItems = task.right_items?.map((text, i) => ({ id: `right_${i + 1}`, text }))
-  let correctAnswers = task.correct_answers
+  const leftItems = task.left_items?.map((text, i) => ({ id: `left_${i + 1}`, text: sanitizeAiText(text) }))
+  const rightItems = task.right_items?.map((text, i) => ({ id: `right_${i + 1}`, text: sanitizeAiText(text) }))
+  let correctAnswers = task.correct_answers?.map(sanitizeAiText)
   if (
     type === 'matching' &&
     leftItems?.length &&
@@ -101,8 +107,8 @@ function toBlock(
     page: 0,
     title: `Задание ${index + 1}`,
     instruction: '',
-    question: normalized.question,
-    body: task.body,
+    question: sanitizeAiText(normalized.question),
+    body: task.body ? sanitizeAiText(task.body) : task.body,
     options: options.length ? options : undefined,
     correctOptionId:
       typeof task.correct_option_index === 'number'
@@ -113,16 +119,16 @@ function toBlock(
     answerLines,
     answerAreaStyle:
       type === 'short_answer' || type === 'extended_answer' ? answerStyle : undefined,
-    gapsText: normalized.gaps_text,
-    gapsAnswers: task.gaps_answers,
+    gapsText: normalized.gaps_text ? sanitizeAiText(normalized.gaps_text) : normalized.gaps_text,
+    gapsAnswers: task.gaps_answers?.map(sanitizeAiText),
     leftItems,
     rightItems,
     groups: task.groups?.map((g, i) => ({
       id: `g${i + 1}`,
-      title: g.title,
-      items: Array.isArray(g.items) ? g.items : [],
+      title: sanitizeAiText(g.title),
+      items: Array.isArray(g.items) ? g.items.map(sanitizeAiText) : [],
     })),
-    orderItems: task.order_items,
+    orderItems: task.order_items?.map(sanitizeAiText),
     difficulty: task.difficulty ?? stars(index, draft.taskCount, draft.difficulty),
   })
 }

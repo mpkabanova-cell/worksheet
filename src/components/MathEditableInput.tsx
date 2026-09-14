@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { MathText } from '@/components/MathText'
 
 interface MathEditableInputProps {
@@ -26,6 +26,7 @@ export function MathEditableInput({
 }: MathEditableInputProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [focused, setFocused] = useState(false)
 
   const preview = value.trim() ? (
     <MathText text={value} as={multiline ? 'div' : 'span'} />
@@ -33,36 +34,34 @@ export function MathEditableInput({
     <span className="math-editable-placeholder">{placeholder}</span>
   ) : null
 
+  const sharedInputProps = {
+    className: 'math-editable-input',
+    value,
+    maxLength,
+    'aria-label': placeholder,
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      onChange(e.target.value),
+    onFocus: () => setFocused(true),
+    onBlur: () => setFocused(false),
+    onClick,
+  }
+
   return (
     <div
-      className={`math-editable ${multiline ? 'math-editable--multiline' : ''} ${className ?? ''}`}
+      className={`math-editable ${multiline ? 'math-editable--multiline' : ''} ${
+        focused ? 'math-editable--focused' : ''
+      } ${className ?? ''}`}
       style={style}
     >
-      <div className="math-editable-preview" aria-hidden>
-        {preview}
-      </div>
+      {!focused ? (
+        <div className="math-editable-preview" aria-hidden>
+          {preview}
+        </div>
+      ) : null}
       {multiline ? (
-        <textarea
-          ref={textareaRef}
-          className="math-editable-input"
-          value={value}
-          rows={rows}
-          maxLength={maxLength}
-          aria-label={placeholder}
-          onChange={(e) => onChange(e.target.value)}
-          onClick={onClick}
-        />
+        <textarea ref={textareaRef} rows={rows} {...sharedInputProps} />
       ) : (
-        <input
-          ref={inputRef}
-          type="text"
-          className="math-editable-input"
-          value={value}
-          maxLength={maxLength}
-          aria-label={placeholder}
-          onChange={(e) => onChange(e.target.value)}
-          onClick={onClick}
-        />
+        <input ref={inputRef} type="text" {...sharedInputProps} />
       )}
     </div>
   )

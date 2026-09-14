@@ -25,7 +25,11 @@ export function appendMathText(parent: HTMLElement, text: string, options: MathH
   container.style.lineHeight = `${options.lineHeight ?? 20}px`
   container.style.color = options.positive ? '#0DB56C' : (options.color ?? '#161A33')
 
-  const prepared = preprocessMathText(text)
+  const preparedRaw = preprocessMathText(text)
+  const prepared =
+    !preparedRaw.includes('$') && /\\(?:frac|text|cdot|times|sqrt|left|right)\b/.test(preparedRaw)
+      ? `$${preparedRaw}$`
+      : preparedRaw
   for (const segment of splitMathSegments(prepared)) {
     if (segment.kind === 'text') {
       if (segment.value) {

@@ -1,8 +1,35 @@
+/**
+ * JSON.parse turns `\f`, `\t`, `\b`, `\n`, `\r` inside LaTeX into control chars.
+ * Example: "$\frac{3}{7}$" becomes form-feed + "rac{3}{7}" and KaTeX fails.
+ */
+export function repairJsonLatexEscapes(text: string): string {
+  return text
+    .replace(/\u000Crac/g, '\\frac')
+    .replace(/\u000Corall/g, '\\forall')
+    .replace(/\u0009ext/g, '\\text')
+    .replace(/\u0009imes/g, '\\times')
+    .replace(/\u0009heta/g, '\\theta')
+    .replace(/\u0009an\b/g, '\\tan')
+    .replace(/\u0009o\b/g, '\\to')
+    .replace(/\u0008eta/g, '\\beta')
+    .replace(/\u0008ar\b/g, '\\bar')
+    .replace(/\u0008inom/g, '\\binom')
+    .replace(/\u0008ig/g, '\\big')
+    .replace(/\u000Aeq/g, '\\neq')
+    .replace(/\u000Ab/g, '\\nabla')
+    .replace(/\u000Au\b/g, '\\nu')
+    .replace(/\u000Aot\b/g, '\\not')
+    .replace(/\u000Dight/g, '\\right')
+    .replace(/\u000Dho/g, '\\rho')
+    .replace(/\u000Dquad/g, '\\quad')
+}
+
 /** Подготовка текста перед MathText / KaTeX. */
 export function preprocessMathText(input: string): string {
   if (!input) return ''
 
-  let text = input.replace(/\\div\b/g, ':')
+  let text = repairJsonLatexEscapes(input)
+  text = text.replace(/\\div\b/g, ':')
 
   text = text.replace(/\$\$([\s\S]+?)\$\$/g, (_, tex: string) => `$$${normalizeTex(tex)}$$`)
   text = text.replace(/\$([^$\n]+?)\$/g, (_, tex: string) => `$${normalizeTex(tex)}$`)
@@ -11,7 +38,7 @@ export function preprocessMathText(input: string): string {
 }
 
 function normalizeTex(tex: string): string {
-  return tex
+  return repairJsonLatexEscapes(tex)
     .replace(/\\div\b/g, ':')
     .replace(/_{2,}/g, (underscores) => `\\text{${underscores}}`)
 }
