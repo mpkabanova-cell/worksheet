@@ -17,18 +17,14 @@ import { getBlockQuestion } from '@/data/taskContent'
 import {
   getChoiceCheckboxMarkerPng,
   getChoiceRadioMarkerPng,
-  getStarEmptyPng,
-  getStarFilledPng,
 } from '@/export/word/assets/uiAssets'
 import { buildAnswerArea } from '@/export/word/build/buildAnswerArea'
+import { buildTaskHeadTable } from '@/export/word/build/buildTaskHeadTable'
 import { rasterizeMatching } from '@/export/word/rasterize/renderMatchingDom'
 import {
   COLORS,
   LAYOUT,
-  SHEET_CONTENT_WIDTH_PX,
   TYPO,
-  lineSpacingPx,
-  pxToDxa,
   pxToHalfPoints,
   pxToTwips,
   runFont,
@@ -54,115 +50,10 @@ import {
   TableCell,
   TableRow,
   TextRun,
-  VerticalAlign,
   WidthType,
 } from 'docx'
 
 type DocxBlock = Paragraph | Table
-
-async function buildDifficultyParagraph(
-  block: WorksheetBlock,
-  ctx: ExportContext,
-): Promise<Paragraph> {
-  const starRuns: ImageRun[] = []
-  for (let n = 1; n <= 3; n += 1) {
-    const png =
-      n <= (block.difficulty ?? 0)
-        ? await getStarFilledPng(ctx, 16)
-        : await getStarEmptyPng(ctx, 16)
-    starRuns.push(await imageRunFromPng(png, 16))
-  }
-
-  const children: (TextRun | ImageRun)[] = [
-    new TextRun({
-      text: 'Сложность:',
-      font: runFont(),
-      size: pxToHalfPoints(TYPO.difficulty.sizePx),
-      color: COLORS.textSecondary,
-    }),
-    new TextRun({ text: ' ' }),
-  ]
-
-  starRuns.forEach((star, index) => {
-    if (index > 0) children.push(new TextRun({ text: ' ' }))
-    children.push(star)
-  })
-
-  return new Paragraph({
-    spacing: { before: pxToTwips(4), after: pxToTwips(4) },
-    children,
-  })
-}
-
-async function taskHeadTable(
-  taskNumber: number | null,
-  questionText: string,
-  isAnswerBlock: boolean,
-  block: WorksheetBlock,
-  ctx: ExportContext,
-): Promise<Table> {
-  const numStyle = isAnswerBlock ? TYPO.answerTaskNum : TYPO.taskNum
-  const qStyle = isAnswerBlock ? TYPO.answerTaskQuestion : TYPO.taskQuestion
-  const numColor = isAnswerBlock ? COLORS.textSecondary : COLORS.textDefault
-
-  const questionParas = await richParagraphs(questionText, qStyle, ctx)
-  const questionChildren: Paragraph[] = [...questionParas]
-
-  if (ctx.options.showDifficulty && (isAnswerBlock || block.difficulty)) {
-    questionChildren.push(await buildDifficultyParagraph(block, ctx))
-  }
-
-  const numCellWidth = pxToDxa(LAYOUT.taskNumWidth)
-  const questionCellWidth = pxToDxa(SHEET_CONTENT_WIDTH_PX - LAYOUT.taskNumWidth)
-
-  const numCell = new TableCell({
-    width: { size: numCellWidth, type: WidthType.DXA },
-    borders: {
-      top: { style: BorderStyle.NONE, size: 0, color: COLORS.white },
-      bottom: { style: BorderStyle.NONE, size: 0, color: COLORS.white },
-      left: { style: BorderStyle.NONE, size: 0, color: COLORS.white },
-      right: { style: BorderStyle.NONE, size: 0, color: COLORS.white },
-    },
-    margins: { top: 0, bottom: 0, left: 0, right: 100 },
-    verticalAlign: VerticalAlign.TOP,
-    children: [
-      new Paragraph({
-        alignment: 'center',
-        spacing: {
-          line: lineSpacingPx(qStyle.linePx, qStyle.sizePx),
-          lineRule: 'atLeast',
-        },
-        children: [
-          new TextRun({
-            text: taskNumber != null ? `${taskNumber}.` : '',
-            font: runFont(),
-            size: pxToHalfPoints(numStyle.sizePx),
-            color: numColor,
-          }),
-        ],
-      }),
-    ],
-  })
-
-  const questionCell = new TableCell({
-    width: { size: questionCellWidth, type: WidthType.DXA },
-    borders: {
-      top: { style: BorderStyle.NONE, size: 0, color: COLORS.white },
-      bottom: { style: BorderStyle.NONE, size: 0, color: COLORS.white },
-      left: { style: BorderStyle.NONE, size: 0, color: COLORS.white },
-      right: { style: BorderStyle.NONE, size: 0, color: COLORS.white },
-    },
-    margins: { top: 0, bottom: 0, left: 0, right: 0 },
-    verticalAlign: VerticalAlign.TOP,
-    children: questionChildren,
-  })
-
-  return new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    columnWidths: [numCellWidth, questionCellWidth],
-    rows: [new TableRow({ cantSplit: true, children: [numCell, questionCell] })],
-  })
-}
 
 async function choiceMarkerRun(
   block: WorksheetBlock,
@@ -546,7 +437,7 @@ export async function buildBlockContent(
   const displayQuestion = showsPlaceholder ? questionPlaceholderForBlock(block) : (block.question ?? question)
   const isAnswerBlock = block.type === 'short_answer' || block.type === 'extended_answer'
 
-  result.push(await taskHeadTable(taskNumber, displayQuestion, isAnswerBlock, block, ctx))
+  result.push(await buildTaskHeadTable(taskNumber, displayQuestion, isAnswerBlock, block, ctx))
 
   if (isChoiceBlock(block)) {
     result.push(...(await buildChoiceOptions(block, showAnswer, ctx)))
