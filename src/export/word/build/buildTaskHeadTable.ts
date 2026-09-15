@@ -14,24 +14,10 @@ import {
   runFont,
 } from '@/export/word/layoutTokens'
 import { getTaskQuestionWidthPx } from '@/export/word/layoutSpec'
-import { parseContent, type ContentSegment } from '@/export/word/richText/parseRichText'
-import { renderMathToPng } from '@/export/word/richText/mathToImage'
-import {
-  TEXT_CELL_PADDING_PX,
-  expandColumnWidthsToTarget,
-  fitFontScale,
-  mathCellWidthPx,
-  measureInlineLineWidthPx,
-  scaleColumnWidthsToMaxWithMin,
-  textCellWidthPx,
-  wrapInlineCells,
-} from '@/export/word/richText/measureTextWidth'
-import type { MathImageResult } from '@/export/word/types'
 import type { ExportContext, TextStyleSpec } from '@/export/word/types'
 import {
   imageRunFromPng,
-  imageRunFromPngSized,
-  segmentsToRuns,
+  richParagraphs,
 } from '@/export/word/richText/toDocxContent'
 import {
   BorderStyle,
@@ -47,23 +33,10 @@ import {
   WidthType,
 } from 'docx'
 
-type InlineCell =
-  | { kind: 'text'; segments: ContentSegment[] }
-  | { kind: 'math'; tex: string }
-
-type QuestionLine =
-  | { kind: 'inline'; cells: InlineCell[] }
-  | { kind: 'display'; tex: string }
-
 const CELL_MARGIN_TWIPS = 0
 const NUM_CELL_MARGIN_RIGHT_TWIPS = 0
 const DIFFICULTY_CELL_MARGIN_TWIPS = 40
-const MIN_QUESTION_FONT_PX = 12
 const HIDDEN_BORDER = { style: BorderStyle.NONE, size: 0, color: COLORS.white } as const
-
-function pxToDxaCeil(px: number): number {
-  return Math.ceil(px * 15)
-}
 
 function hiddenCellBorders() {
   return {
@@ -74,21 +47,12 @@ function hiddenCellBorders() {
   }
 }
 
-function cellMargins() {
-  return {
-    top: CELL_MARGIN_TWIPS,
-    bottom: CELL_MARGIN_TWIPS,
-    left: 0,
-    right: 0,
-  }
-}
-
-function paragraphLineSpacing(style: TextStyleSpec) {
+function questionParagraphSpacing(style: TextStyleSpec) {
   return {
     before: 0,
     after: 0,
     line: pxToTwips(style.linePx),
-    lineRule: 'exact' as const,
+    lineRule: 'atLeast' as const,
   }
 }
 
@@ -99,150 +63,25 @@ function rowHeight(style: TextStyleSpec, extraPx = 6) {
   }
 }
 
-function splitLineIntoCells(segments: ContentSegment[]): InlineCell[] {
-  const cells: InlineCell[] = []
-  let textBuffer: ContentSegment[] = []
-
-  function flushText(): void {
-    if (textBuffer.length === 0) return
-    cells.push({ kind: 'text', segments: [...textBuffer] })
-    textBuffer = []
-  }
-
-  for (const segment of segments) {
-    if (segment.kind === 'math' && !segment.display) {
-      const tex = segment.value.trim()
-      if (!tex || /^[=,\.;:\-]+$/.test(tex)) {
-        if (segment.value) {
-          textBuffer.push({ kind: 'text', value: segment.value })
-        }
-        continue
-      }
-      flushText()
-      cells.push({ kind: 'math', tex: segment.value })
-      continue
-    }
-
-    if (segment.kind === 'text') {
-      textBuffer.push(segment)
-    }
-  }
-
-  flushText()
-  return cells
-}
-
-function splitQuestionIntoLines(segments: ContentSegment[]): QuestionLine[] {
-  const lines: QuestionLine[] = []
-  let currentLine: ContentSegment[] = []
-
-  function flushLine(): void {
-    if (currentLine.length === 0) return
-    lines.push({ kind: 'inline', cells: splitLineIntoCells(currentLine) })
-    currentLine = []
-  }
-
-  for (const segment of segments) {
-    if (segment.kind === 'math' && segment.display) {
-      flushLine()
-      lines.push({ kind: 'display', tex: segment.value })
-      continue
-    }
-
-    if (segment.kind === 'break') {
-      flushLine()
-      continue
-    }
-
-    currentLine.push(segment)
-  }
-
-  flushLine()
-  return lines.length > 0 ? lines : [{ kind: 'inline', cells: [] }]
-}
-
-function maxInlineCellCount(lines: QuestionLine[]): number {
-  const counts = lines
-    .filter((line): line is Extract<QuestionLine, { kind: 'inline' }> => line.kind === 'inline')
-    .map((line) => Math.max(1, line.cells.length))
-  return Math.max(1, ...counts)
-}
-
-async function collectMathWidthsPx(
-  cells: InlineCell[],
-  fontSizePx: number,
-  ctx: ExportContext,
-): Promise<Map<string, number>> {
-  const widths = new Map<string, number>()
-
-  for (const cell of cells) {
-    if (cell.kind !== 'math' || widths.has(cell.tex)) continue
-    const img = await renderMathToPng(cell.tex, false, fontSizePx, ctx)
-    widths.set(cell.tex, img.width)
-  }
-
-  return widths
-}
-
-async function fitInlineLineStyle(
-  cells: InlineCell[],
-  baseStyle: TextStyleSpec,
-  ctx: ExportContext,
-  maxContentWidthPx: number,
-): Promise<TextStyleSpec> {
-  let sizePx = baseStyle.sizePx
-  let linePx = baseStyle.linePx
-
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    const mathWidths = await collectMathWidthsPx(cells, sizePx, ctx)
-    const totalWidth = measureInlineLineWidthPx(cells, sizePx, mathWidths)
-    const { sizePx: nextSize, linePx: nextLine, fits } = fitFontScale(
-      totalWidth,
-      maxContentWidthPx,
-      sizePx,
-      linePx,
-      MIN_QUESTION_FONT_PX,
-    )
-
-    if (fits || nextSize === sizePx) {
-      return { ...baseStyle, sizePx, linePx }
-    }
-
-    sizePx = nextSize
-    linePx = nextLine
-  }
-
-  return { ...baseStyle, sizePx, linePx }
-}
-
-async function expandQuestionLinesWithWrap(
-  lines: QuestionLine[],
+async function buildQuestionParagraphs(
+  questionText: string,
   style: TextStyleSpec,
   ctx: ExportContext,
-  maxContentWidthPx: number,
-): Promise<QuestionLine[]> {
-  const expanded: QuestionLine[] = []
+  keepNext = false,
+): Promise<Paragraph[]> {
+  const paragraphs = await richParagraphs(questionText, style, ctx, {
+    spacing: questionParagraphSpacing(style),
+    keepNext,
+  })
 
-  for (const line of lines) {
-    if (line.kind !== 'inline') {
-      expanded.push(line)
-      continue
-    }
-
-    const lineStyle = await fitInlineLineStyle(line.cells, style, ctx, maxContentWidthPx)
-    const mathWidths = await collectMathWidthsPx(line.cells, lineStyle.sizePx, ctx)
-    const fittedWidth = measureInlineLineWidthPx(line.cells, lineStyle.sizePx, mathWidths)
-    const wrappedCells =
-      fittedWidth <= maxContentWidthPx
-        ? [line.cells]
-        : wrapInlineCells(line.cells, maxContentWidthPx, lineStyle.sizePx, mathWidths)
-
-    for (const cells of wrappedCells) {
-      expanded.push({ kind: 'inline', cells })
-    }
-  }
-
-  return expanded.length > 0 ? expanded : lines
+  return paragraphs.map((paragraph, index) =>
+    index === 0
+      ? paragraph
+      : new Paragraph({
+          ...paragraph,
+          keepNext,
+        }),
+  )
 }
 
 export type TaskHeadGrid = {
@@ -263,7 +102,7 @@ export type TaskHeadTableLayoutDebug = {
   contentWidthDxa: number
   firstRowColumnWidthsDxa: number[]
   lineCount: number
-  inlineCellCount: number
+  paragraphCount: number
 }
 
 export type TaskHeadTableOptions = {
@@ -385,7 +224,7 @@ function buildNumCell(
       new Paragraph({
         alignment: 'center',
         keepNext,
-        spacing: paragraphLineSpacing(numStyle),
+        spacing: questionParagraphSpacing(numStyle),
         children: [
           new TextRun({
             text: taskNumber != null ? `${taskNumber}.` : '',
@@ -413,7 +252,7 @@ function buildEmptyNumCell(numCellWidthDxa: number, keepNext = false): TableCell
     children: [
       new Paragraph({
         keepNext,
-        spacing: paragraphLineSpacing(TYPO.taskNum),
+        spacing: questionParagraphSpacing(TYPO.taskNum),
         children: [
           new TextRun({
             text: '',
@@ -421,159 +260,6 @@ function buildEmptyNumCell(numCellWidthDxa: number, keepNext = false): TableCell
             size: pxToHalfPoints(TYPO.taskNum.sizePx),
           }),
         ],
-      }),
-    ],
-  })
-}
-
-function buildTextCell(
-  runs: (TextRun | ImageRun)[],
-  style: TextStyleSpec,
-  widthDxa: number,
-  keepNext = false,
-): TableCell {
-  return new TableCell({
-    width: { size: widthDxa, type: WidthType.DXA },
-    borders: hiddenCellBorders(),
-    margins: cellMargins(),
-    verticalAlign: VerticalAlignTable.CENTER,
-    children: [
-      new Paragraph({
-        tabStops: [],
-        keepNext,
-        spacing: paragraphLineSpacing(style),
-        children:
-          runs.length > 0
-            ? runs
-            : [new TextRun({ text: '', font: runFont(), size: pxToHalfPoints(style.sizePx) })],
-      }),
-    ],
-  })
-}
-
-function buildMathCell(widthDxa: number, imageRun: ImageRun, keepNext = false): TableCell {
-  return new TableCell({
-    width: { size: widthDxa, type: WidthType.DXA },
-    borders: hiddenCellBorders(),
-    margins: cellMargins(),
-    verticalAlign: VerticalAlignTable.CENTER,
-    children: [
-      new Paragraph({
-        keepNext,
-        spacing: { before: 0, after: 0, lineRule: 'exact' as const },
-        children: [imageRun],
-      }),
-    ],
-  })
-}
-
-function buildPaddingCell(widthDxa: number, style: TextStyleSpec, keepNext = false): TableCell {
-  return new TableCell({
-    width: { size: widthDxa, type: WidthType.DXA },
-    borders: hiddenCellBorders(),
-    margins: cellMargins(),
-    verticalAlign: VerticalAlignTable.CENTER,
-    children: [
-      new Paragraph({
-        tabStops: [],
-        keepNext,
-        spacing: paragraphLineSpacing(style),
-        children: [new TextRun({ text: '', font: runFont(), size: pxToHalfPoints(style.sizePx) })],
-      }),
-    ],
-  })
-}
-
-async function buildInlineContentCells(
-  cells: InlineCell[],
-  style: TextStyleSpec,
-  ctx: ExportContext,
-  maxContentWidthPx: number,
-  targetContentWidthDxa: number,
-  keepNext = false,
-): Promise<{ cells: TableCell[]; columnWidthsDxa: number[]; lineStyle: TextStyleSpec }> {
-  const effectiveCells = cells.length > 0 ? cells : [{ kind: 'text' as const, segments: [] }]
-  const lineStyle = await fitInlineLineStyle(effectiveCells, style, ctx, maxContentWidthPx)
-  const mathImages = new Map<string, MathImageResult>()
-  const tableCells: TableCell[] = []
-  const columnWidthsDxa: number[] = []
-
-  for (const cell of effectiveCells) {
-    if (cell.kind === 'math') {
-      const img = await renderMathToPng(cell.tex, false, lineStyle.sizePx, ctx)
-      mathImages.set(cell.tex, img)
-    }
-  }
-
-  for (const cell of effectiveCells) {
-    if (cell.kind === 'math') {
-      const img = mathImages.get(cell.tex)!
-      columnWidthsDxa.push(pxToDxaCeil(mathCellWidthPx(img.width)))
-      continue
-    }
-    columnWidthsDxa.push(pxToDxaCeil(textCellWidthPx(cell.segments, lineStyle.sizePx)))
-  }
-
-  const minColumnWidthsDxa = [...columnWidthsDxa]
-  const contentSumDxa = columnWidthsDxa.reduce((sum, width) => sum + width, 0)
-  let scaledWidthsDxa = columnWidthsDxa
-  if (contentSumDxa > targetContentWidthDxa) {
-    scaledWidthsDxa = scaleColumnWidthsToMaxWithMin(
-      columnWidthsDxa,
-      minColumnWidthsDxa,
-      targetContentWidthDxa,
-    )
-  } else if (contentSumDxa < targetContentWidthDxa) {
-    scaledWidthsDxa = expandColumnWidthsToTarget(
-      columnWidthsDxa,
-      minColumnWidthsDxa,
-      targetContentWidthDxa,
-    )
-  }
-
-  for (let index = 0; index < effectiveCells.length; index += 1) {
-    const cell = effectiveCells[index]
-    const widthDxa = scaledWidthsDxa[index] ?? pxToDxaCeil(TEXT_CELL_PADDING_PX)
-
-    if (cell.kind === 'math') {
-      const img = mathImages.get(cell.tex)!
-      const imageRun = await imageRunFromPngSized(img.data, img.width, img.height)
-      tableCells.push(buildMathCell(widthDxa, imageRun, keepNext))
-      continue
-    }
-
-    const { runs } = await segmentsToRuns(cell.segments, lineStyle, ctx)
-    tableCells.push(buildTextCell(runs, lineStyle, widthDxa, keepNext))
-  }
-
-  return { cells: tableCells, columnWidthsDxa: scaledWidthsDxa, lineStyle }
-}
-
-async function buildDisplayContentCell(
-  tex: string,
-  style: TextStyleSpec,
-  ctx: ExportContext,
-  contentWidthDxa: number,
-  keepNext = false,
-): Promise<TableCell> {
-  const img = await renderMathToPng(tex, true, style.sizePx, ctx)
-
-  return new TableCell({
-    width: { size: contentWidthDxa, type: WidthType.DXA },
-    borders: hiddenCellBorders(),
-    margins: cellMargins(),
-    verticalAlign: VerticalAlignTable.CENTER,
-    children: [
-      new Paragraph({
-        alignment: 'center',
-        keepNext,
-        spacing: {
-          before: pxToTwips(6),
-          after: pxToTwips(6),
-          line: pxToTwips(style.linePx),
-          lineRule: 'exact',
-        },
-        children: [await imageRunFromPngSized(img.data, img.width, img.height)],
       }),
     ],
   })
@@ -587,8 +273,7 @@ export async function buildTaskHeadTable(
   ctx: ExportContext,
   options: TaskHeadTableOptions = {},
 ): Promise<Table> {
-  const { extraRows, contentWidthCapDxa, padQuestionRowToCap = false, onLayout, showAnswerPass = false } =
-    options
+  const { extraRows, contentWidthCapDxa, onLayout, showAnswerPass = false } = options
   const numStyle = isAnswerBlock ? TYPO.answerTaskNum : TYPO.taskNum
   const qStyle = isAnswerBlock ? TYPO.answerTaskQuestion : TYPO.taskQuestion
   const numColor = isAnswerBlock ? COLORS.textSecondary : COLORS.textDefault
@@ -597,77 +282,44 @@ export async function buildTaskHeadTable(
   const numCellWidthDxa = pxToDxa(LAYOUT.taskNumWidth)
   const maxContentWidthPx = getTaskQuestionWidthPx(contentWidthCapDxa)
   const contentWidthDxa = contentWidthCapDxa ?? pxToDxa(SHEET_CONTENT_WIDTH_PX - LAYOUT.taskNumWidth)
-  const lines = await expandQuestionLinesWithWrap(
-    splitQuestionIntoLines(parseContent(questionText)),
+  const maxContentCols = 1
+  const hasExtraRows = extraRows != null
+  const rowKeepNext = hasExtraRows || showDifficulty
+
+  const questionParagraphs = await buildQuestionParagraphs(
+    questionText,
     qStyle,
     ctx,
-    maxContentWidthPx,
+    rowKeepNext,
   )
-  let maxContentCols = maxInlineCellCount(lines)
-  const rows: TableRow[] = []
-  let firstRowColumnWidths: number[] = [numCellWidthDxa]
-  let paddingColDxa = 0
-  const hasExtraRows = extraRows != null
 
-  let questionFontSizePx: number = qStyle.sizePx
-  let inlineCellCount = 0
-
-  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
-    const line = lines[lineIndex]
-    const rowChildren: TableCell[] = []
-    const rowKeepNext = hasExtraRows || lineIndex < lines.length - 1 || showDifficulty
-
-    if (lineIndex === 0) {
-      rowChildren.push(buildNumCell(taskNumber, numStyle, numColor, numCellWidthDxa, rowKeepNext))
-    } else {
-      rowChildren.push(buildEmptyNumCell(numCellWidthDxa, rowKeepNext))
-    }
-
-    if (line.kind === 'display') {
-      rowChildren.push(await buildDisplayContentCell(line.tex, qStyle, ctx, contentWidthDxa, rowKeepNext))
-      if (lineIndex === 0) {
-        firstRowColumnWidths = [numCellWidthDxa, contentWidthDxa]
-      }
-    } else {
-      const { cells, columnWidthsDxa, lineStyle } = await buildInlineContentCells(
-        line.cells,
-        qStyle,
-        ctx,
-        maxContentWidthPx,
-        contentWidthDxa,
-        rowKeepNext,
-      )
-      questionFontSizePx = lineStyle.sizePx
-      if (lineIndex === 0) inlineCellCount = line.cells.length
-      rowChildren.push(...cells)
-      if (lineIndex === 0) {
-        firstRowColumnWidths = [numCellWidthDxa, ...columnWidthsDxa]
-        if (contentWidthCapDxa != null && padQuestionRowToCap) {
-          const contentSum = columnWidthsDxa.reduce((sum, width) => sum + width, 0)
-          if (contentSum < contentWidthCapDxa) {
-            paddingColDxa = contentWidthCapDxa - contentSum
-            rowChildren.push(buildPaddingCell(paddingColDxa, qStyle, rowKeepNext))
-            firstRowColumnWidths.push(paddingColDxa)
-            maxContentCols = columnWidthsDxa.length + 1
-          }
-        }
-      } else if (paddingColDxa > 0) {
-        rowChildren.push(buildPaddingCell(paddingColDxa, qStyle, rowKeepNext))
-      }
-    }
-
-    rows.push(
-      new TableRow({
-        cantSplit: true,
-        height: rowHeight(qStyle),
-        children: rowChildren,
-      }),
-    )
-  }
+  const rows: TableRow[] = [
+    new TableRow({
+      cantSplit: true,
+      height: rowHeight(qStyle),
+      children: [
+        buildNumCell(taskNumber, numStyle, numColor, numCellWidthDxa, rowKeepNext),
+        new TableCell({
+          columnSpan: maxContentCols,
+          width: { size: contentWidthDxa, type: WidthType.DXA },
+          borders: hiddenCellBorders(),
+          margins: {
+            top: CELL_MARGIN_TWIPS,
+            bottom: CELL_MARGIN_TWIPS,
+            left: 0,
+            right: 0,
+          },
+          verticalAlign: VerticalAlignTable.CENTER,
+          children:
+            questionParagraphs.length > 0
+              ? questionParagraphs
+              : [new Paragraph({ spacing: questionParagraphSpacing(qStyle), children: [new TextRun({ text: '' })] })],
+        }),
+      ],
+    }),
+  ]
 
   if (showDifficulty) {
-    const contentWidthFromFirstRow = firstRowColumnWidths.slice(1).reduce((sum, width) => sum + width, 0)
-
     rows.push(
       new TableRow({
         cantSplit: true,
@@ -677,7 +329,7 @@ export async function buildTaskHeadTable(
           new TableCell({
             columnSpan: maxContentCols,
             width: {
-              size: Math.max(contentWidthFromFirstRow, pxToDxa(120)),
+              size: contentWidthDxa,
               type: WidthType.DXA,
             },
             borders: hiddenCellBorders(),
@@ -695,29 +347,11 @@ export async function buildTaskHeadTable(
     )
   }
 
-  if (rows.length === 0) {
-    const { cells, columnWidthsDxa } = await buildInlineContentCells(
-      [],
-      qStyle,
-      ctx,
-      maxContentWidthPx,
-      contentWidthDxa,
-    )
-    firstRowColumnWidths = [numCellWidthDxa, ...columnWidthsDxa]
-    rows.push(
-      new TableRow({
-        cantSplit: true,
-        height: rowHeight(qStyle),
-        children: [buildNumCell(taskNumber, numStyle, numColor, numCellWidthDxa), ...cells],
-      }),
-    )
-  }
-
-  const contentSumFromFirstRow = firstRowColumnWidths.slice(1).reduce((sum, width) => sum + width, 0)
+  const firstRowColumnWidths = [numCellWidthDxa, contentWidthDxa]
   const grid: TaskHeadGrid = {
     maxContentCols,
     numCellWidthDxa,
-    contentWidthDxa: Math.max(contentSumFromFirstRow, contentWidthCapDxa ?? 0),
+    contentWidthDxa,
   }
 
   if (extraRows) {
@@ -732,12 +366,12 @@ export async function buildTaskHeadTable(
     blockType: block.type,
     isAnswerBlock,
     showAnswerPass,
-    questionFontSizePx,
+    questionFontSizePx: qStyle.sizePx,
     maxContentWidthPx,
     contentWidthDxa,
     firstRowColumnWidthsDxa: firstRowColumnWidths,
-    lineCount: lines.length,
-    inlineCellCount,
+    lineCount: questionParagraphs.length,
+    paragraphCount: questionParagraphs.length,
   })
 
   return new Table({

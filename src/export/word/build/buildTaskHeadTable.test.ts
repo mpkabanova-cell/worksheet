@@ -5,20 +5,18 @@ import {
   type TaskHeadTableLayoutDebug,
 } from '@/export/word/build/buildTaskHeadTable'
 import { pxToDxa, SHEET_CONTENT_WIDTH_PX, TYPO } from '@/export/word/layoutTokens'
-import { TASK_QUESTION_WIDTH_PX } from '@/export/word/layoutSpec'
-import {
-  measureTextWidthPx,
-  textCellWidthPx,
-} from '@/export/word/richText/measureTextWidth'
 import type { ExportContext } from '@/export/word/types'
+import { Math, MathRun, MathSuperScript } from 'docx'
 
-vi.mock('@/export/word/richText/mathToImage', () => ({
-  renderMathToPng: vi.fn(async (_tex: string, _display: boolean, _fontSizePx: number) => ({
-    data: new Uint8Array([137, 80, 78, 71]),
-    width: 52,
-    height: 22,
-  })),
-}))
+vi.mock('@/export/word/richText/latexToWordMath', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/export/word/richText/latexToWordMath')>()
+  return {
+    ...actual,
+    mathSegmentToParagraphChild: vi.fn(async (tex: string) =>
+      actual.latexToWordMath(tex.replace(/\s+/g, '')),
+    ),
+  }
+})
 
 vi.mock('@/export/word/assets/uiAssets', () => ({
   getStarFilledPng: vi.fn(async () => new Uint8Array([137, 80, 78, 71])),
@@ -118,7 +116,8 @@ describe('task head table diagnostics (screenshot worksheet)', () => {
     expect(layout.blockType).toBe('short_answer')
     expect(layout.isAnswerBlock).toBe(true)
     expect(layout.questionFontSizePx).toBe(TYPO.answerTaskQuestion.sizePx)
-    expect(layout.inlineCellCount).toBe(3)
+    expect(layout.firstRowColumnWidthsDxa).toHaveLength(2)
+    expect(layout.paragraphCount).toBeGreaterThan(0)
   })
 
   it('student and answers passes produce identical column widths for short_answer', async () => {
@@ -128,7 +127,7 @@ describe('task head table diagnostics (screenshot worksheet)', () => {
 
     expect(studentLayout.firstRowColumnWidthsDxa).toEqual(answersLayout.firstRowColumnWidthsDxa)
     expect(studentLayout.questionFontSizePx).toBe(answersLayout.questionFontSizePx)
-    expect(studentLayout.inlineCellCount).toBe(answersLayout.inlineCellCount)
+    expect(studentLayout.paragraphCount).toBe(answersLayout.paragraphCount)
   })
 
   it('single_choice uses 18px typography on both passes (same table metrics)', async () => {
@@ -140,31 +139,28 @@ describe('task head table diagnostics (screenshot worksheet)', () => {
     expect(studentLayout.isAnswerBlock).toBe(false)
     expect(studentLayout.questionFontSizePx).toBe(TYPO.taskQuestion.sizePx)
     expect(studentLayout.firstRowColumnWidthsDxa).toEqual(answersLayout.firstRowColumnWidthsDxa)
+    expect(studentLayout.firstRowColumnWidthsDxa).toHaveLength(2)
   })
 
-  it('content columns fill the question width budget (prevents narrow-cell Word wrap)', async () => {
+  it('content column uses the full question width budget', async () => {
     const layout = await buildLayout(screenshotShortAnswerBlock(), false)
     const numWidthDxa = layout.firstRowColumnWidthsDxa[0]
-    const contentSumDxa = layout.firstRowColumnWidthsDxa.slice(1).reduce((sum, width) => sum + width, 0)
+    const contentWidthDxa = layout.firstRowColumnWidthsDxa[1]
     const expectedContentDxa = pxToDxa(SHEET_CONTENT_WIDTH_PX - 32)
 
-    expect(contentSumDxa).toBe(expectedContentDxa)
+    expect(contentWidthDxa).toBe(expectedContentDxa)
     expect(numWidthDxa).toBe(pxToDxa(32))
   })
 
-  it('text cells are at least as wide as measured Cyrillic strings', () => {
-    const fontSizePx = TYPO.answerTaskQuestion.sizePx
-    const segments = [
-      { kind: 'text' as const, value: 'Представьте выражение ' },
-      { kind: 'text' as const, value: ' в виде многочлена.' },
-    ]
-
-    for (const segment of segments) {
-      const measuredPx = measureTextWidthPx(segment.value, fontSizePx)
-      const cellPx = textCellWidthPx([segment], fontSizePx)
-      expect(cellPx).toBeGreaterThanOrEqual(Math.ceil(measuredPx))
-    }
-
-    expect(TASK_QUESTION_WIDTH_PX).toBeGreaterThan(600)
+  it('question cell contains native Word Math, not PNG', async () => {
+    const math = new Math({
+      children: [
+        new MathSuperScript({
+          children: [new MathRun('x+5')],
+          superScript: [new MathRun('2')],
+        }),
+      ],
+    })
+    expect(math).toBeTruthy()
   })
 })

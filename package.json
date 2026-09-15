@@ -16,6 +16,7 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@unified-latex/unified-latex-util-parse": "^1.8.4",
     "docx": "^9.7.1",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",

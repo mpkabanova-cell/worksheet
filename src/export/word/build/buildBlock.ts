@@ -47,7 +47,7 @@ import {
   parseGapsContent,
   plainParagraph,
   richParagraphs,
-  segmentsToRuns,
+  segmentsToParagraphChildren,
   spacerParagraph,
 } from '@/export/word/richText/toDocxContent'
 import type { ExportContext } from '@/export/word/types'
@@ -61,6 +61,7 @@ import {
   TableRow,
   TextRun,
   WidthType,
+  type ParagraphChild,
 } from 'docx'
 
 type DocxBlock = Paragraph | Table
@@ -102,7 +103,7 @@ async function buildChoiceOptionParagraphs(
 
   for (let index = 0; index < options.length; index += 1) {
     const opt = options[index]
-    const { runs } = await segmentsToRuns(parseContent(opt.text || 'Ответ'), TYPO.option, ctx)
+    const { children } = await segmentsToParagraphChildren(parseContent(opt.text || 'Ответ'), TYPO.option, ctx)
     paragraphs.push(
       new Paragraph({
         spacing: {
@@ -114,7 +115,7 @@ async function buildChoiceOptionParagraphs(
         children: [
           await choiceMarkerRun(block, showAnswer, isOptionCorrect(block, opt.id), ctx),
           new TextRun({ text: ' ' }),
-          ...runs,
+          ...children,
         ],
       }),
     )
@@ -168,13 +169,13 @@ async function buildChoiceOptions(
       if (format === 'text_image' || format === 'image') {
         const caption = format === 'text_image' ? opt.text || 'Ответ' : ''
         if (caption) {
-          const { runs } = await segmentsToRuns(parseContent(caption), TYPO.option, ctx)
+          const { children: captionChildren } = await segmentsToParagraphChildren(parseContent(caption), TYPO.option, ctx)
           children.push(
             new Paragraph({
               children: [
                 await choiceMarkerRun(block, showAnswer, isOptionCorrect(block, opt.id), ctx),
                 new TextRun({ text: ' ' }),
-                ...runs,
+                ...captionChildren,
               ],
             }),
           )
@@ -207,7 +208,7 @@ async function buildChoiceOptions(
 
   for (let index = 0; index < options.length; index += 1) {
     const opt = options[index]
-    const { runs } = await segmentsToRuns(parseContent(opt.text || 'Ответ'), TYPO.option, ctx)
+    const { children } = await segmentsToParagraphChildren(parseContent(opt.text || 'Ответ'), TYPO.option, ctx)
     result.push(
       new Paragraph({
         indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) },
@@ -218,7 +219,7 @@ async function buildChoiceOptions(
         children: [
           await choiceMarkerRun(block, showAnswer, isOptionCorrect(block, opt.id), ctx),
           new TextRun({ text: ' ' }),
-          ...runs,
+          ...children,
         ],
       }),
     )
@@ -273,7 +274,7 @@ async function buildFillGaps(
   const words = showWordBank && shuffledWords.length > 0 ? shuffledWords : gapWords
 
   if (words.length > 0) {
-    const bankRuns: (TextRun | ImageRun)[] = [
+    const bankRuns: ParagraphChild[] = [
       new TextRun({
         text: 'Пропущенные слова:',
         font: runFont(),
@@ -291,11 +292,11 @@ async function buildFillGaps(
         }),
       )
       bankRuns.push(
-        ...(await segmentsToRuns(
+        ...(await segmentsToParagraphChildren(
           parseContent(words[i]),
           { ...TYPO.gapsBank, color: COLORS.textDefault },
           ctx,
-        )).runs,
+        )).children,
       )
     }
 
@@ -335,7 +336,7 @@ async function buildOrdering(block: WorksheetBlock, ctx: ExportContext): Promise
 
   for (let i = 0; i < items.length; i += 1) {
     const text = items[i]?.trim() || 'Текст'
-    const { runs } = await segmentsToRuns(parseContent(text), TYPO.option, ctx)
+    const { children } = await segmentsToParagraphChildren(parseContent(text), TYPO.option, ctx)
     result.push(
       new Paragraph({
         indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) },
@@ -347,7 +348,7 @@ async function buildOrdering(block: WorksheetBlock, ctx: ExportContext): Promise
             size: pxToHalfPoints(TYPO.option.sizePx),
             color: COLORS.textSecondary,
           }),
-          ...runs,
+          ...children,
         ],
       }),
     )
@@ -360,19 +361,19 @@ async function buildGrouping(block: WorksheetBlock, ctx: ExportContext): Promise
   const cells: TableCell[] = []
 
   for (const group of groups) {
-    const { runs: titleRuns } = await segmentsToRuns(
+    const { children: titleChildren } = await segmentsToParagraphChildren(
       parseContent(group.title || 'Название группы'),
       { ...TYPO.option, bold: true },
       ctx,
     )
     const itemParas: Paragraph[] = []
     for (const item of group.items ?? []) {
-      const { runs } = await segmentsToRuns(parseContent(item.trim() || 'Элемент'), TYPO.option, ctx)
+      const { children: itemChildren } = await segmentsToParagraphChildren(parseContent(item.trim() || 'Элемент'), TYPO.option, ctx)
       itemParas.push(
         new Paragraph({
           children: [
             new TextRun({ text: '• ', font: runFont(), size: pxToHalfPoints(TYPO.option.sizePx) }),
-            ...runs,
+            ...itemChildren,
           ],
         }),
       )
@@ -386,7 +387,7 @@ async function buildGrouping(block: WorksheetBlock, ctx: ExportContext): Promise
           right: { style: BorderStyle.SINGLE, size: 1, color: COLORS.borderSecondary },
         },
         children: [
-          new Paragraph({ children: titleRuns }),
+          new Paragraph({ children: titleChildren }),
           ...itemParas,
         ],
       }),
@@ -434,12 +435,12 @@ async function buildTableBlock(block: WorksheetBlock, ctx: ExportContext): Promi
     const rowCells: TableCell[] = []
     for (let c = 0; c < cols; c += 1) {
       const value = cells[r]?.[c] ?? ''
-      const runs = value
-        ? (await segmentsToRuns(parseContent(value), TYPO.option, ctx)).runs
+      const cellChildren = value
+        ? (await segmentsToParagraphChildren(parseContent(value), TYPO.option, ctx)).children
         : [new TextRun({ text: ' ' })]
       rowCells.push(
         new TableCell({
-          children: [new Paragraph({ children: runs })],
+          children: [new Paragraph({ children: cellChildren })],
         }),
       )
     }

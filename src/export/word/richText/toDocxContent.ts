@@ -1,9 +1,11 @@
 import {
   ImageRun,
   Paragraph,
+  SpaceType,
   TextRun,
   type IParagraphOptions,
   type IRunOptions,
+  type ParagraphChild,
 } from 'docx'
 import {
   COLORS,
@@ -14,8 +16,8 @@ import {
 } from '@/export/word/layoutTokens'
 import { parseContent, type ContentSegment } from '@/export/word/richText/parseRichText'
 import { normalizeExportText } from '@/export/word/richText/normalizeExportText'
-import { renderMathToPng } from '@/export/word/richText/mathToImage'
-import type { ExportContext, MathImageResult, TextStyleSpec } from '@/export/word/types'
+import { mathSegmentToParagraphChild } from '@/export/word/richText/latexToWordMath'
+import type { ExportContext, TextStyleSpec } from '@/export/word/types'
 
 function resolveColor(style: TextStyleSpec): string {
   if (style.color) return style.color
@@ -32,33 +34,20 @@ function baseRunOptions(style: TextStyleSpec): IRunOptions {
   }
 }
 
-function inlineMathImageRun(img: MathImageResult): ImageRun {
-  return new ImageRun({
-    type: 'png',
-    data: img.data,
-    transformation: {
-      width: img.width,
-      height: img.height,
-    },
-  })
+export interface SegmentsToParagraphChildrenResult {
+  children: ParagraphChild[]
 }
 
-export interface SegmentsToRunsResult {
-  runs: (TextRun | ImageRun)[]
-  maxInlineMathHeight: number
-}
-
-export async function segmentsToRuns(
+export async function segmentsToParagraphChildren(
   segments: ContentSegment[],
   style: TextStyleSpec,
   ctx: ExportContext,
-): Promise<SegmentsToRunsResult> {
-  const runs: (TextRun | ImageRun)[] = []
-  let maxInlineMathHeight = 0
+): Promise<SegmentsToParagraphChildrenResult> {
+  const children: ParagraphChild[] = []
 
   for (const segment of segments) {
     if (segment.kind === 'break') {
-      runs.push(new TextRun({ break: 1, ...baseRunOptions(style) }))
+      children.push(new TextRun({ break: 1, ...baseRunOptions(style) }))
       continue
     }
 
@@ -66,24 +55,22 @@ export async function segmentsToRuns(
       const tex = segment.value.trim()
       if (!tex || /^[=,\.;:\-]+$/.test(tex)) {
         if (segment.value) {
-          runs.push(new TextRun({ ...baseRunOptions(style), text: segment.value }))
+          children.push(new TextRun({ ...baseRunOptions(style), text: segment.value }))
         }
         continue
       }
-      const img = await renderMathToPng(segment.value, segment.display, style.sizePx, ctx)
-      if (!segment.display) {
-        maxInlineMathHeight = Math.max(maxInlineMathHeight, img.height)
-      }
-      runs.push(inlineMathImageRun(img))
+      children.push(await mathSegmentToParagraphChild(segment.value, segment.display, style, ctx))
       continue
     }
 
     if (!segment.value) continue
 
-    runs.push(
+    const preserveSpace = /^\s/.test(segment.value) || /\s$/.test(segment.value)
+    children.push(
       new TextRun({
         ...baseRunOptions(style),
         text: normalizeExportText(segment.value),
+        ...(preserveSpace ? { space: SpaceType.PRESERVE } : {}),
         bold: style.bold || segment.bold,
         italics: segment.italic,
         strike: segment.strike,
@@ -95,7 +82,17 @@ export async function segmentsToRuns(
     )
   }
 
-  return { runs, maxInlineMathHeight }
+  return { children }
+}
+
+/** @deprecated Use segmentsToParagraphChildren */
+export async function segmentsToRuns(
+  segments: ContentSegment[],
+  style: TextStyleSpec,
+  ctx: ExportContext,
+): Promise<{ runs: ParagraphChild[]; maxInlineMathHeight: number }> {
+  const { children } = await segmentsToParagraphChildren(segments, style, ctx)
+  return { runs: children, maxInlineMathHeight: 0 }
 }
 
 /** Keep gap underscore runs as literal `_` characters (matches portal, avoids Word underline artifacts). */
@@ -133,7 +130,7 @@ export async function richParagraph(
   options: IParagraphOptions = {},
 ): Promise<Paragraph> {
   const segments = parseContent(text)
-  const { runs } = await segmentsToRuns(segments, style, ctx)
+  const { children } = await segmentsToParagraphChildren(segments, style, ctx)
   return new Paragraph({
     ...options,
     spacing: {
@@ -142,7 +139,7 @@ export async function richParagraph(
       lineRule: 'atLeast',
       ...options.spacing,
     },
-    children: runs.length > 0 ? runs : [new TextRun({ text: '', ...baseRunOptions(style) })],
+    children: children.length > 0 ? children : [new TextRun({ text: '', ...baseRunOptions(style) })],
   })
 }
 
@@ -159,18 +156,17 @@ export async function richParagraphs(
 
   async function flushInline(): Promise<void> {
     if (inline.length === 0) return
-    const { runs, maxInlineMathHeight } = await segmentsToRuns(inline, style, ctx)
-    const linePx = Math.max(style.linePx, maxInlineMathHeight)
+    const { children } = await segmentsToParagraphChildren(inline, style, ctx)
     paragraphs.push(
       new Paragraph({
         ...options,
         spacing: {
           after: pxToTwips(4),
-          line: lineSpacingPx(linePx, style.sizePx),
+          line: lineSpacingPx(style.linePx, style.sizePx),
           lineRule: 'atLeast',
           ...options.spacing,
         },
-        children: runs,
+        children,
       }),
     )
     inline = []
@@ -179,7 +175,7 @@ export async function richParagraphs(
   for (const segment of segments) {
     if (segment.kind === 'math' && segment.display) {
       await flushInline()
-      const { runs } = await segmentsToRuns([segment], style, ctx)
+      const { children } = await segmentsToParagraphChildren([segment], style, ctx)
       paragraphs.push(
         new Paragraph({
           ...options,
@@ -190,7 +186,7 @@ export async function richParagraphs(
             line: lineSpacingPx(style.linePx, style.sizePx),
             lineRule: 'atLeast',
           },
-          children: runs,
+          children,
         }),
       )
       continue
