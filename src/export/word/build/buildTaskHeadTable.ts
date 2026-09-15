@@ -177,11 +177,17 @@ function difficultyParagraphSpacing() {
   }
 }
 
-/** Layout: .ws-task-meta — diff-label 80px + stars strip 60px (4 + 16 + 4 + 16 + 4 + 16). */
+/** Layout: .ws-task-meta — diff-label 80px + stars strip 64px (4 + 16 + 4 + 16 + 4 + 16 + 4). */
 export function difficultyRowColumnWidthsPx(): number[] {
   const { diffLabelWidth, diffStarSizePx, diffStarGapPx } = LAYOUT
   const starsWidthPx =
-    diffStarGapPx + diffStarSizePx + diffStarGapPx + diffStarSizePx + diffStarGapPx + diffStarSizePx
+    diffStarGapPx +
+    diffStarSizePx +
+    diffStarGapPx +
+    diffStarSizePx +
+    diffStarGapPx +
+    diffStarSizePx +
+    diffStarGapPx
   return [diffLabelWidth, starsWidthPx]
 }
 
@@ -244,7 +250,7 @@ async function buildDifficultyTable(block: WorksheetBlock, ctx: ExportContext): 
               top: CELL_MARGIN_TWIPS,
               bottom: CELL_MARGIN_TWIPS,
               left: pxToTwips(diffStarGapPx),
-              right: 0,
+              right: pxToTwips(diffStarGapPx),
             },
             verticalAlign: VerticalAlignTable.CENTER,
             children: [
