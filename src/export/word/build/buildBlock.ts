@@ -256,7 +256,6 @@ async function buildFillGaps(
 
   const showWordBank = !showAnswer && Boolean(block.gapsShuffleAnswers)
   const shuffledWords = showWordBank ? getGapsDisplayAnswers(block, false, false) : []
-  const gapWords = block.gapsAnswers ?? []
   const words = showWordBank && shuffledWords.length > 0 ? shuffledWords : gapWords
 
   if (words.length > 0) {
