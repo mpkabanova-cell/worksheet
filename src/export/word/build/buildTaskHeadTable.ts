@@ -1,4 +1,5 @@
 import type { WorksheetBlock } from '@/data/worksheet'
+import { isQuestionPlaceholder } from '@/data/blockUtils'
 import {
   getStarEmptyPng,
   getStarFilledPng,
@@ -98,6 +99,7 @@ export type TaskHeadTableLayoutDebug = {
   isAnswerBlock: boolean
   showAnswerPass: boolean
   questionFontSizePx: number
+  numColor: string
   maxContentWidthPx: number
   contentWidthDxa: number
   firstRowColumnWidthsDxa: number[]
@@ -209,6 +211,7 @@ function buildNumCell(
   numColor: string,
   numCellWidthDxa: number,
   keepNext = false,
+  verticalAlign: (typeof VerticalAlignTable)[keyof typeof VerticalAlignTable] = VerticalAlignTable.CENTER,
 ): TableCell {
   return new TableCell({
     width: { size: numCellWidthDxa, type: WidthType.DXA },
@@ -219,7 +222,7 @@ function buildNumCell(
       left: 0,
       right: NUM_CELL_MARGIN_RIGHT_TWIPS,
     },
-    verticalAlign: VerticalAlignTable.CENTER,
+    verticalAlign,
     children: [
       new Paragraph({
         alignment: 'center',
@@ -276,7 +279,10 @@ export async function buildTaskHeadTable(
   const { extraRows, contentWidthCapDxa, onLayout, showAnswerPass = false } = options
   const numStyle = isAnswerBlock ? TYPO.answerTaskNum : TYPO.taskNum
   const qStyle = isAnswerBlock ? TYPO.answerTaskQuestion : TYPO.taskQuestion
-  const numColor = isAnswerBlock ? COLORS.textSecondary : COLORS.textDefault
+  const numColor =
+    isAnswerBlock && isQuestionPlaceholder(questionText)
+      ? COLORS.textSecondary
+      : COLORS.textDefault
   const showDifficulty = ctx.options.showDifficulty && (isAnswerBlock || !!block.difficulty)
 
   const numCellWidthDxa = pxToDxa(LAYOUT.taskNumWidth)
@@ -298,7 +304,14 @@ export async function buildTaskHeadTable(
       cantSplit: true,
       height: rowHeight(qStyle),
       children: [
-        buildNumCell(taskNumber, numStyle, numColor, numCellWidthDxa, rowKeepNext),
+        buildNumCell(
+          taskNumber,
+          numStyle,
+          numColor,
+          numCellWidthDxa,
+          rowKeepNext,
+          VerticalAlignTable.TOP,
+        ),
         new TableCell({
           columnSpan: maxContentCols,
           width: { size: contentWidthDxa, type: WidthType.DXA },
@@ -309,7 +322,7 @@ export async function buildTaskHeadTable(
             left: 0,
             right: 0,
           },
-          verticalAlign: VerticalAlignTable.CENTER,
+          verticalAlign: VerticalAlignTable.TOP,
           children:
             questionParagraphs.length > 0
               ? questionParagraphs
@@ -367,6 +380,7 @@ export async function buildTaskHeadTable(
     isAnswerBlock,
     showAnswerPass,
     questionFontSizePx: qStyle.sizePx,
+    numColor,
     maxContentWidthPx,
     contentWidthDxa,
     firstRowColumnWidthsDxa: firstRowColumnWidths,

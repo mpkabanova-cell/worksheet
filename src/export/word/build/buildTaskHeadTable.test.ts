@@ -4,7 +4,7 @@ import {
   buildTaskHeadTable,
   type TaskHeadTableLayoutDebug,
 } from '@/export/word/build/buildTaskHeadTable'
-import { pxToDxa, SHEET_CONTENT_WIDTH_PX, TYPO } from '@/export/word/layoutTokens'
+import { pxToDxa, COLORS, SHEET_CONTENT_WIDTH_PX, TYPO } from '@/export/word/layoutTokens'
 import type { ExportContext } from '@/export/word/types'
 import { Math, MathRun, MathSuperScript } from 'docx'
 
@@ -118,6 +118,19 @@ describe('task head table diagnostics (screenshot worksheet)', () => {
     expect(layout.questionFontSizePx).toBe(TYPO.answerTaskQuestion.sizePx)
     expect(layout.firstRowColumnWidthsDxa).toHaveLength(2)
     expect(layout.paragraphCount).toBeGreaterThan(0)
+  })
+
+  it('short_answer with filled question uses default num color (portal parity)', async () => {
+    const layout = await buildLayout(screenshotShortAnswerBlock(), false)
+
+    expect(layout.numColor).toBe(COLORS.textDefault)
+  })
+
+  it('short_answer with placeholder question uses secondary num color', async () => {
+    const block = { ...screenshotShortAnswerBlock(), question: 'Введите текст' }
+    const layout = await buildLayout(block, false)
+
+    expect(layout.numColor).toBe(COLORS.textSecondary)
   })
 
   it('student and answers passes produce identical column widths for short_answer', async () => {
