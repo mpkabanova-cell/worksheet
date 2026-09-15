@@ -8,6 +8,7 @@
     "dev:web": "vite",
     "dev:api": "node --watch server/index.js",
     "build": "tsc --noEmit && vite build",
+    "test": "vitest run",
     "start": "node server/index.js",
     "preview": "vite preview"
   },
@@ -31,6 +32,7 @@
     "@vitejs/plugin-react": "^4.4.1",
     "concurrently": "^10.0.4",
     "typescript": "~5.8.3",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "vitest": "^3.2.4"
   }
 }

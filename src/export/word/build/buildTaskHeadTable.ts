@@ -19,6 +19,7 @@ import { renderMathToPng } from '@/export/word/richText/mathToImage'
 import {
   fitFontScale,
   measureInlineLineWidthPx,
+  wrapInlineCells,
 } from '@/export/word/richText/measureTextWidth'
 import type { ExportContext, TextStyleSpec } from '@/export/word/types'
 import {
@@ -199,6 +200,36 @@ async function fitInlineLineStyle(
   }
 
   return { ...baseStyle, sizePx, linePx }
+}
+
+async function expandQuestionLinesWithWrap(
+  lines: QuestionLine[],
+  style: TextStyleSpec,
+  ctx: ExportContext,
+  maxContentWidthPx: number,
+): Promise<QuestionLine[]> {
+  const expanded: QuestionLine[] = []
+
+  for (const line of lines) {
+    if (line.kind !== 'inline') {
+      expanded.push(line)
+      continue
+    }
+
+    const lineStyle = await fitInlineLineStyle(line.cells, style, ctx, maxContentWidthPx)
+    const mathWidths = await collectMathWidthsPx(line.cells, lineStyle.sizePx, ctx)
+    const fittedWidth = measureInlineLineWidthPx(line.cells, lineStyle.sizePx, mathWidths)
+    const wrappedCells =
+      fittedWidth <= maxContentWidthPx
+        ? [line.cells]
+        : wrapInlineCells(line.cells, maxContentWidthPx, lineStyle.sizePx, mathWidths)
+
+    for (const cells of wrappedCells) {
+      expanded.push({ kind: 'inline', cells })
+    }
+  }
+
+  return expanded.length > 0 ? expanded : lines
 }
 
 export type TaskHeadGrid = {
@@ -489,7 +520,12 @@ export async function buildTaskHeadTable(
   const numCellWidthDxa = pxToDxa(LAYOUT.taskNumWidth)
   const maxContentWidthPx = getTaskQuestionWidthPx(contentWidthCapDxa)
   const contentWidthDxa = contentWidthCapDxa ?? pxToDxa(SHEET_CONTENT_WIDTH_PX - LAYOUT.taskNumWidth)
-  const lines = splitQuestionIntoLines(parseContent(questionText))
+  const lines = await expandQuestionLinesWithWrap(
+    splitQuestionIntoLines(parseContent(questionText)),
+    qStyle,
+    ctx,
+    maxContentWidthPx,
+  )
   let maxContentCols = 1
   const rows: TableRow[] = []
   let firstRowColumnWidths: number[] = [numCellWidthDxa]

@@ -401,6 +401,13 @@ export function sanitizeBlocks(blocks: WorksheetBlock[]): WorksheetBlock[] {
   return blocks.map(sanitizeBlock)
 }
 
+export function normalizeWorksheetDraft(draft: WorksheetDraft): WorksheetDraft {
+  return {
+    ...draft,
+    blocks: sanitizeBlocks(draft.blocks ?? []),
+  }
+}
+
 export function defaultAnswerStyle(subject: string): AnswerAreaStyle {
   return STEM_GRID_SUBJECTS.has(subject) ? 'cells' : 'lines'
 }

@@ -1,3 +1,4 @@
+import type { WorksheetBlock } from '@/data/worksheet'
 import { LAYOUT, SHEET_CONTENT_WIDTH_PX, SLOT_CONTENT_WIDTH_PX, pxToDxa } from '@/export/word/layoutTokens'
 
 /** Task number column width (px). */
@@ -22,7 +23,13 @@ export type MatchingLayoutSpec = {
   captureWidthPx: number
   imageWidthPx: number
   cellWidthDxa: number
-  cellWidthCapDxa: number
+}
+
+export type TaskBlockLayout = {
+  questionWidthPx: number
+  widgetWidthPx?: number
+  contentWidthCapDxa?: number
+  widgetCellMarginPx?: number
 }
 
 export function getMatchingLayoutSpec(): MatchingLayoutSpec {
@@ -32,7 +39,6 @@ export function getMatchingLayoutSpec(): MatchingLayoutSpec {
   const captureWidthPx = contentWidthPx + borderPaddingPx * 2
   const imageWidthPx = captureWidthPx
   const cellWidthDxa = pxToDxa(captureWidthPx + cellMarginPx * 2)
-  const cellWidthCapDxa = pxToDxa(TASK_QUESTION_WIDTH_PX)
 
   return {
     contentWidthPx,
@@ -41,7 +47,6 @@ export function getMatchingLayoutSpec(): MatchingLayoutSpec {
     captureWidthPx,
     imageWidthPx,
     cellWidthDxa,
-    cellWidthCapDxa,
   }
 }
 
@@ -49,4 +54,25 @@ export function getMatchingLayoutSpec(): MatchingLayoutSpec {
 export function getTaskQuestionWidthPx(contentWidthCapDxa?: number): number {
   if (contentWidthCapDxa == null) return TASK_QUESTION_WIDTH_PX
   return Math.min(TASK_QUESTION_WIDTH_PX, Math.round(contentWidthCapDxa / 15))
+}
+
+export function getTaskBlockLayout(block: Pick<WorksheetBlock, 'type'>): TaskBlockLayout {
+  if (block.type === 'matching') {
+    const matching = getMatchingLayoutSpec()
+    return {
+      questionWidthPx: getTaskQuestionWidthPx(matching.cellWidthDxa),
+      widgetWidthPx: matching.contentWidthPx,
+      contentWidthCapDxa: matching.cellWidthDxa,
+      widgetCellMarginPx: matching.cellMarginPx,
+    }
+  }
+
+  if (block.type === 'single_choice' || block.type === 'multiple_choice') {
+    return {
+      questionWidthPx: TASK_QUESTION_WIDTH_PX,
+      widgetWidthPx: SLOT_CONTENT_WIDTH_PX,
+    }
+  }
+
+  return { questionWidthPx: TASK_QUESTION_WIDTH_PX }
 }

@@ -32,7 +32,7 @@ import { rasterizeMatching } from '@/export/word/rasterize/renderMatchingDom'
 import {
   COLORS,
   LAYOUT,
-import { getMatchingLayoutSpec } from '@/export/word/layoutSpec'
+import { getMatchingLayoutSpec, getTaskBlockLayout } from '@/export/word/layoutSpec'
   TYPO,
   pxToDxa,
   pxToHalfPoints,
@@ -302,9 +302,9 @@ async function buildMatching(
   showAnswer: boolean,
   ctx: ExportContext,
 ): Promise<Paragraph[]> {
-  const spec = getMatchingLayoutSpec()
+  const { imageWidthPx } = getMatchingLayoutSpec()
   const image = await rasterizeMatching(block, showAnswer, ctx)
-  const displayWidth = spec.imageWidthPx
+  const displayWidth = imageWidthPx
   const displayHeight = Math.max(1, Math.round(image.height * (displayWidth / image.width)))
 
   return [
@@ -532,13 +532,15 @@ export async function buildBlockContent(
       ],
     }
   } else if (block.type === 'matching') {
-    const matchingSpec = getMatchingLayoutSpec()
+    const layout = getTaskBlockLayout(block)
     const matchingParagraphs = await buildMatching(block, showAnswer, ctx)
     headOptions = {
-      contentWidthCapDxa: matchingSpec.cellWidthDxa,
+      contentWidthCapDxa: layout.contentWidthCapDxa,
       padQuestionRowToCap: true,
       extraRows: (grid) => [
-        buildWidgetBodyRow(grid, matchingParagraphs, { cellMarginPx: matchingSpec.cellMarginPx }),
+        buildWidgetBodyRow(grid, matchingParagraphs, {
+          cellMarginPx: layout.widgetCellMarginPx,
+        }),
       ],
     }
   }

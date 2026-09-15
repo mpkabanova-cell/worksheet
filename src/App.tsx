@@ -20,7 +20,7 @@ import {
   type WorksheetBlock,
   type WorksheetDraft,
 } from '@/data/worksheet'
-import { cloneBlock, isPageEmpty, removePageFromDraft, syncPagesFromBreaks } from '@/data/blockUtils'
+import { cloneBlock, isPageEmpty, normalizeWorksheetDraft, removePageFromDraft, syncPagesFromBreaks } from '@/data/blockUtils'
 import { Home } from '@/screens/Home'
 import { Create } from '@/screens/Create'
 import { Loader } from '@/screens/Loader'
@@ -426,7 +426,7 @@ export default function App() {
       showToast('Не удалось открыть рабочий лист')
       return
     }
-    setDraft(loaded)
+    setDraft(normalizeWorksheetDraft(loaded))
     setCurrentPage(0)
     setSelectedBlockId(null)
     setScreen('edit')

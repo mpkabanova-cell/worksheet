@@ -25,15 +25,17 @@ function downloadBlob(blob: Blob, fileName: string): void {
 }
 
 export async function exportWorksheetDocx(draft: WorksheetDraft): Promise<void> {
+  const { normalizeWorksheetDraft } = await import('@/data/blockUtils')
+  const normalizedDraft = normalizeWorksheetDraft(draft)
   const options: ExportOptions = {
-    showAnswers: draft.showAnswers,
-    showDifficulty: draft.showDifficulty,
-    answersSeparate: draft.print.answersSeparate,
-    orientation: draft.print.orientation,
+    showAnswers: normalizedDraft.showAnswers,
+    showDifficulty: normalizedDraft.showDifficulty,
+    answersSeparate: normalizedDraft.print.answersSeparate,
+    orientation: normalizedDraft.print.orientation,
   }
 
   const ctx: ExportContext = {
-    draft,
+    draft: normalizedDraft,
     options,
     subject: draft.subject,
     mathCache: new Map(),

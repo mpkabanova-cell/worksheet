@@ -124,66 +124,99 @@ export function fitFontScale(
   return { sizePx, linePx, fits: fittedWidth <= availableWidthPx || sizePx <= minSizePx }
 }
 
-export function scaleColumnWidthsToMax(
-  columnWidths: number[],
-  maxTotal: number,
-  fixedPrefixCount = 1,
-): number[] {
-  return scaleColumnWidthsToMaxWithMin(columnWidths, columnWidths, maxTotal, fixedPrefixCount)
+function splitTextSegmentIntoWordCells(segment: ContentSegment): InlineWidthCell[] {
+  if (segment.kind !== 'text') return []
+  const normalized = normalizeExportText(segment.value)
+  if (!normalized) return []
+
+  const words = normalized.split(/\s+/).filter(Boolean)
+  return words.map((word, index) => ({
+    kind: 'text' as const,
+    segments: [
+      {
+        ...segment,
+        kind: 'text' as const,
+        value: index < words.length - 1 ? `${word} ` : word,
+      },
+    ],
+  }))
 }
 
-export function scaleColumnWidthsToMaxWithMin(
-  columnWidths: number[],
-  minWidths: number[],
-  maxTotal: number,
-  fixedPrefixCount = 1,
-): number[] {
-  if (columnWidths.length !== minWidths.length) {
-    throw new Error('columnWidths and minWidths must have the same length')
-  }
+function flattenCellsToWrapAtoms(cells: InlineWidthCell[]): InlineWidthCell[] {
+  const atoms: InlineWidthCell[] = []
 
-  const total = columnWidths.reduce((sum, width) => sum + width, 0)
-  if (total <= maxTotal) return columnWidths
+  for (const cell of cells) {
+    if (cell.kind === 'math') {
+      atoms.push(cell)
+      continue
+    }
 
-  const fixedTotal = columnWidths.slice(0, fixedPrefixCount).reduce((sum, width) => sum + width, 0)
-  const maxContent = Math.max(1, maxTotal - fixedTotal)
-  const contentWidths = columnWidths.slice(fixedPrefixCount)
-  const contentMins = minWidths.slice(fixedPrefixCount)
-  const contentTotal = contentWidths.reduce((sum, width) => sum + width, 0)
-
-  if (contentTotal <= maxContent) return columnWidths
-
-  const slackTotal = contentWidths.reduce(
-    (sum, width, index) => sum + Math.max(0, width - contentMins[index]),
-    0,
-  )
-
-  if (slackTotal <= 0) {
-    return [...columnWidths.slice(0, fixedPrefixCount), ...contentMins]
-  }
-
-  const targetReduction = contentTotal - maxContent
-  let remaining = targetReduction
-  const scaledContent = contentWidths.map((width, index) => {
-    const slack = Math.max(0, width - contentMins[index])
-    if (slack <= 0) return width
-    const reduction = Math.min(slack, Math.round(targetReduction * (slack / slackTotal)))
-    remaining -= reduction
-    return width - reduction
-  })
-
-  if (remaining > 0) {
-    for (let index = scaledContent.length - 1; index >= 0 && remaining > 0; index -= 1) {
-      const slack = scaledContent[index] - contentMins[index]
-      if (slack <= 0) continue
-      const take = Math.min(slack, remaining)
-      scaledContent[index] -= take
-      remaining -= take
+    for (const segment of cell.segments) {
+      atoms.push(...splitTextSegmentIntoWordCells(segment))
     }
   }
 
-  return [
-    ...columnWidths.slice(0, fixedPrefixCount),
-    ...scaledContent.map((width, index) => Math.max(contentMins[index], width)),
-  ]
+  return atoms
+}
+
+function mergeWrapAtoms(atoms: InlineWidthCell[]): InlineWidthCell[] {
+  const merged: InlineWidthCell[] = []
+  let textSegments: ContentSegment[] = []
+
+  function flushText(): void {
+    if (textSegments.length === 0) return
+    merged.push({ kind: 'text', segments: [...textSegments] })
+    textSegments = []
+  }
+
+  for (const atom of atoms) {
+    if (atom.kind === 'math') {
+      flushText()
+      merged.push(atom)
+      continue
+    }
+    textSegments.push(...atom.segments)
+  }
+
+  flushText()
+  return merged
+}
+
+/** Greedy word wrap for inline question lines once font scaling is exhausted. */
+export function wrapInlineCells(
+  cells: InlineWidthCell[],
+  maxWidthPx: number,
+  fontSizePx: number,
+  mathWidthsPx: ReadonlyMap<string, number>,
+): InlineWidthCell[][] {
+  if (cells.length === 0) return [[]]
+
+  const totalWidth = measureInlineLineWidthPx(cells, fontSizePx, mathWidthsPx)
+  if (totalWidth <= maxWidthPx) return [cells]
+
+  const atoms = flattenCellsToWrapAtoms(cells)
+  if (atoms.length === 0) return [cells]
+
+  const lines: InlineWidthCell[][] = []
+  let currentAtoms: InlineWidthCell[] = []
+
+  for (const atom of atoms) {
+    const trialAtoms = [...currentAtoms, atom]
+    const trialCells = mergeWrapAtoms(trialAtoms)
+    const trialWidth = measureInlineLineWidthPx(trialCells, fontSizePx, mathWidthsPx)
+
+    if (trialWidth > maxWidthPx && currentAtoms.length > 0) {
+      lines.push(mergeWrapAtoms(currentAtoms))
+      currentAtoms = [atom]
+      continue
+    }
+
+    currentAtoms = trialAtoms
+  }
+
+  if (currentAtoms.length > 0) {
+    lines.push(mergeWrapAtoms(currentAtoms))
+  }
+
+  return lines.length > 0 ? lines : [cells]
 }
