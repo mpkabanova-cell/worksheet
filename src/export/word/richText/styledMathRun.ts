@@ -1,4 +1,12 @@
-import { BuilderElement, Math, RunProperties, XmlComponent, type MathComponent } from 'docx'
+import {
+  BuilderElement,
+  Math,
+  MathDenominator,
+  MathNumerator,
+  RunProperties,
+  XmlComponent,
+  type MathComponent,
+} from 'docx'
 import { pxToHalfPoints, runFont } from '@/export/word/layoutTokens'
 import type { TextStyleSpec } from '@/export/word/types'
 
@@ -50,6 +58,31 @@ export class StyledMathRun extends XmlComponent {
   }
 }
 
+/** Stacked fraction with explicit bar type — without m:fPr Word may flatten num/den to "37". */
+export class StyledMathFraction extends XmlComponent {
+  constructor(
+    numerator: readonly MathComponent[],
+    denominator: readonly MathComponent[],
+    style: TextStyleSpec,
+  ) {
+    super('m:f')
+    this.root.push(
+      new BuilderElement({
+        name: 'm:fPr',
+        children: [
+          new BuilderElement({
+            name: 'm:type',
+            attributes: { val: { key: 'm:val', value: 'bar' } },
+          }),
+        ],
+      }),
+      mathCtrlProperties(style),
+      new MathNumerator(numerator),
+      new MathDenominator(denominator),
+    )
+  }
+}
+
 /** oMath wrapper with default ctrlPr so nested constructs inherit size and upright style. */
 export class StyledMath extends XmlComponent {
   constructor(children: readonly MathComponent[], style: TextStyleSpec) {
@@ -67,4 +100,12 @@ export function styledMathRun(text: string, style: TextStyleSpec): StyledMathRun
 
 export function styledMath(children: MathComponent[], style: TextStyleSpec): Math {
   return new StyledMath(children, style) as unknown as Math
+}
+
+export function styledMathFraction(
+  numerator: MathComponent[],
+  denominator: MathComponent[],
+  style: TextStyleSpec,
+): StyledMathFraction {
+  return new StyledMathFraction(numerator, denominator, style)
 }

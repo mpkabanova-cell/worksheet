@@ -3,7 +3,6 @@ import type { Argument, Macro, Node } from '@unified-latex/unified-latex-types'
 import {
   Math,
   MathCurlyBrackets,
-  MathFraction,
   MathRadical,
   MathRoundBrackets,
   MathSquareBrackets,
@@ -13,7 +12,12 @@ import {
   type MathComponent,
 } from 'docx'
 import { renderMathToPng } from '@/export/word/richText/mathToImage'
-import { styledMath, styledMathRun } from '@/export/word/richText/styledMathRun'
+import {
+  styledMath,
+  styledMathFraction,
+  styledMathRun,
+} from '@/export/word/richText/styledMathRun'
+import { repairJsonLatexEscapes } from '@/data/mathTextUtils'
 import { imageRunFromPngSized } from '@/export/word/richText/toDocxContent'
 import type { ExportContext, TextStyleSpec } from '@/export/word/types'
 import type { ImageRun, ParagraphChild } from 'docx'
@@ -545,7 +549,7 @@ function parseNodes(nodes: Node[]): MathNode {
 }
 
 export function parseLatex(latex: string): MathNode {
-  const trimmed = latex.trim()
+  const trimmed = repairJsonLatexEscapes(latex.trim())
   if (!trimmed) return textNode('')
   try {
     return parseNodes(parseMath(trimmed))
@@ -591,10 +595,11 @@ function mathComponentsFromNode(node: MathNode, style: TextStyleSpec): MathCompo
       ]
     case 'fraction':
       return [
-        new MathFraction({
-          numerator: mathComponentsFromNode(node.numerator, style),
-          denominator: mathComponentsFromNode(node.denominator, style),
-        }),
+        styledMathFraction(
+          mathComponentsFromNode(node.numerator, style),
+          mathComponentsFromNode(node.denominator, style),
+          style,
+        ),
       ]
     case 'sqrt':
       return [

@@ -25,6 +25,7 @@ import {
   BorderStyle,
   HeightRule,
   Paragraph,
+  TabStopType,
   Table,
   TableCell,
   TableLayoutType,
@@ -32,6 +33,7 @@ import {
   TextRun,
   VerticalAlignTable,
   WidthType,
+  type ParagraphChild,
 } from 'docx'
 
 const CELL_MARGIN_TWIPS = 0
@@ -171,108 +173,35 @@ function difficultyParagraphSpacing() {
     before: 0,
     after: 0,
     line: pxToTwips(TYPO.difficulty.linePx),
-    lineRule: 'exact' as const,
+    lineRule: 'atLeast' as const,
   }
 }
 
-function buildDifficultySpacerCell(widthPx: number): TableCell {
-  return new TableCell({
-    width: { size: pxToDxa(widthPx), type: WidthType.DXA },
-    borders: hiddenCellBorders(),
-    margins: {
-      top: CELL_MARGIN_TWIPS,
-      bottom: CELL_MARGIN_TWIPS,
-      left: 0,
-      right: 0,
-    },
-    verticalAlign: VerticalAlignTable.CENTER,
-    children: [
-      new Paragraph({
-        spacing: difficultyParagraphSpacing(),
-        children: [new TextRun({ text: '' })],
-      }),
-    ],
-  })
-}
-
-async function buildDifficultyStarCell(png: Uint8Array, starSizePx: number): Promise<TableCell> {
-  return new TableCell({
-    width: { size: pxToDxa(starSizePx), type: WidthType.DXA },
-    borders: hiddenCellBorders(),
-    margins: {
-      top: CELL_MARGIN_TWIPS,
-      bottom: CELL_MARGIN_TWIPS,
-      left: 0,
-      right: 0,
-    },
-    verticalAlign: VerticalAlignTable.CENTER,
-    children: [
-      new Paragraph({
-        alignment: 'center',
-        spacing: difficultyParagraphSpacing(),
-        children: [await imageRunFromPng(png, starSizePx)],
-      }),
-    ],
-  })
-}
-
-/** Layout: .ws-task-meta — diff-label 80px, gap 4px, .stars gap 4px, 16px icons. */
+/** Layout: .ws-task-meta — diff-label 80px + stars strip 60px (4 + 16 + 4 + 16 + 4 + 16). */
 export function difficultyRowColumnWidthsPx(): number[] {
   const { diffLabelWidth, diffStarSizePx, diffStarGapPx } = LAYOUT
-  return [
-    diffLabelWidth,
-    diffStarGapPx,
-    diffStarSizePx,
-    diffStarGapPx,
-    diffStarSizePx,
-    diffStarGapPx,
-    diffStarSizePx,
-  ]
+  const starsWidthPx =
+    diffStarGapPx + diffStarSizePx + diffStarGapPx + diffStarSizePx + diffStarGapPx + diffStarSizePx
+  return [diffLabelWidth, starsWidthPx]
 }
 
 async function buildDifficultyTable(block: WorksheetBlock, ctx: ExportContext): Promise<Table> {
   const columnWidthsPx = difficultyRowColumnWidthsPx()
   const columnWidthsDxa = columnWidthsPx.map(pxToDxa)
   const tableWidthDxa = columnWidthsDxa.reduce((sum, width) => sum + width, 0)
-  const starSizePx = LAYOUT.diffStarSizePx
+  const { diffStarSizePx, diffStarGapPx } = LAYOUT
+  const starPitchPx = diffStarSizePx + diffStarGapPx
 
-  const cells: TableCell[] = [
-    new TableCell({
-      width: { size: columnWidthsDxa[0], type: WidthType.DXA },
-      borders: hiddenCellBorders(),
-      margins: {
-        top: CELL_MARGIN_TWIPS,
-        bottom: CELL_MARGIN_TWIPS,
-        left: 0,
-        right: 0,
-      },
-      verticalAlign: VerticalAlignTable.CENTER,
-      children: [
-        new Paragraph({
-          spacing: difficultyParagraphSpacing(),
-          children: [
-            new TextRun({
-              text: 'Сложность:',
-              font: runFont(),
-              size: pxToHalfPoints(TYPO.difficulty.sizePx),
-              color: COLORS.textSecondary,
-            }),
-          ],
-        }),
-      ],
-    }),
-    buildDifficultySpacerCell(LAYOUT.diffStarGapPx),
-  ]
-
+  const starChildren: ParagraphChild[] = []
   for (let n = 1; n <= 3; n += 1) {
     if (n > 1) {
-      cells.push(buildDifficultySpacerCell(LAYOUT.diffStarGapPx))
+      starChildren.push(new TextRun({ text: '\t' }))
     }
     const png =
       n <= (block.difficulty ?? 0)
-        ? await getStarFilledPng(ctx, starSizePx)
-        : await getStarEmptyPng(ctx, starSizePx)
-    cells.push(await buildDifficultyStarCell(png, starSizePx))
+        ? await getStarFilledPng(ctx, diffStarSizePx)
+        : await getStarEmptyPng(ctx, diffStarSizePx)
+    starChildren.push(await imageRunFromPng(png, diffStarSizePx))
   }
 
   return new Table({
@@ -283,11 +212,53 @@ async function buildDifficultyTable(block: WorksheetBlock, ctx: ExportContext): 
     rows: [
       new TableRow({
         cantSplit: true,
-        height: {
-          value: pxToTwips(TYPO.difficulty.linePx),
-          rule: HeightRule.EXACT,
-        },
-        children: cells,
+        children: [
+          new TableCell({
+            width: { size: columnWidthsDxa[0], type: WidthType.DXA },
+            borders: hiddenCellBorders(),
+            margins: {
+              top: CELL_MARGIN_TWIPS,
+              bottom: CELL_MARGIN_TWIPS,
+              left: 0,
+              right: 0,
+            },
+            verticalAlign: VerticalAlignTable.CENTER,
+            children: [
+              new Paragraph({
+                spacing: difficultyParagraphSpacing(),
+                children: [
+                  new TextRun({
+                    text: 'Сложность:',
+                    font: runFont(),
+                    size: pxToHalfPoints(TYPO.difficulty.sizePx),
+                    color: COLORS.textSecondary,
+                  }),
+                ],
+              }),
+            ],
+          }),
+          new TableCell({
+            width: { size: columnWidthsDxa[1], type: WidthType.DXA },
+            borders: hiddenCellBorders(),
+            margins: {
+              top: CELL_MARGIN_TWIPS,
+              bottom: CELL_MARGIN_TWIPS,
+              left: pxToTwips(diffStarGapPx),
+              right: 0,
+            },
+            verticalAlign: VerticalAlignTable.CENTER,
+            children: [
+              new Paragraph({
+                spacing: difficultyParagraphSpacing(),
+                tabStops: [
+                  { type: TabStopType.LEFT, position: pxToTwips(starPitchPx) },
+                  { type: TabStopType.LEFT, position: pxToTwips(starPitchPx * 2) },
+                ],
+                children: starChildren,
+              }),
+            ],
+          }),
+        ],
       }),
     ],
   })

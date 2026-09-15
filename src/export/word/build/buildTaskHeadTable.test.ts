@@ -157,7 +157,7 @@ describe('task head table diagnostics (screenshot worksheet)', () => {
   })
 
   it('difficulty row matches portal/Figma layout widths', () => {
-    expect(difficultyRowColumnWidthsPx()).toEqual([80, 4, 16, 4, 16, 4, 16])
+    expect(difficultyRowColumnWidthsPx()).toEqual([80, 60])
     expect(difficultyRowColumnWidthsPx().reduce((sum, width) => sum + width, 0)).toBe(140)
     expect(LAYOUT.diffLabelWidth).toBe(80)
     expect(LAYOUT.diffStarGapPx).toBe(4)

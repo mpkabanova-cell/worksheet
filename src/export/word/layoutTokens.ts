@@ -1,12 +1,12 @@
 /** Typography and spacing mirrored from Worksheet.css (px → docx units). */
 
-/** Serif body font for DOCX export (harmonized with KaTeX); strong Cyrillic coverage. */
-export const FONT = 'STIX Two Text'
-/** Word fallback when STIX Two Text is not installed locally. */
-export const FONT_FALLBACK = 'Times New Roman'
+/** Body font for DOCX export. */
+export const FONT = 'Arial'
+/** Fallback for off-screen rasterization when Arial is unavailable. */
+export const FONT_FALLBACK = 'Helvetica'
 
 /** CSS font stack for off-screen export rasterization only. */
-export const FONT_CSS = `'${FONT}', '${FONT_FALLBACK}', serif`
+export const FONT_CSS = `'${FONT}', '${FONT_FALLBACK}', sans-serif`
 
 /** Portal sheet content width: 800px − 2×32px header padding. */
 export const SHEET_CONTENT_WIDTH_PX = 736

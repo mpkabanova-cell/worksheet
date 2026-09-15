@@ -1,10 +1,10 @@
 import type { ContentSegment } from '@/export/word/richText/parseRichText'
 import { normalizeExportText } from '@/export/word/richText/normalizeExportText'
-import { FONT, FONT_CSS } from '@/export/word/layoutTokens'
+import { FONT, FONT_CSS, FONT_FALLBACK } from '@/export/word/layoutTokens'
 
 export const TEXT_CELL_PADDING_PX = 1
 export const MATH_CELL_PADDING_PX = 2
-/** Word often renders STIX slightly wider than canvas measureText (esp. Cyrillic). */
+/** Word often renders Arial slightly wider than canvas measureText (esp. Cyrillic). */
 export const TEXT_MEASURE_SAFETY = 1.06
 
 export type InlineWidthCell =
@@ -51,7 +51,7 @@ export function measureTextWidthPx(
   const ctx = getCanvasContext()
   const canvasWidth = ctx
     ? (() => {
-        ctx.font = `${bold ? '600' : '400'} ${fontSizePx}px "${FONT}", "Times New Roman", serif`
+        ctx.font = `${bold ? '600' : '400'} ${fontSizePx}px "${FONT}", "${FONT_FALLBACK}", sans-serif`
         return Math.ceil(ctx.measureText(normalized).width)
       })()
     : Math.ceil(normalized.length * fontSizePx * 0.55)

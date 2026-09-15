@@ -16,7 +16,13 @@ async function rasterizeSvg(url: string, size: number): Promise<Uint8Array> {
   canvas.height = size * 2
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Canvas unavailable')
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+
+  const scale = Math.min(canvas.width / img.width, canvas.height / img.height)
+  const drawWidth = img.width * scale
+  const drawHeight = img.height * scale
+  const offsetX = (canvas.width - drawWidth) / 2
+  const offsetY = (canvas.height - drawHeight) / 2
+  ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight)
 
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((value) => {

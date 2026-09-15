@@ -43,8 +43,18 @@ describe('latexToWordMath', () => {
   it('parses fractions', async () => {
     const xml = await ommlXmlFromLatex('\\frac{x+1}{2}', style)
     expect(xml).toContain('<m:f>')
+    expect(xml).toContain('<m:fPr>')
+    expect(xml).toContain('<m:type m:val="bar"/>')
     expect(xml).toContain('<m:num>')
     expect(xml).toContain('<m:den>')
+  })
+
+  it('parses numeric fractions without flattening digits', async () => {
+    const tex = String.raw`\frac{3}{7} + \frac{2}{7}`
+    const xml = await ommlXmlFromLatex(tex, style)
+    expect(xml).toContain('<m:fPr>')
+    expect(xml).not.toMatch(/<m:t[^>]*>37<\/m:t>/)
+    expect(xml).not.toMatch(/<m:t[^>]*>27<\/m:t>/)
   })
 
   it('parses square roots', async () => {
