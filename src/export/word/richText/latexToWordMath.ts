@@ -7,7 +7,6 @@ import {
   MathFunction,
   MathRadical,
   MathRoundBrackets,
-  MathRun,
   MathSquareBrackets,
   MathSubScript,
   MathSubSuperScript,
@@ -15,6 +14,7 @@ import {
   type MathComponent,
 } from 'docx'
 import { renderMathToPng } from '@/export/word/richText/mathToImage'
+import { styledMathRun } from '@/export/word/richText/styledMathRun'
 import { imageRunFromPngSized } from '@/export/word/richText/toDocxContent'
 import type { ExportContext, TextStyleSpec } from '@/export/word/types'
 import type { ImageRun, ParagraphChild } from 'docx'
@@ -558,60 +558,60 @@ export function parseLatex(latex: string): MathNode {
   }
 }
 
-function mathRun(text: string): MathRun {
-  return new MathRun(text)
+function mathRun(text: string, style: TextStyleSpec) {
+  return styledMathRun(text, style)
 }
 
-function mathComponentsFromNode(node: MathNode): MathComponent[] {
+function mathComponentsFromNode(node: MathNode, style: TextStyleSpec): MathComponent[] {
   switch (node.kind) {
     case 'sequence':
-      return node.children.flatMap((child) => mathComponentsFromNode(child))
+      return node.children.flatMap((child) => mathComponentsFromNode(child, style))
     case 'text':
-      return node.value ? [mathRun(node.value)] : []
+      return node.value ? [mathRun(node.value, style)] : []
     case 'sup':
       return [
         new MathSuperScript({
-          children: mathComponentsFromNode(node.base),
-          superScript: mathComponentsFromNode(node.script),
+          children: mathComponentsFromNode(node.base, style),
+          superScript: mathComponentsFromNode(node.script, style),
         }),
       ]
     case 'sub':
       return [
         new MathSubScript({
-          children: mathComponentsFromNode(node.base),
-          subScript: mathComponentsFromNode(node.script),
+          children: mathComponentsFromNode(node.base, style),
+          subScript: mathComponentsFromNode(node.script, style),
         }),
       ]
     case 'subsup':
       return [
         new MathSubSuperScript({
-          children: mathComponentsFromNode(node.base),
-          subScript: mathComponentsFromNode(node.sub),
-          superScript: mathComponentsFromNode(node.sup),
+          children: mathComponentsFromNode(node.base, style),
+          subScript: mathComponentsFromNode(node.sub, style),
+          superScript: mathComponentsFromNode(node.sup, style),
         }),
       ]
     case 'fraction':
       return [
         new MathFraction({
-          numerator: mathComponentsFromNode(node.numerator),
-          denominator: mathComponentsFromNode(node.denominator),
+          numerator: mathComponentsFromNode(node.numerator, style),
+          denominator: mathComponentsFromNode(node.denominator, style),
         }),
       ]
     case 'sqrt':
       return [
         new MathRadical({
-          children: mathComponentsFromNode(node.body),
+          children: mathComponentsFromNode(node.body, style),
         }),
       ]
     case 'root':
       return [
         new MathRadical({
-          children: mathComponentsFromNode(node.body),
-          degree: mathComponentsFromNode(node.degree),
+          children: mathComponentsFromNode(node.body, style),
+          degree: mathComponentsFromNode(node.degree, style),
         }),
       ]
     case 'group': {
-      const children = mathComponentsFromNode(sequenceNode(node.children))
+      const children = mathComponentsFromNode(sequenceNode(node.children), style)
       if (node.bracket === 'square') return [new MathSquareBrackets({ children })]
       if (node.bracket === 'curly') return [new MathCurlyBrackets({ children })]
       return [new MathRoundBrackets({ children })]
@@ -619,8 +619,8 @@ function mathComponentsFromNode(node: MathNode): MathComponent[] {
     case 'function':
       return [
         new MathFunction({
-          name: [mathRun(node.name)],
-          children: mathComponentsFromNode(node.argument),
+          name: [mathRun(node.name, style)],
+          children: mathComponentsFromNode(node.argument, style),
         }),
       ]
     default:
@@ -628,12 +628,12 @@ function mathComponentsFromNode(node: MathNode): MathComponent[] {
   }
 }
 
-export function wordMathFromNode(node: MathNode): Math {
-  return new Math({ children: mathComponentsFromNode(node) })
+export function wordMathFromNode(node: MathNode, style: TextStyleSpec): Math {
+  return new Math({ children: mathComponentsFromNode(node, style) })
 }
 
-export function latexToWordMath(latex: string): Math {
-  return wordMathFromNode(parseLatex(latex))
+export function latexToWordMath(latex: string, style: TextStyleSpec): Math {
+  return wordMathFromNode(parseLatex(latex), style)
 }
 
 function inlineMathImageRun(img: Awaited<ReturnType<typeof renderMathToPng>>): ImageRun {
@@ -647,7 +647,7 @@ export async function mathSegmentToParagraphChild(
   ctx: ExportContext,
 ): Promise<ParagraphChild> {
   try {
-    return latexToWordMath(tex)
+    return latexToWordMath(tex, style)
   } catch (error) {
     console.warn('[docx-math] fallback to PNG', {
       latex: tex,
@@ -658,10 +658,10 @@ export async function mathSegmentToParagraphChild(
 }
 
 /** Test helper: extract OMML XML for a LaTeX expression. */
-export async function ommlXmlFromLatex(latex: string): Promise<string> {
+export async function ommlXmlFromLatex(latex: string, style: TextStyleSpec): Promise<string> {
   const { Document, Packer, Paragraph } = await import('docx')
   const JSZip = (await import('jszip')).default
-  const math = latexToWordMath(latex)
+  const math = latexToWordMath(latex, style)
   const doc = new Document({
     sections: [{ children: [new Paragraph({ children: [math] })] }],
   })

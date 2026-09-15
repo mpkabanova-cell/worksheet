@@ -12,8 +12,8 @@ vi.mock('@/export/word/richText/latexToWordMath', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/export/word/richText/latexToWordMath')>()
   return {
     ...actual,
-    mathSegmentToParagraphChild: vi.fn(async (tex: string) =>
-      actual.latexToWordMath(tex.replace(/\s+/g, '')),
+    mathSegmentToParagraphChild: vi.fn(async (tex: string, _display: boolean, style) =>
+      actual.latexToWordMath(tex.replace(/\s+/g, ''), style),
     ),
   }
 })

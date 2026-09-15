@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { pxToHalfPoints, TYPO } from '@/export/word/layoutTokens'
 import {
   latexToWordMath,
   ommlXmlFromLatex,
@@ -7,9 +8,18 @@ import {
   wordMathFromNode,
 } from '@/export/word/richText/latexToWordMath'
 
+const style = TYPO.taskQuestion
+
 describe('latexToWordMath', () => {
+  it('uses upright math runs sized like surrounding text', async () => {
+    const xml = await ommlXmlFromLatex('x', style)
+    expect(xml).toContain('<m:sty m:val="p"/>')
+    expect(xml).toContain(`<w:sz w:val="${pxToHalfPoints(style.sizePx)}"/>`)
+    expect(xml).toContain('<w:i w:val="false"/>')
+  })
+
   it('parses (x+5)^2 as superscript with bracketed base', async () => {
-    const xml = await ommlXmlFromLatex('(x+5)^2')
+    const xml = await ommlXmlFromLatex('(x+5)^2', style)
     expect(xml).toContain('<m:sSup>')
     expect(xml).toContain('<m:d>')
     expect(xml).toContain('<m:t>x</m:t>')
@@ -21,7 +31,7 @@ describe('latexToWordMath', () => {
   })
 
   it('parses (x-3)^2 similarly', async () => {
-    const xml = await ommlXmlFromLatex('(x-3)^2')
+    const xml = await ommlXmlFromLatex('(x-3)^2', style)
     expect(xml).toContain('<m:sSup>')
     expect(xml).toContain('<m:t>x</m:t>')
     expect(xml).toContain('<m:t>-</m:t>')
@@ -29,14 +39,14 @@ describe('latexToWordMath', () => {
   })
 
   it('parses fractions', async () => {
-    const xml = await ommlXmlFromLatex('\\frac{x+1}{2}')
+    const xml = await ommlXmlFromLatex('\\frac{x+1}{2}', style)
     expect(xml).toContain('<m:f>')
     expect(xml).toContain('<m:num>')
     expect(xml).toContain('<m:den>')
   })
 
   it('parses square roots', async () => {
-    const xml = await ommlXmlFromLatex('\\sqrt{x^2+4}')
+    const xml = await ommlXmlFromLatex('\\sqrt{x^2+4}', style)
     expect(xml).toContain('<m:rad>')
     expect(xml).toContain('<m:sSup>')
   })
@@ -45,13 +55,13 @@ describe('latexToWordMath', () => {
     const node = parseLatex('x^2')
     expect(node.kind).toBe('sup')
 
-    const xml = await ommlXmlFromLatex('\\frac{x^2}{x+1}')
+    const xml = await ommlXmlFromLatex('\\frac{x^2}{x+1}', style)
     expect(xml).toContain('<m:f>')
     expect(xml).toContain('<m:sSup>')
   })
 
   it('parses fraction with relation in one Math object', async () => {
-    const xml = await ommlXmlFromLatex('\\frac{x^2-1}{x-1}=x+1')
+    const xml = await ommlXmlFromLatex('\\frac{x^2-1}{x-1}=x+1', style)
     expect(xml).toContain('<m:f>')
     expect(xml).toContain('<m:t>=</m:t>')
     expect(xml).toContain('<m:t>x</m:t>')
@@ -64,9 +74,9 @@ describe('latexToWordMath', () => {
   })
 
   it('returns a docx Math wrapper', () => {
-    const math = latexToWordMath('x^3')
+    const math = latexToWordMath('x^3', style)
     expect(math).toBeTruthy()
-    expect(wordMathFromNode(parseLatex('x^3'))).toBeTruthy()
+    expect(wordMathFromNode(parseLatex('x^3'), style)).toBeTruthy()
   })
 
   describe('Russian trigonometry (tg/ctg/circ)', () => {
@@ -79,19 +89,20 @@ describe('latexToWordMath', () => {
       'parses tg fraction without fallback: %s',
       async (latex) => {
         expect(() => parseLatex(latex)).not.toThrow()
-        expect(() => latexToWordMath(latex)).not.toThrow()
+        expect(() => latexToWordMath(latex, style)).not.toThrow()
 
-        const xml = await ommlXmlFromLatex(latex)
+        const xml = await ommlXmlFromLatex(latex, style)
         expect(xml).toContain('<m:f>')
         expect(xml).toContain('<m:t>°</m:t>')
         expect(xml).toContain('<m:t>tg</m:t>')
+        expect(xml).toContain('<m:sty m:val="p"/>')
         expect(xml).not.toContain('wp:inline')
       },
     )
 
     it('renders tg and ctg as function names, not tan/cot', async () => {
-      const tgXml = await ommlXmlFromLatex(String.raw`\tg 30^{\circ}`)
-      const ctgXml = await ommlXmlFromLatex(String.raw`\ctg 45^{\circ}`)
+      const tgXml = await ommlXmlFromLatex(String.raw`\tg 30^{\circ}`, style)
+      const ctgXml = await ommlXmlFromLatex(String.raw`\ctg 45^{\circ}`, style)
 
       expect(tgXml).toContain('<m:func>')
       expect(tgXml).toContain('<m:t>tg</m:t>')
