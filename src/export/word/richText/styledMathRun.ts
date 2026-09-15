@@ -46,21 +46,6 @@ function wordRunProperties(style: TextStyleSpec, role: MathRunRole = 'base'): Ru
   })
 }
 
-/** Default ctrl properties for structural math elements (fractions, scripts, etc.). */
-function mathCtrlProperties(style: TextStyleSpec): BuilderElement {
-  return new BuilderElement({
-    name: 'm:ctrlPr',
-    children: [wordRunProperties(style, 'base')],
-  })
-}
-
-function mathArgument(name: 'm:e' | 'm:sup' | 'm:sub', children: readonly MathComponent[]): BuilderElement {
-  return new BuilderElement({
-    name,
-    children: [...children],
-  })
-}
-
 /** Math run with Cambria Math; base runs are upright, script runs are smaller without m:sty. */
 export class StyledMathRun extends XmlComponent {
   constructor(text: string, style: TextStyleSpec, role: MathRunRole = 'base') {
@@ -77,7 +62,6 @@ export class StyledMathFraction extends XmlComponent {
   constructor(
     numerator: readonly MathComponent[],
     denominator: readonly MathComponent[],
-    style: TextStyleSpec,
   ) {
     super('m:f')
     this.root.push(
@@ -90,74 +74,16 @@ export class StyledMathFraction extends XmlComponent {
           }),
         ],
       }),
-      mathCtrlProperties(style),
       new MathNumerator(numerator),
       new MathDenominator(denominator),
     )
   }
 }
 
-export class StyledMathSuperScript extends XmlComponent {
-  constructor(
-    base: readonly MathComponent[],
-    superScript: readonly MathComponent[],
-    style: TextStyleSpec,
-  ) {
-    super('m:sSup')
-    this.root.push(
-      new BuilderElement({
-        name: 'm:sSupPr',
-        children: [mathCtrlProperties(style)],
-      }),
-      mathArgument('m:e', base),
-      mathArgument('m:sup', superScript),
-    )
-  }
-}
-
-export class StyledMathSubScript extends XmlComponent {
-  constructor(
-    base: readonly MathComponent[],
-    subScript: readonly MathComponent[],
-    style: TextStyleSpec,
-  ) {
-    super('m:sSub')
-    this.root.push(
-      new BuilderElement({
-        name: 'm:sSubPr',
-        children: [mathCtrlProperties(style)],
-      }),
-      mathArgument('m:e', base),
-      mathArgument('m:sub', subScript),
-    )
-  }
-}
-
-export class StyledMathSubSuperScript extends XmlComponent {
-  constructor(
-    base: readonly MathComponent[],
-    subScript: readonly MathComponent[],
-    superScript: readonly MathComponent[],
-    style: TextStyleSpec,
-  ) {
-    super('m:sSubSup')
-    this.root.push(
-      new BuilderElement({
-        name: 'm:sSubSupPr',
-        children: [mathCtrlProperties(style)],
-      }),
-      mathArgument('m:e', base),
-      mathArgument('m:sub', subScript),
-      mathArgument('m:sup', superScript),
-    )
-  }
-}
-
-/** oMath wrapper with default ctrlPr so nested constructs inherit size and upright style. */
+/** oMath wrapper — must not inject m:ctrlPr here (invalid OMML; Word shows recovery dialog). */
 export class StyledMath extends XmlComponent {
-  constructor(children: readonly MathComponent[], style: TextStyleSpec) {
+  constructor(children: readonly MathComponent[]) {
     super('m:oMath')
-    this.root.push(mathCtrlProperties(style))
     for (const child of children) {
       this.root.push(child)
     }
@@ -172,39 +98,13 @@ export function styledMathRun(
   return new StyledMathRun(text, style, role)
 }
 
-export function styledMath(children: MathComponent[], style: TextStyleSpec): Math {
-  return new StyledMath(children, style) as unknown as Math
+export function styledMath(children: MathComponent[], _style: TextStyleSpec): Math {
+  return new StyledMath(children) as unknown as Math
 }
 
 export function styledMathFraction(
   numerator: MathComponent[],
   denominator: MathComponent[],
-  style: TextStyleSpec,
 ): StyledMathFraction {
-  return new StyledMathFraction(numerator, denominator, style)
-}
-
-export function styledMathSuperScript(
-  base: MathComponent[],
-  superScript: MathComponent[],
-  style: TextStyleSpec,
-): StyledMathSuperScript {
-  return new StyledMathSuperScript(base, superScript, style)
-}
-
-export function styledMathSubScript(
-  base: MathComponent[],
-  subScript: MathComponent[],
-  style: TextStyleSpec,
-): StyledMathSubScript {
-  return new StyledMathSubScript(base, subScript, style)
-}
-
-export function styledMathSubSuperScript(
-  base: MathComponent[],
-  subScript: MathComponent[],
-  superScript: MathComponent[],
-  style: TextStyleSpec,
-): StyledMathSubSuperScript {
-  return new StyledMathSubSuperScript(base, subScript, superScript, style)
+  return new StyledMathFraction(numerator, denominator)
 }

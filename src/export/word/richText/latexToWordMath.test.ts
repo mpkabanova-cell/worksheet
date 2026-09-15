@@ -18,13 +18,13 @@ describe('latexToWordMath', () => {
     expect(xml).toContain(`w:ascii="${FONT_MATH}"`)
     expect(xml).toContain('<w:i w:val="false"/>')
     expect(xml).toMatch(/<m:rPr><m:sty m:val="p"\/><\/m:rPr><w:rPr>/)
-    expect(xml).toContain('<m:ctrlPr>')
+    expect(xml).not.toMatch(/<m:oMath><m:ctrlPr>/)
   })
 
   it('uses Cambria Math with smaller superscript runs', async () => {
     const xml = await ommlXmlFromLatex('x^2', style)
     expect(xml).toContain(`w:ascii="${FONT_MATH}"`)
-    expect(xml).toContain('<m:sSupPr>')
+    expect(xml).toMatch(/<m:sSupPr\/>|<m:sSupPr>/)
     const supMatch = xml.match(/<m:sSup>[\s\S]*?<\/m:sSup>/)
     expect(supMatch).toBeTruthy()
     const block = supMatch![0]
@@ -77,6 +77,7 @@ describe('latexToWordMath', () => {
     const tex = String.raw`\frac{3}{7} + \frac{2}{7}`
     const xml = await ommlXmlFromLatex(tex, style)
     expect(xml).toContain('<m:fPr>')
+    expect(xml).not.toMatch(/<\/m:fPr><m:ctrlPr>/)
     expect(xml).not.toMatch(/<m:t[^>]*>37<\/m:t>/)
     expect(xml).not.toMatch(/<m:t[^>]*>27<\/m:t>/)
   })

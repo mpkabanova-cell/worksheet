@@ -6,6 +6,9 @@ import {
   MathRadical,
   MathRoundBrackets,
   MathSquareBrackets,
+  MathSubScript,
+  MathSubSuperScript,
+  MathSuperScript,
   type MathComponent,
 } from 'docx'
 import { renderMathToPng } from '@/export/word/richText/mathToImage'
@@ -13,9 +16,6 @@ import {
   styledMath,
   styledMathFraction,
   styledMathRun,
-  styledMathSubScript,
-  styledMathSubSuperScript,
-  styledMathSuperScript,
   type MathRunRole,
 } from '@/export/word/richText/styledMathRun'
 import { repairJsonLatexEscapes } from '@/data/mathTextUtils'
@@ -578,35 +578,31 @@ function mathComponentsFromNode(
       return node.value ? [mathRun(node.value, style, role)] : []
     case 'sup':
       return [
-        styledMathSuperScript(
-          mathComponentsFromNode(node.base, style, 'base'),
-          mathComponentsFromNode(node.script, style, 'sup'),
-          style,
-        ),
+        new MathSuperScript({
+          children: mathComponentsFromNode(node.base, style, 'base'),
+          superScript: mathComponentsFromNode(node.script, style, 'sup'),
+        }),
       ]
     case 'sub':
       return [
-        styledMathSubScript(
-          mathComponentsFromNode(node.base, style, 'base'),
-          mathComponentsFromNode(node.script, style, 'sub'),
-          style,
-        ),
+        new MathSubScript({
+          children: mathComponentsFromNode(node.base, style, 'base'),
+          subScript: mathComponentsFromNode(node.script, style, 'sub'),
+        }),
       ]
     case 'subsup':
       return [
-        styledMathSubSuperScript(
-          mathComponentsFromNode(node.base, style, 'base'),
-          mathComponentsFromNode(node.sub, style, 'sub'),
-          mathComponentsFromNode(node.sup, style, 'sup'),
-          style,
-        ),
+        new MathSubSuperScript({
+          children: mathComponentsFromNode(node.base, style, 'base'),
+          subScript: mathComponentsFromNode(node.sub, style, 'sub'),
+          superScript: mathComponentsFromNode(node.sup, style, 'sup'),
+        }),
       ]
     case 'fraction':
       return [
         styledMathFraction(
           mathComponentsFromNode(node.numerator, style),
           mathComponentsFromNode(node.denominator, style),
-          style,
         ),
       ]
     case 'sqrt':
