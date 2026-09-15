@@ -2,9 +2,10 @@ import { describe, expect, it, vi } from 'vitest'
 import type { WorksheetBlock, WorksheetDraft } from '@/data/worksheet'
 import {
   buildTaskHeadTable,
+  difficultyRowColumnWidthsPx,
   type TaskHeadTableLayoutDebug,
 } from '@/export/word/build/buildTaskHeadTable'
-import { pxToDxa, COLORS, SHEET_CONTENT_WIDTH_PX, TYPO } from '@/export/word/layoutTokens'
+import { pxToDxa, COLORS, LAYOUT, SHEET_CONTENT_WIDTH_PX, TYPO } from '@/export/word/layoutTokens'
 import type { ExportContext } from '@/export/word/types'
 import { Math, MathRun, MathSuperScript } from 'docx'
 
@@ -153,6 +154,17 @@ describe('task head table diagnostics (screenshot worksheet)', () => {
     expect(studentLayout.questionFontSizePx).toBe(TYPO.taskQuestion.sizePx)
     expect(studentLayout.firstRowColumnWidthsDxa).toEqual(answersLayout.firstRowColumnWidthsDxa)
     expect(studentLayout.firstRowColumnWidthsDxa).toHaveLength(2)
+  })
+
+  it('difficulty row matches portal/Figma layout widths', () => {
+    expect(difficultyRowColumnWidthsPx()).toEqual([80, 4, 16, 4, 16, 4, 16])
+    expect(difficultyRowColumnWidthsPx().reduce((sum, width) => sum + width, 0)).toBe(140)
+    expect(LAYOUT.diffLabelWidth).toBe(80)
+    expect(LAYOUT.diffStarGapPx).toBe(4)
+    expect(LAYOUT.answerTaskMainGap).toBe(4)
+    expect(LAYOUT.taskMainGap).toBe(8)
+    expect(TYPO.difficulty.sizePx).toBe(12)
+    expect(TYPO.difficulty.linePx).toBe(16)
   })
 
   it('content column uses the full question width budget', async () => {

@@ -74,15 +74,28 @@ export const LAYOUT = {
   taskPaddingX: 8,
   taskGap: 12,
   taskMainGap: 8,
-  /** Text choice options: horizontal inset under question (portal .ws-task-slot padding-left). */
-  choiceOptionIndentPx: 8,
+  /** .ws-task.answer-task .ws-task-main { gap: 4px } — question → difficulty */
   answerTaskMainGap: 4,
+  /** .ws-task { gap: 12px } + .ws-task-slot { padding-top: 8px } */
+  slotBodyTopPx: 20,
+  /** .answer-cells-slot { padding-top: 8px } on top of slot padding */
+  answerCellsSlotPaddingTopPx: 8,
+  /** .gaps-student { gap: 16px } */
+  gapsTextToBankGapPx: 16,
+  /** .gaps-words-bank { padding-bottom: 16px } */
+  gapsBankBottomPx: 16,
+  /** .option--text { gap: 6px } between marker and text */
+  choiceMarkerTextGapPx: 6,
   slotPaddingTop: 8,
   slotPaddingRight: 24,
   slotPaddingLeft: 32,
   slotGap: 8,
   taskNumWidth: 32,
   diffLabelWidth: 80,
+  /** .stars img — Figma / Worksheet.css */
+  diffStarSizePx: 16,
+  /** .stars { gap: 4px } and .ws-task-meta { gap: 4px } */
+  diffStarGapPx: 4,
   answerLineHeight: 28,
   answerLineGap: 4,
   choiceMarkerSize: 16,
@@ -90,6 +103,16 @@ export const LAYOUT = {
   qrSize: 160,
   pageFooterBottom: 16,
 } as const
+
+/** Head → slot body top inset (lines, block, gaps, choices). */
+export function slotBodyTopSpacingPx(): number {
+  return LAYOUT.slotBodyTopPx
+}
+
+/** Head → cells answer label (adds .answer-cells-slot padding). */
+export function answerCellsTopSpacingPx(): number {
+  return LAYOUT.slotBodyTopPx + LAYOUT.answerCellsSlotPaddingTopPx
+}
 
 export function lineSpacingPx(linePx: number, sizePx: number): number {
   return pxToTwips(linePx - sizePx)
@@ -99,8 +122,12 @@ export function lineSpacingPx(linePx: number, sizePx: number): number {
 export const SLOT_CONTENT_WIDTH_PX =
   SHEET_CONTENT_WIDTH_PX - LAYOUT.slotPaddingLeft - LAYOUT.slotPaddingRight
 
-/** Grid columns for answer cells matching portal AnswerCellsGrid logic. */
-export function answerCellsColumnCount(contentWidthPx = SHEET_CONTENT_WIDTH_PX): number {
-  const slotWidth = contentWidthPx - LAYOUT.slotPaddingLeft
-  return Math.max(1, Math.floor((slotWidth - 1) / LAYOUT.answerCellSize))
+/** Grid pixel width for N columns (+1px so right/bottom outer lines are not clipped). */
+export function answerCellsGridSizePx(cols: number): number {
+  return cols * LAYOUT.answerCellSize + 1
+}
+
+/** Grid columns for answer cells — matches portal AnswerCellsGrid (wrap clientWidth). */
+export function answerCellsColumnCount(slotContentWidthPx = SLOT_CONTENT_WIDTH_PX): number {
+  return Math.max(1, Math.floor((slotContentWidthPx - 1) / LAYOUT.answerCellSize))
 }

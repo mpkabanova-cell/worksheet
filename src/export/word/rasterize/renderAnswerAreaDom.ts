@@ -7,9 +7,9 @@ import {
 import {
   COLORS,
   LAYOUT,
-  SHEET_CONTENT_WIDTH_PX,
   SLOT_CONTENT_WIDTH_PX,
   answerCellsColumnCount,
+  answerCellsGridSizePx,
 } from '@/export/word/layoutTokens'
 import { captureDomToPng } from '@/export/word/rasterize/domToPng'
 import { appendMathText, ensureKatexStyles } from '@/export/word/rasterize/renderMathHtml'
@@ -24,7 +24,7 @@ const TEXT_SECONDARY = `#${COLORS.textSecondary}`
 const OVERLAY_STROKE = '#989cb8'
 
 function gridSizePx(cells: number): number {
-  return cells * ANSWER_CELL_SIZE + 1
+  return answerCellsGridSizePx(cells)
 }
 
 function createLabel(text = 'Ответ:'): HTMLSpanElement {
@@ -201,7 +201,6 @@ function buildBlockDom(lines: number, showAnswer: boolean, answerText?: string):
   const minHeight = Math.max(lines + 1, 3) * LAYOUT.answerLineHeight
   const root = document.createElement('div')
   root.style.width = `${SLOT_WIDTH_PX}px`
-  root.style.paddingTop = '8px'
 
   const area = document.createElement('div')
   area.style.position = 'relative'
@@ -249,7 +248,7 @@ function buildCellsDom(
 ): HTMLDivElement {
   const root = document.createElement('div')
   root.style.width = `${SLOT_WIDTH_PX}px`
-  root.style.paddingTop = '8px'
+  root.style.paddingTop = `${LAYOUT.answerCellsSlotPaddingTopPx}px`
 
   const head = document.createElement('div')
   head.style.display = 'flex'
@@ -279,7 +278,7 @@ export async function rasterizeAnswerArea(
 ): Promise<DomImageResult> {
   const lines = getEffectiveAnswerLines(block, subject, showAnswer)
   const answerText = showAnswer ? getDisplayAnswerText(block) : undefined
-  const cols = answerCellsColumnCount(SHEET_CONTENT_WIDTH_PX)
+  const cols = answerCellsColumnCount(SLOT_CONTENT_WIDTH_PX)
   const overlay = overlayForStyle(style)
 
   const cacheKey = `answer:${block.id}:${style}:${lines}:${cols}:${showAnswer}:${answerText ?? ''}`

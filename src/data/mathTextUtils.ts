@@ -24,6 +24,23 @@ export function repairJsonLatexEscapes(text: string): string {
     .replace(/\u000Dquad/g, '\\quad')
 }
 
+/** Российская запись в LaTeX: десятичная запятая, tg/ctg вместо tan/cot. */
+export function normalizeRussianMathTex(tex: string): string {
+  let result = tex
+    .replace(/\\arctan\b/g, '\\arctg')
+    .replace(/\\arcctg\b/g, '\\arcctg')
+    .replace(/\\tan\b/g, '\\tg')
+    .replace(/\\cot\b/g, '\\ctg')
+
+  let prev = ''
+  while (prev !== result) {
+    prev = result
+    result = result.replace(/(\d)\.(\d)/g, '$1,$2')
+  }
+
+  return result
+}
+
 /** Подготовка текста перед MathText / KaTeX. */
 export function preprocessMathText(input: string): string {
   if (!input) return ''
@@ -31,18 +48,28 @@ export function preprocessMathText(input: string): string {
   let text = repairJsonLatexEscapes(input)
   text = text.replace(/\\div\b/g, ':')
 
-  text = text.replace(/\$\$([\s\S]+?)\$\$/g, (_, tex: string) => `$$${normalizeTex(tex)}$$`)
-  text = text.replace(/\$([^$\n]+?)\$/g, (_, tex: string) => `$${normalizeTex(tex)}$`)
-
-  return text
+  return splitMathSegments(text)
+    .map((segment) => {
+      if (segment.kind === 'math') {
+        const tex = normalizeTex(segment.value)
+        return segment.display ? `$$${tex}$$` : `$${tex}$`
+      }
+      if (looksLikeMathPlainText(segment.value)) {
+        return normalizeTex(segment.value)
+      }
+      return segment.value
+    })
+    .join('')
 }
 
 function normalizeTex(tex: string): string {
-  return repairJsonLatexEscapes(tex)
-    .replace(/\\div\b/g, ':')
-    // Gap placeholders must never appear inside formulas.
-    .replace(/\\text\{_+\}/g, '')
-    .replace(/_{3,}/g, '')
+  return normalizeRussianMathTex(
+    repairJsonLatexEscapes(tex)
+      .replace(/\\div\b/g, ':')
+      // Gap placeholders must never appear inside formulas.
+      .replace(/\\text\{_+\}/g, '')
+      .replace(/_{3,}/g, ''),
+  )
 }
 
 export type MathSegment =

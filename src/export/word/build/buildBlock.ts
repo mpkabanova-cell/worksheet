@@ -37,6 +37,7 @@ import {
   pxToHalfPoints,
   pxToTwips,
   runFont,
+  slotBodyTopSpacingPx,
 } from '@/export/word/layoutTokens'
 import { getMatchingLayoutSpec, getTaskBlockLayout } from '@/export/word/layoutSpec'
 import { fetchImageBytes } from '@/export/word/imageUtils'
@@ -107,8 +108,8 @@ async function buildChoiceOptionParagraphs(
     paragraphs.push(
       new Paragraph({
         spacing: {
-          before: index === 0 ? pxToTwips(LAYOUT.slotPaddingTop) : 0,
-          after: pxToTwips(8),
+          before: 0,
+          after: pxToTwips(LAYOUT.slotGap),
           line: pxToTwips(TYPO.option.linePx),
           lineRule: 'exact',
         },
@@ -241,7 +242,10 @@ async function buildFillGaps(
       text,
       { ...TYPO.gapsText, color: COLORS.textDefault },
       ctx,
-      { indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) } },
+      {
+        indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) },
+        topSpacingPx: slotBodyTopSpacingPx(),
+      },
     )
     result.push(...paras)
     return result
@@ -264,7 +268,10 @@ async function buildFillGaps(
     text,
     { ...TYPO.gapsText, color: COLORS.textDefault },
     ctx,
-    { indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) } },
+    {
+      indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) },
+      topSpacingPx: slotBodyTopSpacingPx(),
+    },
     showAnswer ? parseContent : parseGapsContent,
   )
   result.push(...paras)
@@ -303,7 +310,10 @@ async function buildFillGaps(
     result.push(
       new Paragraph({
         indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) },
-        spacing: { before: pxToTwips(8), after: pxToTwips(4) },
+        spacing: {
+          before: pxToTwips(LAYOUT.gapsTextToBankGapPx),
+          after: pxToTwips(LAYOUT.gapsBankBottomPx),
+        },
         children: bankRuns,
       }),
     )
@@ -542,9 +552,7 @@ export async function buildBlockContent(
   if (isChoiceBlock(block) && choiceFormat === 'text') {
     const optionParagraphs = await buildChoiceOptionParagraphs(block, showAnswer, ctx)
     headOptions = {
-      extraRows: (grid) => [
-        buildWidgetBodyRow(grid, optionParagraphs, { cellMarginLeftPx: LAYOUT.choiceOptionIndentPx }),
-      ],
+      extraRows: (grid) => [buildWidgetBodyRow(grid, optionParagraphs)],
     }
   } else if (block.type === 'matching') {
     const layout = getTaskBlockLayout(block)
@@ -554,7 +562,7 @@ export async function buildBlockContent(
       padQuestionRowToCap: true,
       extraRows: (grid) => [
         buildWidgetBodyRow(grid, matchingParagraphs, {
-          cellMarginPx: layout.widgetCellMarginPx,
+          cellMarginTopPx: slotBodyTopSpacingPx(),
         }),
       ],
     }

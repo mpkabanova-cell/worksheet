@@ -147,9 +147,10 @@ export async function richParagraphs(
   text: string,
   style: TextStyleSpec,
   ctx: ExportContext,
-  options: IParagraphOptions = {},
+  options: IParagraphOptions & { topSpacingPx?: number } = {},
   segmentParser: (input: string) => ContentSegment[] = parseContent,
 ): Promise<Paragraph[]> {
+  const { topSpacingPx, ...paragraphOptions } = options
   const segments = segmentParser(text)
   const paragraphs: Paragraph[] = []
   let inline: ContentSegment[] = []
@@ -159,12 +160,15 @@ export async function richParagraphs(
     const { children } = await segmentsToParagraphChildren(inline, style, ctx)
     paragraphs.push(
       new Paragraph({
-        ...options,
+        ...paragraphOptions,
         spacing: {
           after: pxToTwips(4),
           line: lineSpacingPx(style.linePx, style.sizePx),
           lineRule: 'atLeast',
-          ...options.spacing,
+          ...(paragraphs.length === 0 && topSpacingPx != null
+            ? { before: pxToTwips(topSpacingPx) }
+            : {}),
+          ...paragraphOptions.spacing,
         },
         children,
       }),
@@ -178,7 +182,7 @@ export async function richParagraphs(
       const { children } = await segmentsToParagraphChildren([segment], style, ctx)
       paragraphs.push(
         new Paragraph({
-          ...options,
+          ...paragraphOptions,
           alignment: 'center',
           spacing: {
             before: pxToTwips(6),
@@ -197,7 +201,7 @@ export async function richParagraphs(
   await flushInline()
   return paragraphs.length > 0
     ? paragraphs
-    : [await richParagraph('', style, ctx, options)]
+    : [await richParagraph('', style, ctx, paragraphOptions)]
 }
 
 export function plainParagraph(
