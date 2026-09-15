@@ -199,10 +199,13 @@ export function mergeAdjacentMathSegments(segments: MathSegment[]): MathSegment[
 
       tex += normalizeMathGlueText(between.value)
       index += 1
-      if (index >= segments.length || segments[index].kind !== 'math') break
+      if (index >= segments.length) break
 
-      tex += segments[index].value
-      display = display || segments[index].display
+      const next = segments[index]
+      if (next.kind !== 'math') break
+
+      tex += next.value
+      display = display || next.display
       index += 1
     }
 
