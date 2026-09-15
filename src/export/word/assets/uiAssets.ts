@@ -2,7 +2,10 @@ import starFilledUrl from '@/assets/worksheet/star-filled.svg?url'
 import starEmptyUrl from '@/assets/worksheet/star-empty.svg?url'
 import type { ExportContext } from '@/export/word/types'
 
-async function rasterizeSvg(url: string, size: number): Promise<Uint8Array> {
+/** Raster scale for difficulty stars — 4× PNG embedded, displayed at layout size in Word. */
+const STAR_PIXEL_RATIO = 4
+
+async function rasterizeSvg(url: string, size: number, pixelRatio = 2): Promise<Uint8Array> {
   const img = new Image()
   img.crossOrigin = 'anonymous'
   await new Promise<void>((resolve, reject) => {
@@ -11,17 +14,22 @@ async function rasterizeSvg(url: string, size: number): Promise<Uint8Array> {
     img.src = url
   })
 
+  const canvasPx = Math.max(1, Math.round(size * pixelRatio))
   const canvas = document.createElement('canvas')
-  canvas.width = size * 2
-  canvas.height = size * 2
+  canvas.width = canvasPx
+  canvas.height = canvasPx
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Canvas unavailable')
 
-  const scale = Math.min(canvas.width / img.width, canvas.height / img.height)
-  const drawWidth = img.width * scale
-  const drawHeight = img.height * scale
-  const offsetX = (canvas.width - drawWidth) / 2
-  const offsetY = (canvas.height - drawHeight) / 2
+  const srcW = img.naturalWidth || img.width
+  const srcH = img.naturalHeight || img.height
+  const scale = Math.min(canvasPx / srcW, canvasPx / srcH)
+  const drawWidth = srcW * scale
+  const drawHeight = srcH * scale
+  const offsetX = (canvasPx - drawWidth) / 2
+  const offsetY = (canvasPx - drawHeight) / 2
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
   ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight)
 
   const blob = await new Promise<Blob>((resolve, reject) => {
@@ -133,11 +141,13 @@ async function cachedAsset(
 }
 
 export async function getStarFilledPng(ctx: ExportContext, size = 16): Promise<Uint8Array> {
-  return cachedAsset(ctx, `star-filled-${size}`, () => rasterizeSvg(starFilledUrl, size))
+  return cachedAsset(ctx, `star-filled-${size}-pr${STAR_PIXEL_RATIO}`, () =>
+    rasterizeSvg(starFilledUrl, size, STAR_PIXEL_RATIO))
 }
 
 export async function getStarEmptyPng(ctx: ExportContext, size = 16): Promise<Uint8Array> {
-  return cachedAsset(ctx, `star-empty-${size}`, () => rasterizeSvg(starEmptyUrl, size))
+  return cachedAsset(ctx, `star-empty-${size}-pr${STAR_PIXEL_RATIO}`, () =>
+    rasterizeSvg(starEmptyUrl, size, STAR_PIXEL_RATIO))
 }
 
 export async function getChoiceRadioMarkerPng(ctx: ExportContext, size = 16): Promise<Uint8Array> {
