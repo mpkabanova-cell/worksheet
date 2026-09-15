@@ -3,11 +3,25 @@ import {
   getGapsSourceText,
   getValidGapAnswers,
   isValidFillGapsBlock,
+  markGapAnswersInText,
   sanitizeBlock,
   sanitizeGapAnswers,
 } from '@/data/blockUtils'
 import { migrateGapsTextToSource } from '@/data/mathTextUtils'
 import type { WorksheetBlock } from '@/data/worksheet'
+
+describe('markGapAnswersInText', () => {
+  it('does not double-wrap words already underlined in source', () => {
+    const source =
+      'используют <u>приблизительное</u> равенство и слово приблизительно.'
+    const result = markGapAnswersInText(source, ['приблизительное', 'приблизительно'])
+
+    expect(result).toBe(
+      'используют <u>приблизительное</u> равенство и слово <u>приблизительно</u>.',
+    )
+    expect(result).not.toContain('<u><u>')
+  })
+})
 
 describe('gap answer sanitization', () => {
   it('drops answers that exist only inside formulas', () => {

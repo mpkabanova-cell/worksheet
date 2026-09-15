@@ -499,6 +499,35 @@ export function gapUnderscore(word: string): string {
   return '_'.repeat(len)
 }
 
+function isGapWordChar(ch: string): boolean {
+  return /[\p{L}\p{N}_]/u.test(ch)
+}
+
+function findGapWordOccurrence(text: string, word: string, fromIndex = 0): number {
+  let idx = fromIndex
+  while (idx < text.length) {
+    const found = text.indexOf(word, idx)
+    if (found < 0) return -1
+
+    const before = found > 0 ? text[found - 1]! : ''
+    const after = found + word.length < text.length ? text[found + word.length]! : ''
+    if (!isGapWordChar(before) && !isGapWordChar(after)) return found
+
+    idx = found + 1
+  }
+  return -1
+}
+
+function replaceFirstGapWordOccurrence(text: string, word: string, replacement: string): string {
+  const idx = findGapWordOccurrence(text, word)
+  if (idx < 0) return text
+  return `${text.slice(0, idx)}${replacement}${text.slice(idx + word.length)}`
+}
+
+function gapWordsByLengthDesc(words: string[]): string[] {
+  return [...words].sort((a, b) => b.length - a.length)
+}
+
 export function sanitizeGapAnswers(sourceText: string, gapWords: string[]): string[] {
   return gapWords.filter((word) => gapWordOccursOutsideMath(sourceText, word))
 }
@@ -527,11 +556,10 @@ function mapEditablePlainSegments(
 export function markGapAnswersInText(sourceText: string, gapWords: string[]): string {
   return mapEditablePlainSegments(sourceText, gapWords, (plain, validGapWords) => {
     let next = plain
-    for (const word of validGapWords) {
-      const idx = next.indexOf(word)
-      if (idx >= 0) {
-        next = `${next.slice(0, idx)}<u>${word}</u>${next.slice(idx + word.length)}`
-      }
+    for (const word of gapWordsByLengthDesc(validGapWords)) {
+      const wrapped = `<u>${word}</u>`
+      if (next.includes(wrapped)) continue
+      next = replaceFirstGapWordOccurrence(next, word, wrapped)
     }
     return next
   })
@@ -541,11 +569,8 @@ export function renderGapsStudentText(sourceText: string, gapWords: string[]): s
   if (!sourceText.trim()) return ''
   return mapEditablePlainSegments(sourceText, gapWords, (plain, validGapWords) => {
     let next = plain
-    for (const word of validGapWords) {
-      const idx = next.indexOf(word)
-      if (idx >= 0) {
-        next = next.slice(0, idx) + gapUnderscore(word) + next.slice(idx + word.length)
-      }
+    for (const word of gapWordsByLengthDesc(validGapWords)) {
+      next = replaceFirstGapWordOccurrence(next, word, gapUnderscore(word))
     }
     return next
   })
