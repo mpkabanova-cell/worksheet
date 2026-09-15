@@ -1,4 +1,4 @@
-import { preprocessMathText, splitMathSegments } from '@/data/mathTextUtils'
+import { preprocessMathText, splitMathSegments, expandMathSegments } from '@/data/mathTextUtils'
 
 export interface FormattedTextSegment {
   kind: 'text'
@@ -139,7 +139,7 @@ export function parseContent(input: string): ContentSegment[] {
       result.push({ kind: 'break' }, { kind: 'break' })
     }
 
-    const mathSegments = splitMathSegments(part)
+    const mathSegments = expandMathSegments(splitMathSegments(part))
     for (const segment of mathSegments) {
       if (segment.kind === 'math') {
         result.push({ kind: 'math', value: segment.value, display: segment.display })

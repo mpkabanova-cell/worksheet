@@ -31,4 +31,14 @@ describe('preprocessMathText', () => {
   it('leaves plain text decimals unchanged', () => {
     expect(preprocessMathText('Число 0.5 в тексте.')).toBe('Число 0.5 в тексте.')
   })
+
+  it('merges split inline math and wraps plain polynomials', () => {
+    const tex = String.raw`5x^3y^2 - 2x^2y^4 + 7xy^3 - 10`
+    expect(preprocessMathText(`Запишите $5x^3y^2$ − $2x^2y^4$ + $7xy^3$ − $10$.`)).toBe(
+      `Запишите $${tex}$.`,
+    )
+    expect(preprocessMathText(`Запишите степень многочлена ${tex}.`)).toBe(
+      `Запишите степень многочлена $${tex}$.`,
+    )
+  })
 })

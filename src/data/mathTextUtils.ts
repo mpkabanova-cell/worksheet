@@ -48,14 +48,10 @@ export function preprocessMathText(input: string): string {
   let text = repairJsonLatexEscapes(input)
   text = text.replace(/\\div\b/g, ':')
 
-  return splitMathSegments(text)
+  return expandMathSegments(splitMathSegments(text))
     .map((segment) => {
       if (segment.kind === 'math') {
-        const tex = normalizeTex(segment.value)
-        return segment.display ? `$$${tex}$$` : `$${tex}$`
-      }
-      if (looksLikeMathPlainText(segment.value)) {
-        return normalizeTex(segment.value)
+        return segment.display ? `$$${segment.value}$$` : `$${segment.value}$`
       }
       return segment.value
     })
@@ -103,6 +99,125 @@ export function splitMathSegments(input: string): MathSegment[] {
   }
 
   return segments
+}
+
+const INLINE_MATH_CHAR = /[\dA-Za-z^_{}\\+\-−–—·:(),= ]/
+
+function isMathGlueText(value: string): boolean {
+  return value.length > 0 && /^[\s+\-−–—·:(),]+$/.test(value)
+}
+
+function normalizeMathGlueText(value: string): string {
+  return value.replace(/[−–—]/g, '-').replace(/\u00a0/g, ' ')
+}
+
+function looksLikeInlineMathRun(value: string): boolean {
+  const trimmed = value.trim()
+  if (!trimmed) return false
+  if (/^[\d\s.)]+$/.test(trimmed)) return false
+  return /[\^_\\]|[\d.]+[a-zA-Z]|[a-zA-Z]\s*[\^_{(]|\\frac|\\sqrt|\\cdot/.test(trimmed)
+}
+
+function findInlineMathStart(text: string, from: number): number | null {
+  for (let i = from; i < text.length; i += 1) {
+    const ch = text[i]
+    if (ch === '\\') return i
+    if (ch === '(' && /[\dA-Za-z\\(]/.test(text[i + 1] ?? '')) return i
+    if (/\d/.test(ch) && /[a-zA-Z(\\]/.test(text[i + 1] ?? '')) return i
+    if (/[a-zA-Z]/.test(ch)) {
+      const tail = text.slice(i, i + 24)
+      if (/^[_^\\({]/.test(tail.slice(1)) || /\^|_|\\/.test(tail)) return i
+    }
+  }
+  return null
+}
+
+function findInlineMathEnd(text: string, start: number): number {
+  let i = start
+  while (i < text.length) {
+    const ch = text[i]
+    if (ch === '.' && /\d/.test(text[i - 1] ?? '')) {
+      if (i + 1 >= text.length || /[\s,.;:!?)}\]]/.test(text[i + 1] ?? '')) {
+        break
+      }
+    }
+    if (!INLINE_MATH_CHAR.test(ch)) break
+    i += 1
+  }
+  while (i > start && /\s/.test(text[i - 1] ?? '')) i -= 1
+  return i
+}
+
+function splitInlineMathFromPlainText(text: string): MathSegment[] {
+  if (!text) return []
+
+  const segments: MathSegment[] = []
+  let index = 0
+
+  while (index < text.length) {
+    const start = findInlineMathStart(text, index)
+    if (start == null) {
+      segments.push({ kind: 'text', value: text.slice(index) })
+      break
+    }
+    if (start > index) {
+      segments.push({ kind: 'text', value: text.slice(index, start) })
+    }
+    const end = findInlineMathEnd(text, start)
+    const raw = text.slice(start, end).trim()
+    if (raw && looksLikeInlineMathRun(raw)) {
+      segments.push({ kind: 'math', value: normalizeTex(raw), display: false })
+    } else {
+      segments.push({ kind: 'text', value: text.slice(start, end) })
+    }
+    index = end
+  }
+
+  return segments
+}
+
+/** Merge `$a$ + $b$`-style fragments and extract inline math from plain text. */
+export function mergeAdjacentMathSegments(segments: MathSegment[]): MathSegment[] {
+  const result: MathSegment[] = []
+  let index = 0
+
+  while (index < segments.length) {
+    const segment = segments[index]
+    if (segment.kind !== 'math') {
+      result.push(segment)
+      index += 1
+      continue
+    }
+
+    let tex = segment.value
+    let display = segment.display
+    index += 1
+
+    while (index < segments.length) {
+      const between = segments[index]
+      if (between.kind !== 'text' || !isMathGlueText(between.value)) break
+
+      tex += normalizeMathGlueText(between.value)
+      index += 1
+      if (index >= segments.length || segments[index].kind !== 'math') break
+
+      tex += segments[index].value
+      display = display || segments[index].display
+      index += 1
+    }
+
+    result.push({ kind: 'math', value: normalizeTex(tex), display })
+  }
+
+  return result
+}
+
+export function expandMathSegments(segments: MathSegment[]): MathSegment[] {
+  const expanded = segments.flatMap((segment) => {
+    if (segment.kind === 'math') return [segment]
+    return splitInlineMathFromPlainText(segment.value)
+  })
+  return mergeAdjacentMathSegments(expanded)
 }
 
 /** Whether a textarea selection falls entirely inside a $...$ / $$...$$ math span. */
