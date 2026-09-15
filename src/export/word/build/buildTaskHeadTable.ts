@@ -17,10 +17,14 @@ import { getTaskQuestionWidthPx } from '@/export/word/layoutSpec'
 import { parseContent, type ContentSegment } from '@/export/word/richText/parseRichText'
 import { renderMathToPng } from '@/export/word/richText/mathToImage'
 import {
+  TEXT_CELL_PADDING_PX,
   fitFontScale,
+  mathCellWidthPx,
   measureInlineLineWidthPx,
+  textCellWidthPx,
   wrapInlineCells,
 } from '@/export/word/richText/measureTextWidth'
+import type { MathImageResult } from '@/export/word/types'
 import type { ExportContext, TextStyleSpec } from '@/export/word/types'
 import {
   imageRunFromPng,
@@ -153,6 +157,13 @@ function splitQuestionIntoLines(segments: ContentSegment[]): QuestionLine[] {
 
   flushLine()
   return lines.length > 0 ? lines : [{ kind: 'inline', cells: [] }]
+}
+
+function maxInlineCellCount(lines: QuestionLine[]): number {
+  const counts = lines
+    .filter((line): line is Extract<QuestionLine, { kind: 'inline' }> => line.kind === 'inline')
+    .map((line) => Math.max(1, line.cells.length))
+  return Math.max(1, ...counts)
 }
 
 async function collectMathWidthsPx(
@@ -421,6 +432,22 @@ function buildTextCell(
   })
 }
 
+function buildMathCell(widthDxa: number, imageRun: ImageRun, keepNext = false): TableCell {
+  return new TableCell({
+    width: { size: widthDxa, type: WidthType.DXA },
+    borders: hiddenCellBorders(),
+    margins: cellMargins(),
+    verticalAlign: VerticalAlignTable.CENTER,
+    children: [
+      new Paragraph({
+        keepNext,
+        spacing: { before: 0, after: 0, lineRule: 'exact' as const },
+        children: [imageRun],
+      }),
+    ],
+  })
+}
+
 function buildPaddingCell(widthDxa: number, style: TextStyleSpec, keepNext = false): TableCell {
   return new TableCell({
     width: { size: widthDxa, type: WidthType.DXA },
@@ -438,20 +465,6 @@ function buildPaddingCell(widthDxa: number, style: TextStyleSpec, keepNext = fal
   })
 }
 
-function inlineCellsToSegments(cells: InlineCell[]): ContentSegment[] {
-  const segments: ContentSegment[] = []
-
-  for (const cell of cells) {
-    if (cell.kind === 'math') {
-      segments.push({ kind: 'math', value: cell.tex, display: false })
-      continue
-    }
-    segments.push(...cell.segments)
-  }
-
-  return segments
-}
-
 async function buildInlineContentCells(
   cells: InlineCell[],
   style: TextStyleSpec,
@@ -461,16 +474,42 @@ async function buildInlineContentCells(
 ): Promise<{ cells: TableCell[]; columnWidthsDxa: number[] }> {
   const effectiveCells = cells.length > 0 ? cells : [{ kind: 'text' as const, segments: [] }]
   const lineStyle = await fitInlineLineStyle(effectiveCells, style, ctx, maxContentWidthPx)
-  const mathWidths = await collectMathWidthsPx(effectiveCells, lineStyle.sizePx, ctx)
-  const contentWidthPx = measureInlineLineWidthPx(effectiveCells, lineStyle.sizePx, mathWidths)
-  const contentWidthDxa = pxToDxaCeil(contentWidthPx)
-  const segments = inlineCellsToSegments(effectiveCells)
-  const { runs } = await segmentsToRuns(segments, lineStyle, ctx)
+  const mathImages = new Map<string, MathImageResult>()
+  const tableCells: TableCell[] = []
+  const columnWidthsDxa: number[] = []
 
-  return {
-    cells: [buildTextCell(runs, lineStyle, contentWidthDxa, keepNext)],
-    columnWidthsDxa: [contentWidthDxa],
+  for (const cell of effectiveCells) {
+    if (cell.kind === 'math') {
+      const img = await renderMathToPng(cell.tex, false, lineStyle.sizePx, ctx)
+      mathImages.set(cell.tex, img)
+    }
   }
+
+  for (const cell of effectiveCells) {
+    if (cell.kind === 'math') {
+      const img = mathImages.get(cell.tex)!
+      columnWidthsDxa.push(pxToDxaCeil(mathCellWidthPx(img.width)))
+      continue
+    }
+    columnWidthsDxa.push(pxToDxaCeil(textCellWidthPx(cell.segments, lineStyle.sizePx)))
+  }
+
+  for (let index = 0; index < effectiveCells.length; index += 1) {
+    const cell = effectiveCells[index]
+    const widthDxa = columnWidthsDxa[index] ?? pxToDxaCeil(TEXT_CELL_PADDING_PX)
+
+    if (cell.kind === 'math') {
+      const img = mathImages.get(cell.tex)!
+      const imageRun = await imageRunFromPngSized(img.data, img.width, img.height)
+      tableCells.push(buildMathCell(widthDxa, imageRun, keepNext))
+      continue
+    }
+
+    const { runs } = await segmentsToRuns(cell.segments, lineStyle, ctx)
+    tableCells.push(buildTextCell(runs, lineStyle, widthDxa, keepNext))
+  }
+
+  return { cells: tableCells, columnWidthsDxa }
 }
 
 async function buildDisplayContentCell(
@@ -526,7 +565,7 @@ export async function buildTaskHeadTable(
     ctx,
     maxContentWidthPx,
   )
-  let maxContentCols = 1
+  let maxContentCols = maxInlineCellCount(lines)
   const rows: TableRow[] = []
   let firstRowColumnWidths: number[] = [numCellWidthDxa]
   let paddingColDxa = 0
@@ -565,7 +604,7 @@ export async function buildTaskHeadTable(
             paddingColDxa = contentWidthCapDxa - contentSum
             rowChildren.push(buildPaddingCell(paddingColDxa, qStyle, rowKeepNext))
             firstRowColumnWidths.push(paddingColDxa)
-            maxContentCols = 2
+            maxContentCols = columnWidthsDxa.length + 1
           }
         }
       } else if (paddingColDxa > 0) {
