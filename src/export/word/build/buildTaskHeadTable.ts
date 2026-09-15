@@ -16,11 +16,11 @@ import {
 import { parseContent, type ContentSegment } from '@/export/word/richText/parseRichText'
 import { renderMathToPng } from '@/export/word/richText/mathToImage'
 import {
-  MATH_CELL_PADDING_PX,
   TEXT_CELL_PADDING_PX,
   fitFontScale,
+  mathCellWidthPx,
   measureInlineLineWidthPx,
-  scaleColumnWidthsToMax,
+  scaleColumnWidthsToMaxWithMin,
   textCellWidthPx,
 } from '@/export/word/richText/measureTextWidth'
 import type { MathImageResult } from '@/export/word/types'
@@ -56,6 +56,10 @@ const CELL_MARGIN_TWIPS = 40
 const MIN_QUESTION_FONT_PX = 12
 const MAX_CONTENT_WIDTH_PX = SHEET_CONTENT_WIDTH_PX - LAYOUT.taskNumWidth
 const HIDDEN_BORDER = { style: BorderStyle.NONE, size: 0, color: COLORS.white } as const
+
+function pxToDxaCeil(px: number): number {
+  return Math.ceil(px * 15)
+}
 
 function hiddenCellBorders() {
   return {
@@ -429,21 +433,23 @@ async function buildInlineContentCells(
   for (const cell of effectiveCells) {
     if (cell.kind === 'math') {
       const img = mathImages.get(cell.tex)!
-      columnWidthsDxa.push(pxToDxa(img.width + MATH_CELL_PADDING_PX))
+      columnWidthsDxa.push(pxToDxaCeil(mathCellWidthPx(img.width)))
       continue
     }
-    columnWidthsDxa.push(pxToDxa(textCellWidthPx(cell.segments, lineStyle.sizePx)))
+    columnWidthsDxa.push(pxToDxaCeil(textCellWidthPx(cell.segments, lineStyle.sizePx)))
   }
 
-  columnWidthsDxa = scaleColumnWidthsToMax(
+  const minWidthsDxa = [...columnWidthsDxa]
+  columnWidthsDxa = scaleColumnWidthsToMaxWithMin(
     [numCellWidthDxa, ...columnWidthsDxa],
+    [numCellWidthDxa, ...minWidthsDxa],
     maxTableWidthDxa,
     1,
   ).slice(1)
 
   for (let index = 0; index < effectiveCells.length; index += 1) {
     const cell = effectiveCells[index]
-    const widthDxa = columnWidthsDxa[index] ?? pxToDxa(TEXT_CELL_PADDING_PX)
+    const widthDxa = columnWidthsDxa[index] ?? pxToDxaCeil(TEXT_CELL_PADDING_PX)
 
     if (cell.kind === 'math') {
       const img = mathImages.get(cell.tex)!

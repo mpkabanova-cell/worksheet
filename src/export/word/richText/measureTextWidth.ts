@@ -4,8 +4,8 @@ import { FONT } from '@/export/word/layoutTokens'
 
 export const TEXT_CELL_PADDING_PX = 4
 export const MATH_CELL_PADDING_PX = 4
-/** Word often renders STIX slightly wider than canvas measureText. */
-export const TEXT_MEASURE_SAFETY = 1.04
+/** Word often renders STIX slightly wider than canvas measureText (esp. Cyrillic). */
+export const TEXT_MEASURE_SAFETY = 1.06
 
 export type InlineWidthCell =
   | { kind: 'text'; segments: ContentSegment[] }
@@ -49,10 +49,19 @@ export function measureSegmentsWidthPx(
   return widthPx
 }
 
+export function measureSpaceWidthPx(fontSizePx: number, bold = false): number {
+  return measureTextWidthPx(' ', fontSizePx, bold)
+}
+
 export function textCellWidthPx(segments: ContentSegment[], fontSizePx: number): number {
   const contentWidth = measureSegmentsWidthPx(segments, fontSizePx)
   if (contentWidth <= 0) return TEXT_CELL_PADDING_PX
-  return Math.ceil((contentWidth + TEXT_CELL_PADDING_PX) * TEXT_MEASURE_SAFETY)
+  const spaceWidth = measureSpaceWidthPx(fontSizePx)
+  return Math.ceil((contentWidth + spaceWidth + TEXT_CELL_PADDING_PX) * TEXT_MEASURE_SAFETY)
+}
+
+export function mathCellWidthPx(mathWidthPx: number): number {
+  return mathWidthPx + MATH_CELL_PADDING_PX
 }
 
 export function measureInlineLineWidthPx(
@@ -64,7 +73,7 @@ export function measureInlineLineWidthPx(
 
   for (const cell of cells) {
     if (cell.kind === 'math') {
-      total += (mathWidthsPx.get(cell.tex) ?? 0) + MATH_CELL_PADDING_PX
+      total += mathCellWidthPx(mathWidthsPx.get(cell.tex) ?? 0)
       continue
     }
     total += textCellWidthPx(cell.segments, fontSizePx)
@@ -96,19 +105,61 @@ export function scaleColumnWidthsToMax(
   maxTotal: number,
   fixedPrefixCount = 1,
 ): number[] {
+  return scaleColumnWidthsToMaxWithMin(columnWidths, columnWidths, maxTotal, fixedPrefixCount)
+}
+
+export function scaleColumnWidthsToMaxWithMin(
+  columnWidths: number[],
+  minWidths: number[],
+  maxTotal: number,
+  fixedPrefixCount = 1,
+): number[] {
+  if (columnWidths.length !== minWidths.length) {
+    throw new Error('columnWidths and minWidths must have the same length')
+  }
+
   const total = columnWidths.reduce((sum, width) => sum + width, 0)
   if (total <= maxTotal) return columnWidths
 
-  const fixed = columnWidths.slice(0, fixedPrefixCount).reduce((sum, width) => sum + width, 0)
+  const fixedTotal = columnWidths.slice(0, fixedPrefixCount).reduce((sum, width) => sum + width, 0)
+  const maxContent = Math.max(1, maxTotal - fixedTotal)
   const contentWidths = columnWidths.slice(fixedPrefixCount)
+  const contentMins = minWidths.slice(fixedPrefixCount)
   const contentTotal = contentWidths.reduce((sum, width) => sum + width, 0)
-  const maxContent = Math.max(1, maxTotal - fixed)
 
   if (contentTotal <= maxContent) return columnWidths
 
-  const scale = maxContent / contentTotal
+  const slackTotal = contentWidths.reduce(
+    (sum, width, index) => sum + Math.max(0, width - contentMins[index]),
+    0,
+  )
+
+  if (slackTotal <= 0) {
+    return [...columnWidths.slice(0, fixedPrefixCount), ...contentMins]
+  }
+
+  const targetReduction = contentTotal - maxContent
+  let remaining = targetReduction
+  const scaledContent = contentWidths.map((width, index) => {
+    const slack = Math.max(0, width - contentMins[index])
+    if (slack <= 0) return width
+    const reduction = Math.min(slack, Math.round(targetReduction * (slack / slackTotal)))
+    remaining -= reduction
+    return width - reduction
+  })
+
+  if (remaining > 0) {
+    for (let index = scaledContent.length - 1; index >= 0 && remaining > 0; index -= 1) {
+      const slack = scaledContent[index] - contentMins[index]
+      if (slack <= 0) continue
+      const take = Math.min(slack, remaining)
+      scaledContent[index] -= take
+      remaining -= take
+    }
+  }
+
   return [
     ...columnWidths.slice(0, fixedPrefixCount),
-    ...contentWidths.map((width) => Math.max(1, Math.round(width * scale))),
+    ...scaledContent.map((width, index) => Math.max(contentMins[index], width)),
   ]
 }
