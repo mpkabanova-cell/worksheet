@@ -1,5 +1,7 @@
 import { useRef } from 'react'
 import type { WorksheetBlock } from '@/data/worksheet'
+import { gapWordOccursOutsideMath, isSelectionInsideMath } from '@/data/mathTextUtils'
+import { markGapAnswersInText, sanitizeGapAnswers } from '@/data/blockUtils'
 import { MathText } from '@/components/MathText'
 import { WysiwygTextarea } from '@/components/WysiwygTextarea'
 import { Button } from '@/components/ui'
@@ -21,12 +23,14 @@ export function FillGapsEditor({
     onChange({
       gapsSourceText: nextSource,
       gapsText: undefined,
+      gapsAnswers: sanitizeGapAnswers(nextSource, gapWords),
     })
   }
 
   const addGapWord = (word: string) => {
     const trimmed = word.trim()
     if (!trimmed || gapWords.includes(trimmed)) return
+    if (!gapWordOccursOutsideMath(sourceText, trimmed)) return
     onChange({
       gapsAnswers: [...gapWords, trimmed],
       gapsSourceText: sourceText,
@@ -37,7 +41,10 @@ export function FillGapsEditor({
   const addGapFromSelection = () => {
     const el = textareaRef.current
     if (!el) return
-    const selected = sourceText.slice(el.selectionStart, el.selectionEnd).trim()
+    const start = el.selectionStart
+    const end = el.selectionEnd
+    if (isSelectionInsideMath(sourceText, start, end)) return
+    const selected = sourceText.slice(start, end).trim()
     if (selected) addGapWord(selected)
   }
 
@@ -94,6 +101,7 @@ interface FillGapsStudentProps {
   gapWords?: string[]
   showWordBank?: boolean
   shuffledWords?: string[]
+  showAnswer?: boolean
 }
 
 export function FillGapsStudent({
@@ -101,17 +109,19 @@ export function FillGapsStudent({
   gapWords = [],
   showWordBank = false,
   shuffledWords = [],
+  showAnswer = false,
 }: FillGapsStudentProps) {
   if (!text.trim()) {
     return <p className="gaps-empty-label">Текст с пропусками</p>
   }
 
   const words = showWordBank && shuffledWords.length > 0 ? shuffledWords : gapWords
+  const displayText = showAnswer ? markGapAnswersInText(text, gapWords) : text
 
   return (
     <div className="gaps-student">
       <p className="gaps-text">
-        <MathText text={text} />
+        <MathText text={displayText} />
       </p>
       {words.length > 0 ? (
         <div className="gaps-words-bank gaps-words-bank--student">

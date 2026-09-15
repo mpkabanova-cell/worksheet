@@ -383,6 +383,7 @@ export function BlockCard({
               <FillGapsStudent
                 text={effectiveShowAnswer ? getGapsSourceText(block) : gapsStudentText}
                 gapWords={block.gapsAnswers ?? []}
+                showAnswer={effectiveShowAnswer}
                 showWordBank={!effectiveShowAnswer && Boolean(block.gapsShuffleAnswers)}
                 shuffledWords={getGapsDisplayAnswers(block, editable, selected)}
               />

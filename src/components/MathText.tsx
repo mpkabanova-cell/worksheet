@@ -35,6 +35,34 @@ export function MathText({ text, className, as: Tag = 'span' }: MathTextProps) {
   )
 }
 
+function parsePlainText(input: string, keyStart: number): ReactNode[] {
+  if (!input) return []
+
+  const nodes: ReactNode[] = []
+  let key = keyStart
+  const re = /<u>([\s\S]+?)<\/u>/g
+  let last = 0
+  let match: RegExpExecArray | null
+
+  while ((match = re.exec(input)) !== null) {
+    if (match.index > last) {
+      nodes.push(<Fragment key={key++}>{input.slice(last, match.index)}</Fragment>)
+    }
+    nodes.push(
+      <u key={key++} className="gaps-answer-word">
+        {match[1]}
+      </u>,
+    )
+    last = match.index + match[0].length
+  }
+
+  if (last < input.length) {
+    nodes.push(<Fragment key={key++}>{input.slice(last)}</Fragment>)
+  }
+
+  return nodes
+}
+
 function parseMathText(input: string): ReactNode[] {
   if (!input) return []
 
@@ -47,7 +75,9 @@ function parseMathText(input: string): ReactNode[] {
 
   while ((match = re.exec(input)) !== null) {
     if (match.index > last) {
-      nodes.push(<Fragment key={key++}>{input.slice(last, match.index)}</Fragment>)
+      const plainNodes = parsePlainText(input.slice(last, match.index), key)
+      nodes.push(...plainNodes)
+      key += plainNodes.length
     }
     const display = match[1] != null
     const tex = (display ? match[1] : match[2] ?? '').trim()
@@ -62,7 +92,8 @@ function parseMathText(input: string): ReactNode[] {
   }
 
   if (last < input.length) {
-    nodes.push(<Fragment key={key++}>{input.slice(last)}</Fragment>)
+    const plainNodes = parsePlainText(input.slice(last), key)
+    nodes.push(...plainNodes)
   }
 
   return nodes

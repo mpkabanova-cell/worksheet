@@ -68,7 +68,7 @@ function createTextBox(text: string, highlighted: boolean): HTMLDivElement {
   box.style.boxSizing = 'border-box'
   box.style.border = `1px solid ${highlighted ? BORDER_BRAND : BORDER_TERTIARY}`
   box.style.borderRadius = '12px'
-  box.style.padding = '12px 12px 12px 16px'
+  box.style.padding = '8px 10px'
   box.style.fontSize = '14px'
   box.style.lineHeight = '20px'
   box.style.color = TEXT_DEFAULT
@@ -134,7 +134,7 @@ function createSide(
   sideEl.style.minWidth = '0'
   sideEl.style.display = 'flex'
   sideEl.style.alignItems = 'center'
-  sideEl.style.gap = '8px'
+  sideEl.style.gap = '6px'
   sideEl.style.justifyContent = side === 'left' ? 'flex-end' : 'flex-start'
 
   const cell = createItemCell(format, item, highlighted)
@@ -217,7 +217,8 @@ export async function rasterizeMatching(
 
   const board = document.createElement('div')
   board.style.position = 'relative'
-  board.style.width = `${SLOT_WIDTH_PX}px`
+  board.style.display = 'inline-block'
+  board.style.width = 'auto'
   board.style.maxWidth = `${SLOT_WIDTH_PX}px`
   board.style.boxSizing = 'border-box'
   board.style.overflow = 'visible'
@@ -235,7 +236,7 @@ export async function rasterizeMatching(
     const row = document.createElement('div')
     row.style.display = 'flex'
     row.style.alignItems = 'center'
-    row.style.gap = '40px'
+    row.style.gap = '32px'
     row.style.width = '100%'
 
     const leftSide = createSide('left', leftFormat, leftItem, highlightedLeft.has(index))
@@ -261,5 +262,6 @@ export async function rasterizeMatching(
           addMatchLinesSvg(board, matchLines)
         }
       : undefined,
+    { fitContent: true, contentPaddingPx: 12 },
   )
 }

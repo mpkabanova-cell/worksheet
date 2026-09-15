@@ -42,11 +42,18 @@ async function waitForImages(root: HTMLElement): Promise<void> {
   )
 }
 
+export type CaptureDomToPngOptions = {
+  /** Capture full scroll width instead of clipping to declared width. */
+  fitContent?: boolean
+  contentPaddingPx?: number
+}
+
 export async function captureDomToPng(
   node: HTMLElement,
   cacheKey: string,
   ctx: ExportContext,
   beforeCapture?: (mountedRoot: HTMLElement) => void,
+  options: CaptureDomToPngOptions = {},
 ): Promise<DomImageResult> {
   const cached = ctx.domImageCache.get(cacheKey)
   if (cached) return cached
@@ -63,22 +70,35 @@ export async function captureDomToPng(
   captureRoot.appendChild(node)
   mount.replaceChildren(captureRoot)
 
+  const initialDeclaredWidth = parseInt(node.style.width, 10)
+
   await waitForLayout()
   await waitForImages(node)
   beforeCapture?.(node)
 
-  const declaredWidth = parseInt(node.style.width, 10)
-  const captureWidth =
-    Number.isFinite(declaredWidth) && declaredWidth > 0
-      ? declaredWidth
-      : Math.max(node.scrollWidth, node.offsetWidth, node.clientWidth)
+  node.style.width = 'auto'
+  node.style.maxWidth = 'none'
+  node.style.overflow = 'visible'
+  await waitForLayout()
+
+  const measuredWidth = Math.ceil(node.scrollWidth)
+  const paddingPx = options.contentPaddingPx ?? 8
+  const fitContent = options.fitContent ?? false
+  const captureWidth = fitContent
+    ? Math.max(
+        measuredWidth + paddingPx,
+        Number.isFinite(initialDeclaredWidth) && initialDeclaredWidth > 0 ? initialDeclaredWidth : 0,
+      )
+    : Number.isFinite(initialDeclaredWidth) && initialDeclaredWidth > 0
+      ? initialDeclaredWidth
+      : Math.max(measuredWidth + paddingPx, 1)
 
   if (captureWidth > 0) {
     captureRoot.style.width = `${captureWidth}px`
     node.style.width = `${captureWidth}px`
     node.style.maxWidth = `${captureWidth}px`
     node.style.boxSizing = 'border-box'
-    node.style.overflow = 'hidden'
+    node.style.overflow = fitContent ? 'visible' : 'hidden'
   }
 
   await waitForLayout()

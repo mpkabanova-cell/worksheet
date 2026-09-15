@@ -7,7 +7,7 @@ import type {
   WorksheetDraft,
 } from './worksheet'
 import { uid } from './worksheet'
-import { splitMathSegments } from '@/data/mathTextUtils'
+import { gapWordOccursOutsideMath, splitMathSegments } from '@/data/mathTextUtils'
 
 export const CHOICE_QUESTION_MAX = 500
 export const CHOICE_OPTION_MAX = 300
@@ -450,9 +450,13 @@ export function gapUnderscore(word: string): string {
   return '_'.repeat(len)
 }
 
-export function renderGapsStudentText(sourceText: string, gapWords: string[]): string {
-  if (!sourceText.trim()) return ''
-  if (!gapWords.length) return sourceText
+export function sanitizeGapAnswers(sourceText: string, gapWords: string[]): string[] {
+  return gapWords.filter((word) => gapWordOccursOutsideMath(sourceText, word))
+}
+
+export function markGapAnswersInText(sourceText: string, gapWords: string[]): string {
+  const validGapWords = sanitizeGapAnswers(sourceText, gapWords)
+  if (!validGapWords.length) return sourceText
 
   const segments = splitMathSegments(sourceText)
   return segments
@@ -461,7 +465,30 @@ export function renderGapsStudentText(sourceText: string, gapWords: string[]): s
         return segment.display ? `$$${segment.value}$$` : `$${segment.value}$`
       }
       let plain = segment.value
-      for (const word of gapWords) {
+      for (const word of validGapWords) {
+        const idx = plain.indexOf(word)
+        if (idx >= 0) {
+          plain = `${plain.slice(0, idx)}<u>${word}</u>${plain.slice(idx + word.length)}`
+        }
+      }
+      return plain
+    })
+    .join('')
+}
+
+export function renderGapsStudentText(sourceText: string, gapWords: string[]): string {
+  if (!sourceText.trim()) return ''
+  const validGapWords = sanitizeGapAnswers(sourceText, gapWords)
+  if (!validGapWords.length) return sourceText
+
+  const segments = splitMathSegments(sourceText)
+  return segments
+    .map((segment) => {
+      if (segment.kind === 'math') {
+        return segment.display ? `$$${segment.value}$$` : `$${segment.value}$`
+      }
+      let plain = segment.value
+      for (const word of validGapWords) {
         const idx = plain.indexOf(word)
         if (idx >= 0) {
           plain = plain.slice(0, idx) + gapUnderscore(word) + plain.slice(idx + word.length)
@@ -490,7 +517,8 @@ export function getGapsSourceText(block: WorksheetBlock): string {
 
 export function getGapsStudentText(block: WorksheetBlock): string {
   const source = getGapsSourceText(block)
-  return renderGapsStudentText(source, block.gapsAnswers ?? [])
+  const gapWords = sanitizeGapAnswers(source, block.gapsAnswers ?? [])
+  return renderGapsStudentText(source, gapWords)
 }
 
 export function getGapsDisplayAnswers(

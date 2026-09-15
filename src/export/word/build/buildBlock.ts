@@ -5,6 +5,8 @@ import {
   getGapsDisplayAnswers,
   getGapsSourceText,
   getGapsStudentText,
+  markGapAnswersInText,
+  sanitizeGapAnswers,
   getOrderDisplayItems,
   getTableAnswerBank,
   isChoiceBlock,
@@ -229,7 +231,9 @@ async function buildFillGaps(
   showAnswer: boolean,
   ctx: ExportContext,
 ): Promise<DocxBlock[]> {
-  const text = showAnswer ? getGapsSourceText(block) : getGapsStudentText(block)
+  const source = getGapsSourceText(block)
+  const gapWords = sanitizeGapAnswers(source, block.gapsAnswers ?? [])
+  const text = showAnswer ? markGapAnswersInText(source, gapWords) : getGapsStudentText(block)
   const result: DocxBlock[] = []
 
   if (!text.trim()) {
@@ -246,7 +250,7 @@ async function buildFillGaps(
     { ...TYPO.gapsText, color: COLORS.textDefault },
     ctx,
     { indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) } },
-    parseGapsContent,
+    showAnswer ? parseContent : parseGapsContent,
   )
   result.push(...paras)
 

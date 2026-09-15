@@ -75,3 +75,31 @@ export function splitMathSegments(input: string): MathSegment[] {
 
   return segments
 }
+
+/** Whether a textarea selection falls entirely inside a $...$ / $$...$$ math span. */
+export function isSelectionInsideMath(source: string, selectionStart: number, selectionEnd: number): boolean {
+  if (selectionStart >= selectionEnd) return false
+
+  const re = /\$\$([\s\S]+?)\$\$|\$([^$\n]+?)\$/g
+  let match: RegExpExecArray | null
+
+  while ((match = re.exec(source)) !== null) {
+    const matchStart = match.index
+    const matchEnd = match.index + match[0].length
+    if (selectionStart >= matchStart && selectionEnd <= matchEnd) {
+      return true
+    }
+  }
+
+  return false
+}
+
+/** True when the gap word appears in plain text outside math delimiters. */
+export function gapWordOccursOutsideMath(source: string, word: string): boolean {
+  const trimmed = word.trim()
+  if (!trimmed) return false
+
+  return splitMathSegments(source).some(
+    (segment) => segment.kind === 'text' && segment.value.includes(trimmed),
+  )
+}

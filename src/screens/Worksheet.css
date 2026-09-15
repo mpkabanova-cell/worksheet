@@ -1216,6 +1216,11 @@
   color: var(--text-default);
 }
 
+.gaps-answer-word {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .gaps-words-bank {
   display: flex;
   flex-wrap: wrap;
