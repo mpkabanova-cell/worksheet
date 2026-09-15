@@ -6,9 +6,6 @@ import {
   MathRadical,
   MathRoundBrackets,
   MathSquareBrackets,
-  MathSubScript,
-  MathSubSuperScript,
-  MathSuperScript,
   type MathComponent,
 } from 'docx'
 import { renderMathToPng } from '@/export/word/richText/mathToImage'
@@ -16,6 +13,10 @@ import {
   styledMath,
   styledMathFraction,
   styledMathRun,
+  styledMathSubScript,
+  styledMathSubSuperScript,
+  styledMathSuperScript,
+  type MathRunRole,
 } from '@/export/word/richText/styledMathRun'
 import { repairJsonLatexEscapes } from '@/data/mathTextUtils'
 import { imageRunFromPngSized } from '@/export/word/richText/toDocxContent'
@@ -561,37 +562,44 @@ export function parseLatex(latex: string): MathNode {
   }
 }
 
-function mathRun(text: string, style: TextStyleSpec) {
-  return styledMathRun(text, style)
+function mathRun(text: string, style: TextStyleSpec, role: MathRunRole = 'base') {
+  return styledMathRun(text, style, role)
 }
 
-function mathComponentsFromNode(node: MathNode, style: TextStyleSpec): MathComponent[] {
+function mathComponentsFromNode(
+  node: MathNode,
+  style: TextStyleSpec,
+  role: MathRunRole = 'base',
+): MathComponent[] {
   switch (node.kind) {
     case 'sequence':
-      return node.children.flatMap((child) => mathComponentsFromNode(child, style))
+      return node.children.flatMap((child) => mathComponentsFromNode(child, style, role))
     case 'text':
-      return node.value ? [mathRun(node.value, style)] : []
+      return node.value ? [mathRun(node.value, style, role)] : []
     case 'sup':
       return [
-        new MathSuperScript({
-          children: mathComponentsFromNode(node.base, style),
-          superScript: mathComponentsFromNode(node.script, style),
-        }),
+        styledMathSuperScript(
+          mathComponentsFromNode(node.base, style, 'base'),
+          mathComponentsFromNode(node.script, style, 'sup'),
+          style,
+        ),
       ]
     case 'sub':
       return [
-        new MathSubScript({
-          children: mathComponentsFromNode(node.base, style),
-          subScript: mathComponentsFromNode(node.script, style),
-        }),
+        styledMathSubScript(
+          mathComponentsFromNode(node.base, style, 'base'),
+          mathComponentsFromNode(node.script, style, 'sub'),
+          style,
+        ),
       ]
     case 'subsup':
       return [
-        new MathSubSuperScript({
-          children: mathComponentsFromNode(node.base, style),
-          subScript: mathComponentsFromNode(node.sub, style),
-          superScript: mathComponentsFromNode(node.sup, style),
-        }),
+        styledMathSubSuperScript(
+          mathComponentsFromNode(node.base, style, 'base'),
+          mathComponentsFromNode(node.sub, style, 'sub'),
+          mathComponentsFromNode(node.sup, style, 'sup'),
+          style,
+        ),
       ]
     case 'fraction':
       return [

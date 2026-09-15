@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { pxToHalfPoints, TYPO } from '@/export/word/layoutTokens'
+import { FONT_MATH, MATH_SCRIPT_SCALE, pxToHalfPoints, TYPO } from '@/export/word/layoutTokens'
 import {
   latexToWordMath,
   ommlXmlFromLatex,
@@ -15,9 +15,33 @@ describe('latexToWordMath', () => {
     const xml = await ommlXmlFromLatex('x', style)
     expect(xml).toContain('<m:sty m:val="p"/>')
     expect(xml).toContain(`<w:sz w:val="${pxToHalfPoints(style.sizePx)}"/>`)
+    expect(xml).toContain(`w:ascii="${FONT_MATH}"`)
     expect(xml).toContain('<w:i w:val="false"/>')
     expect(xml).toMatch(/<m:rPr><m:sty m:val="p"\/><\/m:rPr><w:rPr>/)
     expect(xml).toContain('<m:ctrlPr>')
+  })
+
+  it('uses Cambria Math with smaller superscript runs', async () => {
+    const xml = await ommlXmlFromLatex('x^2', style)
+    expect(xml).toContain(`w:ascii="${FONT_MATH}"`)
+    expect(xml).toContain('<m:sSupPr>')
+    const supMatch = xml.match(/<m:sSup>[\s\S]*?<\/m:sSup>/)
+    expect(supMatch).toBeTruthy()
+    const block = supMatch![0]
+    const sizes = [...block.matchAll(/<w:sz w:val="(\d+)"/g)].map((match) => Number(match[1]))
+    expect(sizes.length).toBeGreaterThanOrEqual(2)
+    expect(Math.min(...sizes)).toBe(pxToHalfPoints(style.sizePx * MATH_SCRIPT_SCALE))
+    expect(Math.max(...sizes)).toBe(pxToHalfPoints(style.sizePx))
+    const supSection = block.slice(block.indexOf('<m:sup>'))
+    expect(supSection).not.toContain('<m:sty m:val="p"/>')
+  })
+
+  it('renders polynomial superscripts in one oMath object', async () => {
+    const tex = String.raw`3x^2-5x+7-x^2+2x-1`
+    const xml = await ommlXmlFromLatex(tex, style)
+    expect(xml).toContain('<m:sSup>')
+    expect(xml).toContain(`w:ascii="${FONT_MATH}"`)
+    expect(xml).not.toContain('wp:inline')
   })
 
   it('parses (x+5)^2 as superscript with bracketed base', async () => {

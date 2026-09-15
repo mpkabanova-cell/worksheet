@@ -1,8 +1,8 @@
-import { FONT } from '@/export/word/layoutTokens'
+import { FONT, FONT_MATH } from '@/export/word/layoutTokens'
 
 let loadPromise: Promise<void> | null = null
 
-/** Ensure system Arial is ready before DOCX rasterization (not used on the platform UI). */
+/** Ensure export fonts (Arial body + Cambria Math for PNG fallback) are ready. */
 export function ensureExportFontsLoaded(): Promise<void> {
   if (loadPromise) return loadPromise
 
@@ -11,6 +11,7 @@ export function ensureExportFontsLoaded(): Promise<void> {
       document.fonts.load(`400 16px "${FONT}"`),
       document.fonts.load(`500 16px "${FONT}"`),
       document.fonts.load(`600 16px "${FONT}"`),
+      document.fonts.load(`400 16px "${FONT_MATH}"`),
     ])
     await document.fonts.ready
   })()

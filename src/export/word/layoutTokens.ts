@@ -5,8 +5,18 @@ export const FONT = 'Arial'
 /** Fallback for off-screen rasterization when Arial is unavailable. */
 export const FONT_FALLBACK = 'Helvetica'
 
+/** Native Word math font for OMML (built-up fractions, scripts). */
+export const FONT_MATH = 'Cambria Math'
+/** Fallback for math rasterization when Cambria Math is unavailable. */
+export const FONT_MATH_FALLBACK = 'Latin Modern Math'
+
 /** CSS font stack for off-screen export rasterization only. */
 export const FONT_CSS = `'${FONT}', '${FONT_FALLBACK}', sans-serif`
+/** CSS font stack for math PNG fallback rasterization. */
+export const FONT_MATH_CSS = `'${FONT_MATH}', '${FONT_MATH_FALLBACK}', serif`
+
+/** Sup/sub script size relative to base math (matches Word defaults). */
+export const MATH_SCRIPT_SCALE = 0.65
 
 /** Portal sheet content width: 800px − 2×32px header padding. */
 export const SHEET_CONTENT_WIDTH_PX = 736
@@ -30,6 +40,10 @@ export function pxToDxa(px: number): number {
 }
 
 export function runFont(name: string = FONT) {
+  return { ascii: name, hAnsi: name, cs: name, eastAsia: name }
+}
+
+export function runMathFont(name: string = FONT_MATH) {
   return { ascii: name, hAnsi: name, cs: name, eastAsia: name }
 }
 

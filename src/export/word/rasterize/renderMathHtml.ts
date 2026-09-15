@@ -1,7 +1,7 @@
 import katex from 'katex'
 import katexCss from 'katex/dist/katex.min.css?inline'
 import { preprocessMathText, splitMathSegments } from '@/data/mathTextUtils'
-import { FONT_CSS } from '@/export/word/layoutTokens'
+import { FONT_MATH_CSS } from '@/export/word/layoutTokens'
 
 let katexStyleNode: HTMLStyleElement | null = null
 
@@ -22,7 +22,7 @@ export interface MathHtmlOptions {
 export function appendMathText(parent: HTMLElement, text: string, options: MathHtmlOptions = {}): HTMLElement {
   const container = document.createElement('span')
   container.className = 'math-text'
-  container.style.fontFamily = FONT_CSS
+  container.style.fontFamily = FONT_MATH_CSS
   container.style.fontSize = `${options.fontSize ?? 14}px`
   container.style.lineHeight = `${options.lineHeight ?? 20}px`
   container.style.color = options.positive ? '#0DB56C' : (options.color ?? '#161A33')
