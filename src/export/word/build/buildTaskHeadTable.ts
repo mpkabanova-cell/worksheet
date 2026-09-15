@@ -54,6 +54,7 @@ type QuestionLine =
 
 const CELL_MARGIN_TWIPS = 0
 const NUM_CELL_MARGIN_RIGHT_TWIPS = 0
+const DIFFICULTY_CELL_MARGIN_TWIPS = 40
 const MIN_QUESTION_FONT_PX = 12
 const MAX_CONTENT_WIDTH_PX = SHEET_CONTENT_WIDTH_PX - LAYOUT.taskNumWidth
 const HIDDEN_BORDER = { style: BorderStyle.NONE, size: 0, color: COLORS.white } as const
@@ -89,10 +90,10 @@ function paragraphLineSpacing(style: TextStyleSpec) {
   }
 }
 
-function rowHeight(style: TextStyleSpec) {
+function rowHeight(style: TextStyleSpec, extraPx = 6) {
   return {
-    value: pxToTwips(style.linePx),
-    rule: HeightRule.EXACT,
+    value: pxToTwips(style.linePx + extraPx),
+    rule: HeightRule.ATLEAST,
   }
 }
 
@@ -224,6 +225,8 @@ export type TaskHeadTableOptions = {
   extraRows?: TaskHeadExtraRows
   /** Cap content area width (e.g. to raster widget width). */
   contentWidthCapDxa?: number
+  /** Pad question row with empty column up to contentWidthCapDxa (matching widgets only). */
+  padQuestionRowToCap?: boolean
 }
 
 export type WidgetBodyRowOptions = {
@@ -524,7 +527,7 @@ export async function buildTaskHeadTable(
   ctx: ExportContext,
   options: TaskHeadTableOptions = {},
 ): Promise<Table> {
-  const { extraRows, contentWidthCapDxa } = options
+  const { extraRows, contentWidthCapDxa, padQuestionRowToCap = false } = options
   const numStyle = isAnswerBlock ? TYPO.answerTaskNum : TYPO.taskNum
   const qStyle = isAnswerBlock ? TYPO.answerTaskQuestion : TYPO.taskQuestion
   const numColor = isAnswerBlock ? COLORS.textSecondary : COLORS.textDefault
@@ -570,7 +573,7 @@ export async function buildTaskHeadTable(
       rowChildren.push(...cells)
       if (lineIndex === 0) {
         firstRowColumnWidths = [numCellWidthDxa, ...columnWidthsDxa]
-        if (contentWidthCapDxa != null) {
+        if (contentWidthCapDxa != null && padQuestionRowToCap) {
           const contentSum = columnWidthsDxa.reduce((sum, width) => sum + width, 0)
           if (contentSum < contentWidthCapDxa) {
             paddingColDxa = contentWidthCapDxa - contentSum
@@ -599,7 +602,7 @@ export async function buildTaskHeadTable(
     rows.push(
       new TableRow({
         cantSplit: true,
-        height: rowHeight(TYPO.difficulty),
+        height: rowHeight(TYPO.difficulty, 8),
         children: [
           buildEmptyNumCell(numCellWidthDxa, hasExtraRows),
           new TableCell({
@@ -609,7 +612,12 @@ export async function buildTaskHeadTable(
               type: WidthType.DXA,
             },
             borders: hiddenCellBorders(),
-            margins: cellMargins(),
+            margins: {
+              top: DIFFICULTY_CELL_MARGIN_TWIPS,
+              bottom: DIFFICULTY_CELL_MARGIN_TWIPS,
+              left: 0,
+              right: 0,
+            },
             verticalAlign: VerticalAlignTable.CENTER,
             children: [await buildDifficultyParagraph(block, ctx, hasExtraRows)],
           }),
@@ -637,10 +645,11 @@ export async function buildTaskHeadTable(
     )
   }
 
+  const contentSumFromFirstRow = firstRowColumnWidths.slice(1).reduce((sum, width) => sum + width, 0)
   const grid: TaskHeadGrid = {
     maxContentCols,
     numCellWidthDxa,
-    contentWidthDxa: firstRowColumnWidths.slice(1).reduce((sum, width) => sum + width, 0),
+    contentWidthDxa: Math.max(contentSumFromFirstRow, contentWidthCapDxa ?? 0),
   }
 
   if (extraRows) {

@@ -2,6 +2,7 @@ import type {
   AnswerAreaStyle,
   ChoiceOption,
   ChoiceOptionFormat,
+  MatchPair,
   WorksheetBlock,
   WorksheetDraft,
 } from './worksheet'
@@ -535,6 +536,139 @@ export function normalizeMatchText(value: string): string {
     .toLowerCase()
 }
 
+function findMatchingIndexedSide(prefix: 'left' | 'right', token: string, items: { id: string }[]): number {
+  const trimmed = token.trim()
+  const byId = items.findIndex((item) => item.id === trimmed)
+  if (byId >= 0) return byId
+
+  const indexMatch = trimmed.match(new RegExp(`^${prefix}_(\\d+)$`, 'i'))
+  if (indexMatch) {
+    const index = Number.parseInt(indexMatch[1], 10) - 1
+    if (index >= 0 && index < items.length) return index
+  }
+  return -1
+}
+
+function findMatchingRightIndex(
+  raw: string,
+  displayRight: { id: string; text: string }[],
+  canonicalRight: { id: string; text: string }[],
+): number {
+  const bySide = findMatchingIndexedSide('right', raw, displayRight)
+  if (bySide >= 0) return bySide
+
+  const normalized = normalizeMatchText(raw)
+  let index = displayRight.findIndex((item) => normalizeMatchText(item.text) === normalized)
+  if (index >= 0) return index
+
+  const canonicalIndex = canonicalRight.findIndex(
+    (item) => normalizeMatchText(item.text) === normalized || item.id === raw.trim(),
+  )
+  if (canonicalIndex < 0) return -1
+  const target = canonicalRight[canonicalIndex]
+  index = displayRight.findIndex((item) => item.id === target.id)
+  return index
+}
+
+function matchingItemHasContent(item: MatchPair, text: string): boolean {
+  return Boolean(text.trim() || item.imageData)
+}
+
+function getMatchingAnswerTextFromCorrectAnswers(
+  block: WorksheetBlock,
+  side: 'left' | 'right',
+  index: number,
+  displayRight: MatchPair[],
+): string {
+  const left = block.leftItems ?? []
+  const canonicalRight = block.rightItems ?? []
+  const answers = (block.correctAnswers ?? []).map((answer) => answer.trim()).filter(Boolean)
+
+  for (const answer of answers) {
+    const idMatch = answer.match(/^(left_\d+)\s*(?:→|->)\s*(right_\d+)/i)
+    if (idMatch) {
+      const leftIndex = findMatchingIndexedSide('left', idMatch[1], left)
+      const rightIndex = findMatchingIndexedSide('right', idMatch[2], displayRight)
+      if (side === 'left' && leftIndex === index) {
+        return left[leftIndex]?.text?.trim() || left[leftIndex]?.text || ''
+      }
+      if (side === 'right' && rightIndex === index) {
+        const canonicalIndex = findMatchingIndexedSide('right', idMatch[2], canonicalRight)
+        return (
+          displayRight[rightIndex]?.text?.trim() ||
+          canonicalRight[canonicalIndex]?.text?.trim() ||
+          displayRight[rightIndex]?.text ||
+          canonicalRight[canonicalIndex]?.text ||
+          ''
+        )
+      }
+      continue
+    }
+
+    const parts = answer.split(/\s*(?:→|->)\s*/)
+    if (parts.length !== 2) continue
+
+    let leftIndex = left.findIndex(
+      (item) => normalizeMatchText(item.text) === normalizeMatchText(parts[0]),
+    )
+    if (leftIndex < 0) {
+      leftIndex = findMatchingIndexedSide('left', parts[0], left)
+    }
+    const rightIndex = findMatchingRightIndex(parts[1], displayRight, canonicalRight)
+
+    if (side === 'left' && leftIndex === index) return parts[0].trim()
+    if (side === 'right' && rightIndex === index) return parts[1].trim()
+  }
+
+  return ''
+}
+
+export function resolveMatchingExportText(
+  block: WorksheetBlock,
+  side: 'left' | 'right',
+  index: number,
+  item: MatchPair,
+  displayRight: MatchPair[],
+  showAnswer: boolean,
+): string {
+  if (item.text?.trim()) return item.text
+  if (item.imageData) return item.text ?? ''
+
+  if (showAnswer) {
+    const fromAnswers = getMatchingAnswerTextFromCorrectAnswers(block, side, index, displayRight)
+    if (fromAnswers.trim()) return fromAnswers
+  }
+
+  return item.text ?? ''
+}
+
+export function getMatchingExportRows(
+  block: WorksheetBlock,
+  displayRight: MatchPair[],
+  showAnswer: boolean,
+): { index: number; left: MatchPair; right: MatchPair }[] {
+  const left = block.leftItems ?? []
+  const rowCount = Math.max(left.length, displayRight.length)
+  const rows: { index: number; left: MatchPair; right: MatchPair }[] = []
+
+  for (let index = 0; index < rowCount; index += 1) {
+    const leftItem = left[index] ?? { id: `left-${index}`, text: '' }
+    const rightItem = displayRight[index] ?? { id: `right-${index}`, text: '' }
+    const leftText = resolveMatchingExportText(block, 'left', index, leftItem, displayRight, showAnswer)
+    const rightText = resolveMatchingExportText(block, 'right', index, rightItem, displayRight, showAnswer)
+    const resolvedLeft = { ...leftItem, text: leftText }
+    const resolvedRight = { ...rightItem, text: rightText }
+
+    if (!matchingItemHasContent(resolvedLeft, leftText) && !matchingItemHasContent(resolvedRight, rightText)) {
+      continue
+    }
+
+    rows.push({ index, left: resolvedLeft, right: resolvedRight })
+  }
+
+  return rows
+}
+
 export function getMatchingCorrectLinks(
   block: WorksheetBlock,
   displayRight: { id: string; text: string }[],
@@ -542,35 +676,8 @@ export function getMatchingCorrectLinks(
   const left = block.leftItems ?? []
   const canonicalRight = block.rightItems ?? []
 
-  const findIndexedSide = (prefix: 'left' | 'right', token: string, items: { id: string }[]): number => {
-    const trimmed = token.trim()
-    const byId = items.findIndex((item) => item.id === trimmed)
-    if (byId >= 0) return byId
-
-    const indexMatch = trimmed.match(new RegExp(`^${prefix}_(\\d+)$`, 'i'))
-    if (indexMatch) {
-      const index = Number.parseInt(indexMatch[1], 10) - 1
-      if (index >= 0 && index < items.length) return index
-    }
-    return -1
-  }
-
-  const findRightIndex = (raw: string): number => {
-    const bySide = findIndexedSide('right', raw, displayRight)
-    if (bySide >= 0) return bySide
-
-    const normalized = normalizeMatchText(raw)
-    let index = displayRight.findIndex((item) => normalizeMatchText(item.text) === normalized)
-    if (index >= 0) return index
-
-    const canonicalIndex = canonicalRight.findIndex(
-      (item) => normalizeMatchText(item.text) === normalized || item.id === raw.trim(),
-    )
-    if (canonicalIndex < 0) return -1
-    const target = canonicalRight[canonicalIndex]
-    index = displayRight.findIndex((item) => item.id === target.id)
-    return index
-  }
+  const findRightIndex = (raw: string): number =>
+    findMatchingRightIndex(raw, displayRight, canonicalRight)
 
   const positionalLinks = () =>
     left
@@ -589,8 +696,8 @@ export function getMatchingCorrectLinks(
         const idMatch = answer.match(/^(left_\d+)\s*(?:→|->)\s*(right_\d+)/i)
         if (idMatch) {
           return {
-            leftIndex: findIndexedSide('left', idMatch[1], left),
-            rightIndex: findIndexedSide('right', idMatch[2], displayRight),
+            leftIndex: findMatchingIndexedSide('left', idMatch[1], left),
+            rightIndex: findMatchingIndexedSide('right', idMatch[2], displayRight),
           }
         }
 
@@ -600,7 +707,7 @@ export function getMatchingCorrectLinks(
             (item) => normalizeMatchText(item.text) === normalizeMatchText(parts[0]),
           )
           if (leftIndex < 0) {
-            leftIndex = findIndexedSide('left', parts[0], left)
+            leftIndex = findMatchingIndexedSide('left', parts[0], left)
           }
           return { leftIndex, rightIndex: findRightIndex(parts[1]) }
         }

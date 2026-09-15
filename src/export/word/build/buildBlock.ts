@@ -31,7 +31,6 @@ import {
   COLORS,
   LAYOUT,
   MATCHING_EXPORT_WIDTH_PX,
-  SLOT_CONTENT_WIDTH_PX,
   TYPO,
   pxToDxa,
   pxToHalfPoints,
@@ -107,6 +106,8 @@ async function buildChoiceOptionParagraphs(
         spacing: {
           before: index === 0 ? pxToTwips(LAYOUT.slotPaddingTop) : 0,
           after: pxToTwips(8),
+          line: pxToTwips(TYPO.option.linePx),
+          lineRule: 'exact',
         },
         children: [
           await choiceMarkerRun(block, showAnswer, isOptionCorrect(block, opt.id), ctx),
@@ -519,21 +520,20 @@ export async function buildBlockContent(
   const choiceFormat = block.choiceOptionFormat ?? 'text'
   let headOptions: TaskHeadTableOptions = {}
 
-  const slotWidthDxa = pxToDxa(SLOT_CONTENT_WIDTH_PX)
   const matchingWidthDxa = pxToDxa(MATCHING_EXPORT_WIDTH_PX)
 
   if (isChoiceBlock(block) && choiceFormat === 'text') {
     const optionParagraphs = await buildChoiceOptionParagraphs(block, showAnswer, ctx)
     headOptions = {
-      contentWidthCapDxa: slotWidthDxa,
       extraRows: (grid) => [
-        buildWidgetBodyRow(grid, optionParagraphs, { cellMarginLeftPx: LAYOUT.slotPaddingLeft }),
+        buildWidgetBodyRow(grid, optionParagraphs, { cellMarginLeftPx: LAYOUT.choiceOptionIndentPx }),
       ],
     }
   } else if (block.type === 'matching') {
     const matchingParagraphs = await buildMatching(block, showAnswer, ctx)
     headOptions = {
       contentWidthCapDxa: matchingWidthDxa,
+      padQuestionRowToCap: true,
       extraRows: (grid) => [buildWidgetBodyRow(grid, matchingParagraphs)],
     }
   }

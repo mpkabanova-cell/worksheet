@@ -74,6 +74,8 @@ export const LAYOUT = {
   taskPaddingX: 8,
   taskGap: 12,
   taskMainGap: 8,
+  /** Text choice options: horizontal inset under question (portal .ws-task-slot padding-left). */
+  choiceOptionIndentPx: 8,
   answerTaskMainGap: 4,
   slotPaddingTop: 8,
   slotPaddingRight: 24,

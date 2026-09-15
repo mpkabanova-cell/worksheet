@@ -1,6 +1,7 @@
 import type { ChoiceOptionFormat, MatchPair, WorksheetBlock } from '@/data/worksheet'
 import {
   getMatchingCorrectLinks,
+  getMatchingExportRows,
   getMatchingRightItems,
 } from '@/data/blockUtils'
 import { MATCHING_EXPORT_WIDTH_PX } from '@/export/word/layoutTokens'
@@ -13,7 +14,6 @@ const SLOT_WIDTH_PX = MATCHING_EXPORT_WIDTH_PX
 const BORDER_TERTIARY = '#9399BD'
 const BORDER_BRAND = '#503AE0'
 const BG_WHITE = '#ffffff'
-const TEXT_TERTIARY = '#9399BD'
 const TEXT_DEFAULT = '#161A33'
 
 interface MatchLine {
@@ -78,10 +78,7 @@ function createTextBox(text: string, highlighted: boolean): HTMLDivElement {
   }
 
   const trimmed = text.trim()
-  if (!trimmed) {
-    box.style.color = TEXT_TERTIARY
-    box.textContent = 'Ответ'
-  } else {
+  if (trimmed) {
     appendMathText(box, trimmed, { fontSize: 14, lineHeight: 20 })
   }
 
@@ -208,14 +205,13 @@ export async function rasterizeMatching(
 ): Promise<DomImageResult> {
   const leftFormat = block.matchingLeftFormat ?? 'text'
   const rightFormat = block.matchingRightFormat ?? 'text'
-  const left = block.leftItems ?? []
   const right = getMatchingRightItems(block, false, false)
+  const exportRows = getMatchingExportRows(block, right, showAnswer)
   const links = showAnswer ? getMatchingCorrectLinks(block, right) : []
   const highlightedLeft = new Set(links.map((l) => l.leftIndex))
   const highlightedRight = new Set(links.map((l) => l.rightIndex))
-  const rowCount = Math.max(left.length, right.length)
 
-  const cacheKey = `matching:${block.id}:${showAnswer}:${(block.correctAnswers ?? []).join('|')}:${rowCount}:${left.map((i) => i.text).join('|')}:${right.map((i) => i.text).join('|')}`
+  const cacheKey = `matching:${block.id}:${showAnswer}:${(block.correctAnswers ?? []).join('|')}:${exportRows.map((row) => `${row.left.text}|${row.right.text}`).join(';')}`
 
   ensureKatexStyles(document.body)
 
@@ -234,12 +230,8 @@ export async function rasterizeMatching(
 
   const leftDots: HTMLSpanElement[] = []
   const rightDots: HTMLSpanElement[] = []
-  const emptyItem = (id: string): MatchPair => ({ id, text: '' })
 
-  for (let index = 0; index < rowCount; index += 1) {
-    const leftItem = left[index] ?? emptyItem(`left-${index}`)
-    const rightItem = right[index] ?? emptyItem(`right-${index}`)
-
+  for (const { index, left: leftItem, right: rightItem } of exportRows) {
     const row = document.createElement('div')
     row.style.display = 'flex'
     row.style.alignItems = 'center'
