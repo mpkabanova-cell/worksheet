@@ -565,7 +565,7 @@ export async function buildBlockContent(
     isAnswerBlock,
     block,
     ctx,
-    headOptions,
+    { ...headOptions, showAnswerPass: showAnswer },
   )
   const bodyParts: DocxBlock[] = []
 

@@ -18,9 +18,11 @@ import { parseContent, type ContentSegment } from '@/export/word/richText/parseR
 import { renderMathToPng } from '@/export/word/richText/mathToImage'
 import {
   TEXT_CELL_PADDING_PX,
+  expandColumnWidthsToTarget,
   fitFontScale,
   mathCellWidthPx,
   measureInlineLineWidthPx,
+  scaleColumnWidthsToMaxWithMin,
   textCellWidthPx,
   wrapInlineCells,
 } from '@/export/word/richText/measureTextWidth'
@@ -251,12 +253,29 @@ export type TaskHeadGrid = {
 
 export type TaskHeadExtraRows = (grid: TaskHeadGrid) => TableRow[] | Promise<TableRow[]>
 
+export type TaskHeadTableLayoutDebug = {
+  blockId: string
+  blockType: WorksheetBlock['type']
+  isAnswerBlock: boolean
+  showAnswerPass: boolean
+  questionFontSizePx: number
+  maxContentWidthPx: number
+  contentWidthDxa: number
+  firstRowColumnWidthsDxa: number[]
+  lineCount: number
+  inlineCellCount: number
+}
+
 export type TaskHeadTableOptions = {
   extraRows?: TaskHeadExtraRows
   /** Cap content area width (e.g. to raster widget width). */
   contentWidthCapDxa?: number
   /** Pad question row with empty column up to contentWidthCapDxa (matching widgets only). */
   padQuestionRowToCap?: boolean
+  /** Test/diagnostic hook: called with layout metrics before returning the table. */
+  onLayout?: (layout: TaskHeadTableLayoutDebug) => void
+  /** Which export pass is building this table (student vs answers sheet). */
+  showAnswerPass?: boolean
 }
 
 export type WidgetBodyRowOptions = {
@@ -470,8 +489,9 @@ async function buildInlineContentCells(
   style: TextStyleSpec,
   ctx: ExportContext,
   maxContentWidthPx: number,
+  targetContentWidthDxa: number,
   keepNext = false,
-): Promise<{ cells: TableCell[]; columnWidthsDxa: number[] }> {
+): Promise<{ cells: TableCell[]; columnWidthsDxa: number[]; lineStyle: TextStyleSpec }> {
   const effectiveCells = cells.length > 0 ? cells : [{ kind: 'text' as const, segments: [] }]
   const lineStyle = await fitInlineLineStyle(effectiveCells, style, ctx, maxContentWidthPx)
   const mathImages = new Map<string, MathImageResult>()
@@ -494,9 +514,26 @@ async function buildInlineContentCells(
     columnWidthsDxa.push(pxToDxaCeil(textCellWidthPx(cell.segments, lineStyle.sizePx)))
   }
 
+  const minColumnWidthsDxa = [...columnWidthsDxa]
+  const contentSumDxa = columnWidthsDxa.reduce((sum, width) => sum + width, 0)
+  let scaledWidthsDxa = columnWidthsDxa
+  if (contentSumDxa > targetContentWidthDxa) {
+    scaledWidthsDxa = scaleColumnWidthsToMaxWithMin(
+      columnWidthsDxa,
+      minColumnWidthsDxa,
+      targetContentWidthDxa,
+    )
+  } else if (contentSumDxa < targetContentWidthDxa) {
+    scaledWidthsDxa = expandColumnWidthsToTarget(
+      columnWidthsDxa,
+      minColumnWidthsDxa,
+      targetContentWidthDxa,
+    )
+  }
+
   for (let index = 0; index < effectiveCells.length; index += 1) {
     const cell = effectiveCells[index]
-    const widthDxa = columnWidthsDxa[index] ?? pxToDxaCeil(TEXT_CELL_PADDING_PX)
+    const widthDxa = scaledWidthsDxa[index] ?? pxToDxaCeil(TEXT_CELL_PADDING_PX)
 
     if (cell.kind === 'math') {
       const img = mathImages.get(cell.tex)!
@@ -509,7 +546,7 @@ async function buildInlineContentCells(
     tableCells.push(buildTextCell(runs, lineStyle, widthDxa, keepNext))
   }
 
-  return { cells: tableCells, columnWidthsDxa }
+  return { cells: tableCells, columnWidthsDxa: scaledWidthsDxa, lineStyle }
 }
 
 async function buildDisplayContentCell(
@@ -550,7 +587,8 @@ export async function buildTaskHeadTable(
   ctx: ExportContext,
   options: TaskHeadTableOptions = {},
 ): Promise<Table> {
-  const { extraRows, contentWidthCapDxa, padQuestionRowToCap = false } = options
+  const { extraRows, contentWidthCapDxa, padQuestionRowToCap = false, onLayout, showAnswerPass = false } =
+    options
   const numStyle = isAnswerBlock ? TYPO.answerTaskNum : TYPO.taskNum
   const qStyle = isAnswerBlock ? TYPO.answerTaskQuestion : TYPO.taskQuestion
   const numColor = isAnswerBlock ? COLORS.textSecondary : COLORS.textDefault
@@ -571,6 +609,9 @@ export async function buildTaskHeadTable(
   let paddingColDxa = 0
   const hasExtraRows = extraRows != null
 
+  let questionFontSizePx: number = qStyle.sizePx
+  let inlineCellCount = 0
+
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
     const line = lines[lineIndex]
     const rowChildren: TableCell[] = []
@@ -588,13 +629,16 @@ export async function buildTaskHeadTable(
         firstRowColumnWidths = [numCellWidthDxa, contentWidthDxa]
       }
     } else {
-      const { cells, columnWidthsDxa } = await buildInlineContentCells(
+      const { cells, columnWidthsDxa, lineStyle } = await buildInlineContentCells(
         line.cells,
         qStyle,
         ctx,
         maxContentWidthPx,
+        contentWidthDxa,
         rowKeepNext,
       )
+      questionFontSizePx = lineStyle.sizePx
+      if (lineIndex === 0) inlineCellCount = line.cells.length
       rowChildren.push(...cells)
       if (lineIndex === 0) {
         firstRowColumnWidths = [numCellWidthDxa, ...columnWidthsDxa]
@@ -652,7 +696,13 @@ export async function buildTaskHeadTable(
   }
 
   if (rows.length === 0) {
-    const { cells, columnWidthsDxa } = await buildInlineContentCells([], qStyle, ctx, maxContentWidthPx)
+    const { cells, columnWidthsDxa } = await buildInlineContentCells(
+      [],
+      qStyle,
+      ctx,
+      maxContentWidthPx,
+      contentWidthDxa,
+    )
     firstRowColumnWidths = [numCellWidthDxa, ...columnWidthsDxa]
     rows.push(
       new TableRow({
@@ -676,6 +726,19 @@ export async function buildTaskHeadTable(
   }
 
   const tableWidthDxa = firstRowColumnWidths.reduce((sum, width) => sum + width, 0)
+
+  onLayout?.({
+    blockId: block.id,
+    blockType: block.type,
+    isAnswerBlock,
+    showAnswerPass,
+    questionFontSizePx,
+    maxContentWidthPx,
+    contentWidthDxa,
+    firstRowColumnWidthsDxa: firstRowColumnWidths,
+    lineCount: lines.length,
+    inlineCellCount,
+  })
 
   return new Table({
     width: { size: tableWidthDxa, type: WidthType.DXA },

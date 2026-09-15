@@ -5,7 +5,7 @@ import { FONT, FONT_CSS } from '@/export/word/layoutTokens'
 export const TEXT_CELL_PADDING_PX = 1
 export const MATH_CELL_PADDING_PX = 2
 /** Word often renders STIX slightly wider than canvas measureText (esp. Cyrillic). */
-export const TEXT_MEASURE_SAFETY = 1.03
+export const TEXT_MEASURE_SAFETY = 1.06
 
 export type InlineWidthCell =
   | { kind: 'text'; segments: ContentSegment[] }
@@ -180,6 +180,67 @@ function mergeWrapAtoms(atoms: InlineWidthCell[]): InlineWidthCell[] {
 
   flushText()
   return merged
+}
+
+/** Shrink columns to fit maxTotalDxa without going below per-column minimums. */
+export function scaleColumnWidthsToMaxWithMin(
+  columnWidthsDxa: number[],
+  minColumnWidthsDxa: number[],
+  maxTotalDxa: number,
+): number[] {
+  if (columnWidthsDxa.length === 0) return columnWidthsDxa
+
+  const total = columnWidthsDxa.reduce((sum, width) => sum + width, 0)
+  if (total <= maxTotalDxa) return columnWidthsDxa
+
+  const result = [...columnWidthsDxa]
+  let overflow = total - maxTotalDxa
+
+  for (let pass = 0; pass < 8 && overflow > 0; pass += 1) {
+    const shrinkable = result.map((width, index) =>
+      Math.max(0, width - (minColumnWidthsDxa[index] ?? width)),
+    )
+    const shrinkableTotal = shrinkable.reduce((sum, value) => sum + value, 0)
+    if (shrinkableTotal <= 0) break
+
+    for (let index = 0; index < result.length && overflow > 0; index += 1) {
+      if (shrinkable[index] <= 0) continue
+      const cut = Math.min(
+        shrinkable[index],
+        Math.max(1, Math.ceil((overflow * shrinkable[index]) / shrinkableTotal)),
+      )
+      result[index] -= cut
+      overflow -= cut
+    }
+  }
+
+  return result
+}
+
+/** Grow content columns up to targetTotalDxa (distributes slack by min-width share). */
+export function expandColumnWidthsToTarget(
+  columnWidthsDxa: number[],
+  minColumnWidthsDxa: number[],
+  targetTotalDxa: number,
+): number[] {
+  const total = columnWidthsDxa.reduce((sum, width) => sum + width, 0)
+  if (total >= targetTotalDxa) return columnWidthsDxa
+
+  const slack = targetTotalDxa - total
+  const result = [...columnWidthsDxa]
+  const minTotal = minColumnWidthsDxa.reduce((sum, width) => sum + width, 0) || 1
+
+  for (let index = 0; index < result.length; index += 1) {
+    result[index] += Math.floor((slack * minColumnWidthsDxa[index]) / minTotal)
+  }
+
+  let remainder = targetTotalDxa - result.reduce((sum, width) => sum + width, 0)
+  for (let index = 0; remainder > 0; index = (index + 1) % result.length) {
+    result[index] += 1
+    remainder -= 1
+  }
+
+  return result
 }
 
 /** Greedy word wrap for inline question lines once font scaling is exhausted. */
