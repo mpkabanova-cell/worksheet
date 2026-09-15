@@ -32,13 +32,12 @@ import { rasterizeMatching } from '@/export/word/rasterize/renderMatchingDom'
 import {
   COLORS,
   LAYOUT,
-import { getMatchingLayoutSpec, getTaskBlockLayout } from '@/export/word/layoutSpec'
   TYPO,
-  pxToDxa,
   pxToHalfPoints,
   pxToTwips,
   runFont,
 } from '@/export/word/layoutTokens'
+import { getMatchingLayoutSpec, getTaskBlockLayout } from '@/export/word/layoutSpec'
 import { fetchImageBytes } from '@/export/word/imageUtils'
 import { parseContent } from '@/export/word/richText/parseRichText'
 import {

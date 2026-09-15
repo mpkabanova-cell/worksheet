@@ -14,6 +14,8 @@ describe('gap answer sanitization', () => {
     const block: WorksheetBlock = {
       id: 'b1',
       type: 'fill_gaps',
+      page: 0,
+      title: '',
       issued: false,
       gapsSourceText: '$x^2 - 25$ и слово ___',
       gapsAnswers: ['25', 'слово'],
