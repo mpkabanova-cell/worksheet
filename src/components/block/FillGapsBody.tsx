@@ -1,10 +1,30 @@
 import { useEffect, useRef } from 'react'
 import type { WorksheetBlock } from '@/data/worksheet'
-import { gapWordOccursOutsideMath, hasGapMarkersInMath, isSelectionInsideMath, sanitizeGapsSourceText } from '@/data/mathTextUtils'
-import { markGapAnswersInText, sanitizeGapAnswers } from '@/data/blockUtils'
+import {
+  gapWordOccursOutsideMath,
+  hasGapMarkersInMath,
+  isSelectionInsideForbiddenGapRegion,
+  sanitizeGapsSourceText,
+} from '@/data/mathTextUtils'
+import { isValidFillGapsBlock, markGapAnswersInText, sanitizeGapAnswers } from '@/data/blockUtils'
 import { MathText } from '@/components/MathText'
 import { WysiwygTextarea } from '@/components/WysiwygTextarea'
 import { Button } from '@/components/ui'
+
+const FILL_GAPS_INVALID_MESSAGE =
+  'Пропуски в формулах не поддерживаются. Исправьте текст или смените тип задания.'
+
+function isValidFillGapsContent(sourceText: string, gapWords: string[]): boolean {
+  return isValidFillGapsBlock({
+    id: '',
+    type: 'fill_gaps',
+    page: 0,
+    title: '',
+    issued: false,
+    gapsSourceText: sourceText,
+    gapsAnswers: gapWords,
+  })
+}
 
 interface FillGapsEditorProps {
   sourceText: string
@@ -37,6 +57,7 @@ export function FillGapsEditor({
 
   const validGapWords = sanitizeGapAnswers(sourceText, gapWords)
   const mathGapsRemoved = hasGapMarkersInMath(sourceText)
+  const invalid = !isValidFillGapsContent(sourceText, gapWords)
 
   const syncSource = (nextSource: string) => {
     const sanitizedSource = sanitizeGapsSourceText(nextSource)
@@ -63,7 +84,7 @@ export function FillGapsEditor({
     if (!el) return
     const start = el.selectionStart
     const end = el.selectionEnd
-    if (isSelectionInsideMath(sourceText, start, end)) return
+    if (isSelectionInsideForbiddenGapRegion(sourceText, start, end)) return
     const selected = sourceText.slice(start, end).trim()
     if (selected) addGapWord(selected)
   }
@@ -90,7 +111,7 @@ export function FillGapsEditor({
         onClick={(e) => e.stopPropagation()}
       />
 
-      {validGapWords.length > 0 ? (
+      {invalid ? null : validGapWords.length > 0 ? (
         <div className="gaps-words-bank" aria-label="Пропущенные слова">
           <span className="gaps-words-bank-label">Пропущенные слова:</span>
           {validGapWords.map((word, index) => (
@@ -109,11 +130,17 @@ export function FillGapsEditor({
         </div>
       ) : null}
 
-      <Button variant="secondary" size="sm" type="button" onClick={addGapFromSelection}>
-        Добавить в пропуски
-      </Button>
+      {invalid ? (
+        <p className="gaps-editor-hint gaps-editor-hint--error">{FILL_GAPS_INVALID_MESSAGE}</p>
+      ) : null}
 
-      {mathGapsRemoved ? (
+      {!invalid ? (
+        <Button variant="secondary" size="sm" type="button" onClick={addGapFromSelection}>
+          Добавить в пропуски
+        </Button>
+      ) : null}
+
+      {mathGapsRemoved && !invalid ? (
         <p className="gaps-editor-hint">Пропуски внутри формул не поддерживаются и будут удалены.</p>
       ) : null}
     </div>
@@ -126,6 +153,7 @@ interface FillGapsStudentProps {
   showWordBank?: boolean
   shuffledWords?: string[]
   showAnswer?: boolean
+  invalid?: boolean
 }
 
 export function FillGapsStudent({
@@ -134,9 +162,21 @@ export function FillGapsStudent({
   showWordBank = false,
   shuffledWords = [],
   showAnswer = false,
+  invalid = false,
 }: FillGapsStudentProps) {
   if (!text.trim()) {
     return <p className="gaps-empty-label">Текст с пропусками</p>
+  }
+
+  if (invalid) {
+    return (
+      <div className="gaps-student">
+        <p className="gaps-editor-hint gaps-editor-hint--error">{FILL_GAPS_INVALID_MESSAGE}</p>
+        <p className="gaps-text">
+          <MathText text={text} />
+        </p>
+      </div>
+    )
   }
 
   const words = showWordBank && shuffledWords.length > 0 ? shuffledWords : gapWords

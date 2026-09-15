@@ -6,6 +6,7 @@ import {
   getGapsSourceText,
   getGapsStudentText,
   getValidGapAnswers,
+  isValidFillGapsBlock,
   markGapAnswersInText,
   getOrderDisplayItems,
   getTableAnswerBank,
@@ -230,10 +231,24 @@ async function buildFillGaps(
   showAnswer: boolean,
   ctx: ExportContext,
 ): Promise<DocxBlock[]> {
+  const result: DocxBlock[] = []
+
+  if (!isValidFillGapsBlock(block)) {
+    const source = getGapsSourceText(block) || block.gapsSourceText?.trim() || block.gapsText?.trim() || ''
+    const text = source.trim() || 'Текст с пропусками'
+    const paras = await richParagraphs(
+      text,
+      { ...TYPO.gapsText, color: COLORS.textDefault },
+      ctx,
+      { indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) } },
+    )
+    result.push(...paras)
+    return result
+  }
+
   const source = getGapsSourceText(block)
   const gapWords = getValidGapAnswers(block)
   const text = showAnswer ? markGapAnswersInText(source, gapWords) : getGapsStudentText(block)
-  const result: DocxBlock[] = []
 
   if (!text.trim()) {
     result.push(

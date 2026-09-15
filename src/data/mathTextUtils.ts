@@ -96,14 +96,108 @@ export function isSelectionInsideMath(source: string, selectionStart: number, se
   return false
 }
 
-/** True when the gap word appears in plain text outside math delimiters. */
+/** True when the gap word appears in non-formula plain text only. */
 export function gapWordOccursOutsideMath(source: string, word: string): boolean {
   const trimmed = word.trim()
   if (!trimmed) return false
 
   return splitMathSegments(source).some(
-    (segment) => segment.kind === 'text' && segment.value.includes(trimmed),
+    (segment) => isUsablePlainTextSegment(segment) && segment.value.includes(trimmed),
   )
+}
+
+export function isUsablePlainTextSegment(segment: MathSegment): boolean {
+  return segment.kind === 'text' && !looksLikeMathPlainText(segment.value)
+}
+
+export function isFormulaSegment(segment: MathSegment): boolean {
+  if (segment.kind === 'math') return true
+  return looksLikeMathPlainText(segment.value)
+}
+
+const GAP_MARKER_RE = /\\text\{_+\}|_{3,}/
+
+/** Gap markers or gap answers inside math / math-like plain text. */
+export function hasForbiddenGapsInFormulas(source: string, gapWords: string[] = []): boolean {
+  return splitMathSegments(source).some((segment) => {
+    if (!isFormulaSegment(segment)) return false
+    const content = segment.kind === 'math' ? segment.value : segment.value
+    if (GAP_MARKER_RE.test(content)) return true
+    return gapWords.some((word) => {
+      const trimmed = word.trim()
+      return trimmed.length > 0 && content.includes(trimmed)
+    })
+  })
+}
+
+/** Whether selection is inside $...$ or math-like plain text (no gaps allowed). */
+export function isSelectionInsideForbiddenGapRegion(
+  source: string,
+  selectionStart: number,
+  selectionEnd: number,
+): boolean {
+  if (selectionStart >= selectionEnd) return false
+  if (isSelectionInsideMath(source, selectionStart, selectionEnd)) return true
+
+  const re = /\$\$([\s\S]+?)\$\$|\$([^$\n]+?)\$/g
+  let last = 0
+  let match: RegExpExecArray | null
+
+  while ((match = re.exec(source)) !== null) {
+    if (match.index > last) {
+      const plainStart = last
+      const plainEnd = match.index
+      if (
+        looksLikeMathPlainText(source.slice(plainStart, plainEnd)) &&
+        selectionStart >= plainStart &&
+        selectionEnd <= plainEnd
+      ) {
+        return true
+      }
+    }
+    last = match.index + match[0].length
+  }
+
+  if (last < source.length) {
+    const plainStart = last
+    if (
+      looksLikeMathPlainText(source.slice(plainStart)) &&
+      selectionStart >= plainStart &&
+      selectionEnd <= source.length
+    ) {
+      return true
+    }
+  }
+
+  return false
+}
+
+/** Replace ___ with answers only in usable plain-text segments. */
+export function migrateGapsTextToSource(gapsText: string, gapAnswers: string[]): string {
+  let answerIndex = 0
+
+  const countGapMarkers = (text: string): number =>
+    (text.match(/\\text\{_+\}|_{3,}/g) ?? []).length
+
+  return splitMathSegments(gapsText)
+    .map((segment) => {
+      if (segment.kind === 'math') {
+        answerIndex += countGapMarkers(segment.value)
+        const cleaned = stripGapMarkersFromMathTex(segment.value)
+        return segment.display ? `$$${cleaned}$$` : `$${cleaned}$`
+      }
+      if (looksLikeMathPlainText(segment.value)) {
+        answerIndex += countGapMarkers(segment.value)
+        return stripGapMarkersFromPlainSegment(segment.value)
+      }
+      return segment.value.replace(/_{3,}/g, () => {
+        if (answerIndex >= gapAnswers.length) return '___'
+        const word = gapAnswers[answerIndex]
+        answerIndex += 1
+        return word
+      })
+    })
+    .join('')
 }
 
 /** Strip fill-gap placeholders from LaTeX formula text. */

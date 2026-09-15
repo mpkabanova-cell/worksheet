@@ -12,6 +12,7 @@ import {
   getOrderDisplayItems,
   isChoiceBlock,
   isQuestionPlaceholder,
+  isValidFillGapsBlock,
   questionPlaceholderForBlock,
   TEXT_BODY_MAX_LENGTH,
 } from '@/data/blockUtils'
@@ -387,6 +388,7 @@ export function BlockCard({
                 showAnswer={effectiveShowAnswer}
                 showWordBank={!effectiveShowAnswer && Boolean(block.gapsShuffleAnswers)}
                 shuffledWords={getGapsDisplayAnswers(block, editable, selected)}
+                invalid={!isValidFillGapsBlock(block)}
               />
             )}
           </div>

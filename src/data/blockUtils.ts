@@ -7,7 +7,14 @@ import type {
   WorksheetDraft,
 } from './worksheet'
 import { uid } from './worksheet'
-import { gapWordOccursOutsideMath, sanitizeGapsSourceText, splitMathSegments } from '@/data/mathTextUtils'
+import {
+  gapWordOccursOutsideMath,
+  hasForbiddenGapsInFormulas,
+  looksLikeMathPlainText,
+  migrateGapsTextToSource,
+  sanitizeGapsSourceText,
+  splitMathSegments,
+} from '@/data/mathTextUtils'
 
 export const CHOICE_QUESTION_MAX = 500
 export const CHOICE_OPTION_MAX = 300
@@ -391,21 +398,36 @@ export function sanitizeBlock(block: WorksheetBlock): WorksheetBlock {
     const rawSource = sanitized.gapsSourceText?.trim()
       ? sanitized.gapsSourceText
       : sanitized.gapsText?.trim()
-        ? (() => {
-            let text = sanitized.gapsText ?? ''
-            for (const word of sanitized.gapsAnswers ?? []) {
-              text = text.replace(/_{3,}/, word)
-            }
-            return text
-          })()
+        ? migrateGapsTextToSource(sanitized.gapsText, sanitized.gapsAnswers ?? [])
         : ''
     const source = sanitizeGapsSourceText(rawSource)
     sanitized.gapsSourceText = source
     sanitized.gapsText = undefined
     sanitized.gapsAnswers = sanitizeGapAnswers(source, sanitized.gapsAnswers)
+    return rejectInvalidFillGapsBlock(sanitized)
   }
 
   return sanitized
+}
+
+function rejectInvalidFillGapsBlock(block: WorksheetBlock): WorksheetBlock {
+  if (block.type !== 'fill_gaps') return block
+  if (isValidFillGapsBlock(block)) return block
+
+  const source =
+    getGapsSourceText(block) || block.gapsSourceText?.trim() || block.gapsText?.trim() || ''
+  const question = block.question?.trim() || 'Заполните пропуски в тексте.'
+
+  return {
+    ...block,
+    type: 'text',
+    body: source.trim() || question,
+    question: undefined,
+    gapsSourceText: undefined,
+    gapsText: undefined,
+    gapsAnswers: undefined,
+    gapsShuffleAnswers: undefined,
+  }
 }
 
 export function sanitizeBlocks(blocks: WorksheetBlock[]): WorksheetBlock[] {
@@ -481,49 +503,52 @@ export function sanitizeGapAnswers(sourceText: string, gapWords: string[]): stri
   return gapWords.filter((word) => gapWordOccursOutsideMath(sourceText, word))
 }
 
-export function markGapAnswersInText(sourceText: string, gapWords: string[]): string {
+function mapEditablePlainSegments(
+  sourceText: string,
+  gapWords: string[],
+  mapPlain: (plain: string, validGapWords: string[]) => string,
+): string {
   const validGapWords = sanitizeGapAnswers(sourceText, gapWords)
   if (!validGapWords.length) return sourceText
 
-  const segments = splitMathSegments(sourceText)
-  return segments
+  return splitMathSegments(sourceText)
     .map((segment) => {
       if (segment.kind === 'math') {
         return segment.display ? `$$${segment.value}$$` : `$${segment.value}$`
       }
-      let plain = segment.value
-      for (const word of validGapWords) {
-        const idx = plain.indexOf(word)
-        if (idx >= 0) {
-          plain = `${plain.slice(0, idx)}<u>${word}</u>${plain.slice(idx + word.length)}`
-        }
+      if (looksLikeMathPlainText(segment.value)) {
+        return segment.value
       }
-      return plain
+      return mapPlain(segment.value, validGapWords)
     })
     .join('')
 }
 
+export function markGapAnswersInText(sourceText: string, gapWords: string[]): string {
+  return mapEditablePlainSegments(sourceText, gapWords, (plain, validGapWords) => {
+    let next = plain
+    for (const word of validGapWords) {
+      const idx = next.indexOf(word)
+      if (idx >= 0) {
+        next = `${next.slice(0, idx)}<u>${word}</u>${next.slice(idx + word.length)}`
+      }
+    }
+    return next
+  })
+}
+
 export function renderGapsStudentText(sourceText: string, gapWords: string[]): string {
   if (!sourceText.trim()) return ''
-  const validGapWords = sanitizeGapAnswers(sourceText, gapWords)
-  if (!validGapWords.length) return sourceText
-
-  const segments = splitMathSegments(sourceText)
-  return segments
-    .map((segment) => {
-      if (segment.kind === 'math') {
-        return segment.display ? `$$${segment.value}$$` : `$${segment.value}$`
+  return mapEditablePlainSegments(sourceText, gapWords, (plain, validGapWords) => {
+    let next = plain
+    for (const word of validGapWords) {
+      const idx = next.indexOf(word)
+      if (idx >= 0) {
+        next = next.slice(0, idx) + gapUnderscore(word) + next.slice(idx + word.length)
       }
-      let plain = segment.value
-      for (const word of validGapWords) {
-        const idx = plain.indexOf(word)
-        if (idx >= 0) {
-          plain = plain.slice(0, idx) + gapUnderscore(word) + plain.slice(idx + word.length)
-        }
-      }
-      return plain
-    })
-    .join('')
+    }
+    return next
+  })
 }
 
 export function tokenizeGapText(text: string): string[] {
@@ -535,13 +560,24 @@ export function getGapsSourceText(block: WorksheetBlock): string {
     return sanitizeGapsSourceText(block.gapsSourceText)
   }
   if (block.gapsText?.trim()) {
-    let text = block.gapsText
-    for (const word of block.gapsAnswers ?? []) {
-      text = text.replace(/_{3,}/, word)
-    }
-    return sanitizeGapsSourceText(text)
+    return sanitizeGapsSourceText(
+      migrateGapsTextToSource(block.gapsText, block.gapsAnswers ?? []),
+    )
   }
   return ''
+}
+
+export function getFillGapsValidationError(block: WorksheetBlock): string | null {
+  if (block.type !== 'fill_gaps') return null
+  const source = getGapsSourceText(block)
+  if (!source.trim()) return 'empty'
+  if (hasForbiddenGapsInFormulas(source, block.gapsAnswers ?? [])) return 'gaps_in_formulas'
+  if (getValidGapAnswers(block).length === 0) return 'no_valid_gaps'
+  return null
+}
+
+export function isValidFillGapsBlock(block: WorksheetBlock): boolean {
+  return getFillGapsValidationError(block) == null
 }
 
 export function getValidGapAnswers(block: WorksheetBlock): string[] {
