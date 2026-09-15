@@ -340,7 +340,7 @@ export function sanitizeBlock(block: WorksheetBlock): WorksheetBlock {
       })()
     : {}
 
-  return {
+  const sanitized: WorksheetBlock = {
     ...block,
     question: asText(block.question),
     body: asText(block.body),
@@ -369,11 +369,11 @@ export function sanitizeBlock(block: WorksheetBlock): WorksheetBlock {
     orderItems: Array.isArray(block.orderItems)
       ? block.orderItems.map((item) => asText(item) ?? '').filter(Boolean)
       : block.orderItems,
+    gapsText: asText(block.gapsText),
+    gapsSourceText: asText(block.gapsSourceText),
     gapsAnswers: Array.isArray(block.gapsAnswers)
       ? block.gapsAnswers.map((item) => asText(item) ?? '').filter(Boolean)
       : block.gapsAnswers,
-    gapsText: asText(block.gapsText),
-    gapsSourceText: asText(block.gapsSourceText),
     correctAnswers: Array.isArray(block.correctAnswers)
       ? block.correctAnswers.map((item) => asText(item) ?? '').filter(Boolean)
       : block.correctAnswers,
@@ -386,6 +386,15 @@ export function sanitizeBlock(block: WorksheetBlock): WorksheetBlock {
         }
       : {}),
   }
+
+  if (sanitized.type === 'fill_gaps' && Array.isArray(sanitized.gapsAnswers)) {
+    sanitized.gapsAnswers = sanitizeGapAnswers(
+      getGapsSourceText(sanitized),
+      sanitized.gapsAnswers,
+    )
+  }
+
+  return sanitized
 }
 
 export function sanitizeBlocks(blocks: WorksheetBlock[]): WorksheetBlock[] {
@@ -515,9 +524,13 @@ export function getGapsSourceText(block: WorksheetBlock): string {
   return ''
 }
 
+export function getValidGapAnswers(block: WorksheetBlock): string[] {
+  return sanitizeGapAnswers(getGapsSourceText(block), block.gapsAnswers ?? [])
+}
+
 export function getGapsStudentText(block: WorksheetBlock): string {
   const source = getGapsSourceText(block)
-  const gapWords = sanitizeGapAnswers(source, block.gapsAnswers ?? [])
+  const gapWords = getValidGapAnswers(block)
   return renderGapsStudentText(source, gapWords)
 }
 
@@ -526,7 +539,7 @@ export function getGapsDisplayAnswers(
   editable: boolean,
   selected: boolean,
 ): string[] {
-  const answers = block.gapsAnswers ?? []
+  const answers = getValidGapAnswers(block)
   if (!answers.length) return []
   if (editable && selected) return answers
   if (!block.gapsShuffleAnswers) return answers

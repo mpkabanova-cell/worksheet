@@ -56,8 +56,6 @@ export function measureTextWidthPx(
       })()
     : Math.ceil(normalized.length * fontSizePx * 0.55)
   const domWidth = measureTextWidthDomPx(normalized, fontSizePx, bold)
-  // DOM often measures wider than Word renders in narrow cells — use it only when canvas underestimates.
-  if (domWidth > canvasWidth * 1.05) return canvasWidth
   return Math.max(canvasWidth, domWidth)
 }
 

@@ -4,13 +4,12 @@ import {
   getMatchingExportRows,
   getMatchingRightItems,
 } from '@/data/blockUtils'
-import { MATCHING_EXPORT_WIDTH_PX } from '@/export/word/layoutTokens'
+import { getMatchingLayoutSpec } from '@/export/word/layoutSpec'
 import { captureDomToPng } from '@/export/word/rasterize/domToPng'
 import { appendMathText, ensureKatexStyles } from '@/export/word/rasterize/renderMathHtml'
 import type { DomImageResult, ExportContext } from '@/export/word/types'
 import choiceImagePlaceholder from '@/assets/worksheet/choice-image-placeholder.png'
 
-const SLOT_WIDTH_PX = MATCHING_EXPORT_WIDTH_PX
 const BORDER_TERTIARY = '#9399BD'
 const BORDER_BRAND = '#503AE0'
 const BG_WHITE = '#ffffff'
@@ -211,17 +210,19 @@ export async function rasterizeMatching(
   const highlightedLeft = new Set(links.map((l) => l.leftIndex))
   const highlightedRight = new Set(links.map((l) => l.rightIndex))
 
+  const spec = getMatchingLayoutSpec()
   const cacheKey = `matching:${block.id}:${showAnswer}:${(block.correctAnswers ?? []).join('|')}:${exportRows.map((row) => `${row.left.text}|${row.right.text}`).join(';')}`
 
   ensureKatexStyles(document.body)
 
   const board = document.createElement('div')
   board.style.position = 'relative'
-  board.style.display = 'inline-block'
-  board.style.width = 'auto'
-  board.style.maxWidth = `${SLOT_WIDTH_PX}px`
+  board.style.display = 'block'
+  board.style.width = `${spec.captureWidthPx}px`
   board.style.boxSizing = 'border-box'
-  board.style.overflow = 'visible'
+  board.style.padding = `${spec.borderPaddingPx}px`
+  board.style.overflow = 'hidden'
+  board.style.background = BG_WHITE
 
   const rowsWrap = document.createElement('div')
   rowsWrap.style.display = 'flex'
@@ -262,6 +263,6 @@ export async function rasterizeMatching(
           addMatchLinesSvg(board, matchLines)
         }
       : undefined,
-    { fitContent: true, contentPaddingPx: 12 },
+    { fitContent: false, contentPaddingPx: 0 },
   )
 }

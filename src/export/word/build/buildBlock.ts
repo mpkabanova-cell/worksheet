@@ -5,8 +5,8 @@ import {
   getGapsDisplayAnswers,
   getGapsSourceText,
   getGapsStudentText,
+  getValidGapAnswers,
   markGapAnswersInText,
-  sanitizeGapAnswers,
   getOrderDisplayItems,
   getTableAnswerBank,
   isChoiceBlock,
@@ -32,7 +32,7 @@ import { rasterizeMatching } from '@/export/word/rasterize/renderMatchingDom'
 import {
   COLORS,
   LAYOUT,
-  MATCHING_EXPORT_WIDTH_PX,
+import { getMatchingLayoutSpec } from '@/export/word/layoutSpec'
   TYPO,
   pxToDxa,
   pxToHalfPoints,
@@ -232,7 +232,7 @@ async function buildFillGaps(
   ctx: ExportContext,
 ): Promise<DocxBlock[]> {
   const source = getGapsSourceText(block)
-  const gapWords = sanitizeGapAnswers(source, block.gapsAnswers ?? [])
+  const gapWords = getValidGapAnswers(block)
   const text = showAnswer ? markGapAnswersInText(source, gapWords) : getGapsStudentText(block)
   const result: DocxBlock[] = []
 
@@ -302,8 +302,9 @@ async function buildMatching(
   showAnswer: boolean,
   ctx: ExportContext,
 ): Promise<Paragraph[]> {
+  const spec = getMatchingLayoutSpec()
   const image = await rasterizeMatching(block, showAnswer, ctx)
-  const displayWidth = Math.min(image.width, MATCHING_EXPORT_WIDTH_PX)
+  const displayWidth = spec.imageWidthPx
   const displayHeight = Math.max(1, Math.round(image.height * (displayWidth / image.width)))
 
   return [
@@ -523,8 +524,6 @@ export async function buildBlockContent(
   const choiceFormat = block.choiceOptionFormat ?? 'text'
   let headOptions: TaskHeadTableOptions = {}
 
-  const matchingWidthDxa = pxToDxa(MATCHING_EXPORT_WIDTH_PX)
-
   if (isChoiceBlock(block) && choiceFormat === 'text') {
     const optionParagraphs = await buildChoiceOptionParagraphs(block, showAnswer, ctx)
     headOptions = {
@@ -533,11 +532,14 @@ export async function buildBlockContent(
       ],
     }
   } else if (block.type === 'matching') {
+    const matchingSpec = getMatchingLayoutSpec()
     const matchingParagraphs = await buildMatching(block, showAnswer, ctx)
     headOptions = {
-      contentWidthCapDxa: matchingWidthDxa,
+      contentWidthCapDxa: matchingSpec.cellWidthDxa,
       padQuestionRowToCap: true,
-      extraRows: (grid) => [buildWidgetBodyRow(grid, matchingParagraphs)],
+      extraRows: (grid) => [
+        buildWidgetBodyRow(grid, matchingParagraphs, { cellMarginPx: matchingSpec.cellMarginPx }),
+      ],
     }
   }
 

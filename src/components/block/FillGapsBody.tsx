@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import type { WorksheetBlock } from '@/data/worksheet'
 import { gapWordOccursOutsideMath, isSelectionInsideMath } from '@/data/mathTextUtils'
 import { markGapAnswersInText, sanitizeGapAnswers } from '@/data/blockUtils'
@@ -18,6 +18,22 @@ export function FillGapsEditor({
   onChange,
 }: FillGapsEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    const valid = sanitizeGapAnswers(sourceText, gapWords)
+    if (
+      valid.length !== gapWords.length ||
+      valid.some((word, index) => word !== gapWords[index])
+    ) {
+      onChange({
+        gapsAnswers: valid,
+        gapsSourceText: sourceText,
+        gapsText: undefined,
+      })
+    }
+  }, [sourceText, gapWords, onChange])
+
+  const validGapWords = sanitizeGapAnswers(sourceText, gapWords)
 
   const syncSource = (nextSource: string) => {
     onChange({
@@ -70,10 +86,10 @@ export function FillGapsEditor({
         onClick={(e) => e.stopPropagation()}
       />
 
-      {gapWords.length > 0 ? (
+      {validGapWords.length > 0 ? (
         <div className="gaps-words-bank" aria-label="Пропущенные слова">
           <span className="gaps-words-bank-label">Пропущенные слова:</span>
-          {gapWords.map((word, index) => (
+          {validGapWords.map((word, index) => (
             <span key={word} className="gaps-words-bank-item">
               <button
                 type="button"
@@ -83,7 +99,7 @@ export function FillGapsEditor({
               >
                 <MathText text={word} as="span" />
               </button>
-              {index < gapWords.length - 1 ? <span className="gaps-words-bank-sep">,</span> : null}
+              {index < validGapWords.length - 1 ? <span className="gaps-words-bank-sep">,</span> : null}
             </span>
           ))}
         </div>
