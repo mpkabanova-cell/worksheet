@@ -1202,6 +1202,13 @@
   width: 100%;
 }
 
+.gaps-editor-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--text-secondary);
+}
+
 .gaps-student {
   display: flex;
   flex-direction: column;

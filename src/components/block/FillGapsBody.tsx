@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { WorksheetBlock } from '@/data/worksheet'
-import { gapWordOccursOutsideMath, isSelectionInsideMath } from '@/data/mathTextUtils'
+import { gapWordOccursOutsideMath, hasGapMarkersInMath, isSelectionInsideMath, sanitizeGapsSourceText } from '@/data/mathTextUtils'
 import { markGapAnswersInText, sanitizeGapAnswers } from '@/data/blockUtils'
 import { MathText } from '@/components/MathText'
 import { WysiwygTextarea } from '@/components/WysiwygTextarea'
@@ -20,26 +20,30 @@ export function FillGapsEditor({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    const valid = sanitizeGapAnswers(sourceText, gapWords)
-    if (
-      valid.length !== gapWords.length ||
-      valid.some((word, index) => word !== gapWords[index])
-    ) {
+    const sanitizedSource = sanitizeGapsSourceText(sourceText)
+    const valid = sanitizeGapAnswers(sanitizedSource, gapWords)
+    const sourceChanged = sanitizedSource !== sourceText
+    const answersChanged =
+      valid.length !== gapWords.length || valid.some((word, index) => word !== gapWords[index])
+
+    if (sourceChanged || answersChanged) {
       onChange({
         gapsAnswers: valid,
-        gapsSourceText: sourceText,
+        gapsSourceText: sanitizedSource,
         gapsText: undefined,
       })
     }
   }, [sourceText, gapWords, onChange])
 
   const validGapWords = sanitizeGapAnswers(sourceText, gapWords)
+  const mathGapsRemoved = hasGapMarkersInMath(sourceText)
 
   const syncSource = (nextSource: string) => {
+    const sanitizedSource = sanitizeGapsSourceText(nextSource)
     onChange({
-      gapsSourceText: nextSource,
+      gapsSourceText: sanitizedSource,
       gapsText: undefined,
-      gapsAnswers: sanitizeGapAnswers(nextSource, gapWords),
+      gapsAnswers: sanitizeGapAnswers(sanitizedSource, gapWords),
     })
   }
 
@@ -108,6 +112,10 @@ export function FillGapsEditor({
       <Button variant="secondary" size="sm" type="button" onClick={addGapFromSelection}>
         Добавить в пропуски
       </Button>
+
+      {mathGapsRemoved ? (
+        <p className="gaps-editor-hint">Пропуски внутри формул не поддерживаются и будут удалены.</p>
+      ) : null}
     </div>
   )
 }

@@ -7,7 +7,7 @@ import type {
   WorksheetDraft,
 } from './worksheet'
 import { uid } from './worksheet'
-import { gapWordOccursOutsideMath, splitMathSegments } from '@/data/mathTextUtils'
+import { gapWordOccursOutsideMath, sanitizeGapsSourceText, splitMathSegments } from '@/data/mathTextUtils'
 
 export const CHOICE_QUESTION_MAX = 500
 export const CHOICE_OPTION_MAX = 300
@@ -388,10 +388,21 @@ export function sanitizeBlock(block: WorksheetBlock): WorksheetBlock {
   }
 
   if (sanitized.type === 'fill_gaps' && Array.isArray(sanitized.gapsAnswers)) {
-    sanitized.gapsAnswers = sanitizeGapAnswers(
-      getGapsSourceText(sanitized),
-      sanitized.gapsAnswers,
-    )
+    const rawSource = sanitized.gapsSourceText?.trim()
+      ? sanitized.gapsSourceText
+      : sanitized.gapsText?.trim()
+        ? (() => {
+            let text = sanitized.gapsText ?? ''
+            for (const word of sanitized.gapsAnswers ?? []) {
+              text = text.replace(/_{3,}/, word)
+            }
+            return text
+          })()
+        : ''
+    const source = sanitizeGapsSourceText(rawSource)
+    sanitized.gapsSourceText = source
+    sanitized.gapsText = undefined
+    sanitized.gapsAnswers = sanitizeGapAnswers(source, sanitized.gapsAnswers)
   }
 
   return sanitized
@@ -520,13 +531,15 @@ export function tokenizeGapText(text: string): string[] {
 }
 
 export function getGapsSourceText(block: WorksheetBlock): string {
-  if (block.gapsSourceText?.trim()) return block.gapsSourceText
+  if (block.gapsSourceText?.trim()) {
+    return sanitizeGapsSourceText(block.gapsSourceText)
+  }
   if (block.gapsText?.trim()) {
     let text = block.gapsText
     for (const word of block.gapsAnswers ?? []) {
       text = text.replace(/_{3,}/, word)
     }
-    return text
+    return sanitizeGapsSourceText(text)
   }
   return ''
 }

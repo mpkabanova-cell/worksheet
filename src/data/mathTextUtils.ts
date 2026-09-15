@@ -40,7 +40,9 @@ export function preprocessMathText(input: string): string {
 function normalizeTex(tex: string): string {
   return repairJsonLatexEscapes(tex)
     .replace(/\\div\b/g, ':')
-    .replace(/_{2,}/g, (underscores) => `\\text{${underscores}}`)
+    // Gap placeholders must never appear inside formulas.
+    .replace(/\\text\{_+\}/g, '')
+    .replace(/_{3,}/g, '')
 }
 
 export type MathSegment =
@@ -102,4 +104,53 @@ export function gapWordOccursOutsideMath(source: string, word: string): boolean 
   return splitMathSegments(source).some(
     (segment) => segment.kind === 'text' && segment.value.includes(trimmed),
   )
+}
+
+/** Strip fill-gap placeholders from LaTeX formula text. */
+export function stripGapMarkersFromMathTex(tex: string): string {
+  return tex
+    .replace(/\\text\{_+\}/g, '')
+    .replace(/\\underline\{\s*\}/g, '')
+    .replace(/_{3,}/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s-\s+(?=\+)/g, ' - ')
+    .trim()
+}
+
+/** Plain text that looks like an inline formula (often missing $ delimiters from AI). */
+export function looksLikeMathPlainText(text: string): boolean {
+  const value = text.trim()
+  if (!value) return false
+  if (/^[\d\s.)]+$/.test(value)) return false
+  return /\\frac|\\text\{|\\cdot|\^|[a-z0-9]\s*\^\s*[{(]|[+-]\s*[a-z0-9({]/i.test(value)
+}
+
+function stripGapMarkersFromPlainSegment(text: string): string {
+  if (!looksLikeMathPlainText(text)) return text
+  return stripGapMarkersFromMathTex(text)
+}
+
+/** Remove gap markers from $...$ / $$...$$ and from math-like plain fragments. */
+export function sanitizeGapsSourceText(source: string): string {
+  if (!source.trim()) return source
+
+  return splitMathSegments(source)
+    .map((segment) => {
+      if (segment.kind === 'math') {
+        const cleaned = stripGapMarkersFromMathTex(segment.value)
+        return segment.display ? `$$${cleaned}$$` : `$${cleaned}$`
+      }
+      return stripGapMarkersFromPlainSegment(segment.value)
+    })
+    .join('')
+}
+
+/** Whether source still contains gap markers inside math spans. */
+export function hasGapMarkersInMath(source: string): boolean {
+  return splitMathSegments(source).some((segment) => {
+    if (segment.kind === 'math') {
+      return /\\text\{_+\}|_{3,}/.test(segment.value)
+    }
+    return looksLikeMathPlainText(segment.value) && /\\text\{_+\}|_{3,}/.test(segment.value)
+  })
 }
