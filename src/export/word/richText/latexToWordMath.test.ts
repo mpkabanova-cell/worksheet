@@ -16,6 +16,8 @@ describe('latexToWordMath', () => {
     expect(xml).toContain('<m:sty m:val="p"/>')
     expect(xml).toContain(`<w:sz w:val="${pxToHalfPoints(style.sizePx)}"/>`)
     expect(xml).toContain('<w:i w:val="false"/>')
+    expect(xml).toMatch(/<m:rPr><m:sty m:val="p"\/><\/m:rPr><w:rPr>/)
+    expect(xml).toContain('<m:ctrlPr>')
   })
 
   it('parses (x+5)^2 as superscript with bracketed base', async () => {
@@ -100,11 +102,11 @@ describe('latexToWordMath', () => {
       },
     )
 
-    it('renders tg and ctg as function names, not tan/cot', async () => {
+    it('renders tg and ctg as upright names, not tan/cot', async () => {
       const tgXml = await ommlXmlFromLatex(String.raw`\tg 30^{\circ}`, style)
       const ctgXml = await ommlXmlFromLatex(String.raw`\ctg 45^{\circ}`, style)
 
-      expect(tgXml).toContain('<m:func>')
+      expect(tgXml).not.toContain('<m:func>')
       expect(tgXml).toContain('<m:t>tg</m:t>')
       expect(tgXml).not.toContain('<m:t>tan</m:t>')
       expect(ctgXml).toContain('<m:t>ctg</m:t>')

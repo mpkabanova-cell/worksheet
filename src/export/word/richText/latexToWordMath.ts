@@ -4,7 +4,6 @@ import {
   Math,
   MathCurlyBrackets,
   MathFraction,
-  MathFunction,
   MathRadical,
   MathRoundBrackets,
   MathSquareBrackets,
@@ -14,7 +13,7 @@ import {
   type MathComponent,
 } from 'docx'
 import { renderMathToPng } from '@/export/word/richText/mathToImage'
-import { styledMathRun } from '@/export/word/richText/styledMathRun'
+import { styledMath, styledMathRun } from '@/export/word/richText/styledMathRun'
 import { imageRunFromPngSized } from '@/export/word/richText/toDocxContent'
 import type { ExportContext, TextStyleSpec } from '@/export/word/types'
 import type { ImageRun, ParagraphChild } from 'docx'
@@ -618,10 +617,8 @@ function mathComponentsFromNode(node: MathNode, style: TextStyleSpec): MathCompo
     }
     case 'function':
       return [
-        new MathFunction({
-          name: [mathRun(node.name, style)],
-          children: mathComponentsFromNode(node.argument, style),
-        }),
+        mathRun(node.name, style),
+        ...mathComponentsFromNode(node.argument, style),
       ]
     default:
       return []
@@ -629,7 +626,7 @@ function mathComponentsFromNode(node: MathNode, style: TextStyleSpec): MathCompo
 }
 
 export function wordMathFromNode(node: MathNode, style: TextStyleSpec): Math {
-  return new Math({ children: mathComponentsFromNode(node, style) })
+  return styledMath(mathComponentsFromNode(node, style), style)
 }
 
 export function latexToWordMath(latex: string, style: TextStyleSpec): Math {
