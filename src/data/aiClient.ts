@@ -1,3 +1,5 @@
+import { sanitizeAiJsonText } from './mathTextUtils'
+
 export class AiError extends Error {
   constructor(message: string) {
     super(message)
@@ -5,18 +7,30 @@ export class AiError extends Error {
   }
 }
 
-function extractJson(text: string): unknown {
+function tryParseJson(text: string): unknown {
+  return JSON.parse(sanitizeAiJsonText(text))
+}
+
+/** @internal Exported for tests. */
+export function extractJson(text: string): unknown {
   const trimmed = text.trim()
-  try {
-    return JSON.parse(trimmed)
-  } catch {
-    const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i)
-    if (fenced?.[1]) return JSON.parse(fenced[1].trim())
-    const start = trimmed.indexOf('{')
-    const end = trimmed.lastIndexOf('}')
-    if (start >= 0 && end > start) return JSON.parse(trimmed.slice(start, end + 1))
-    throw new AiError('Модель вернула невалидный JSON')
+  const start = trimmed.indexOf('{')
+  const end = trimmed.lastIndexOf('}')
+  const attempts = [
+    trimmed,
+    trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1]?.trim(),
+    start >= 0 && end > start ? trimmed.slice(start, end + 1) : null,
+  ].filter((candidate): candidate is string => Boolean(candidate))
+
+  for (const candidate of attempts) {
+    try {
+      return tryParseJson(candidate)
+    } catch {
+      /* try next candidate */
+    }
   }
+
+  throw new AiError('Модель вернула невалидный JSON. Попробуйте сгенерировать ещё раз.')
 }
 
 /** Вызов идёт через серверный прокси `/api/chat` — ключ только на сервере. */

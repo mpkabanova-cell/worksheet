@@ -11,6 +11,7 @@ export function repairJsonLatexEscapes(text: string): string {
     .replace(/\u0009heta/g, '\\theta')
     .replace(/\u0009an\b/g, '\\tan')
     .replace(/\u0009o\b/g, '\\to')
+    .replace(/\u0009g\b/g, '\\tg')
     .replace(/\u0008eta/g, '\\beta')
     .replace(/\u0008ar\b/g, '\\bar')
     .replace(/\u0008inom/g, '\\binom')
@@ -22,6 +23,91 @@ export function repairJsonLatexEscapes(text: string): string {
     .replace(/\u000Dight/g, '\\right')
     .replace(/\u000Dho/g, '\\rho')
     .replace(/\u000Dquad/g, '\\quad')
+}
+
+/** LaTeX suffixes that collide with JSON escapes (\f, \t, \b, \n, \r). */
+const LATEX_AFTER_JSON_ESCAPE: Record<string, string[]> = {
+  f: ['rac', 'orall'],
+  t: ['ext', 'imes', 'heta', 'an', 'o', 'g'],
+  b: ['eta', 'ar', 'inom', 'ig'],
+  n: ['eq', 'u', 'abla', 'ot'],
+  r: ['ight', 'ho', 'quad'],
+}
+
+function isEscapedQuote(text: string, quoteIndex: number): boolean {
+  let backslashes = 0
+  for (let i = quoteIndex - 1; i >= 0 && text[i] === '\\'; i -= 1) {
+    backslashes += 1
+  }
+  return backslashes % 2 === 1
+}
+
+/**
+ * Fixes LaTeX backslashes inside JSON string literals before JSON.parse.
+ * Handles invalid escapes (\sin, \sqrt) and JSON-valid ones that corrupt LaTeX (\frac, \tg).
+ */
+export function sanitizeAiJsonText(raw: string): string {
+  let result = ''
+  let inString = false
+  let i = 0
+
+  while (i < raw.length) {
+    const ch = raw[i]
+
+    if (!inString) {
+      result += ch
+      if (ch === '"') inString = true
+      i += 1
+      continue
+    }
+
+    if (ch === '"' && !isEscapedQuote(raw, i)) {
+      inString = false
+      result += ch
+      i += 1
+      continue
+    }
+
+    if (ch === '\\') {
+      const next = raw[i + 1]
+      if (!next) {
+        result += '\\\\'
+        i += 1
+        continue
+      }
+
+      if (next === 'u') {
+        const slice = raw.slice(i, i + 6)
+        if (/^\\u[0-9a-fA-F]{4}$/.test(slice)) {
+          result += slice
+          i += 6
+          continue
+        }
+      }
+
+      if ('"\\/bfnrt'.includes(next)) {
+        const suffix = raw.slice(i + 2)
+        const latexCandidates = LATEX_AFTER_JSON_ESCAPE[next]
+        if (latexCandidates?.some((prefix) => suffix.startsWith(prefix))) {
+          result += '\\\\' + next
+          i += 2
+          continue
+        }
+        result += ch + next
+        i += 2
+        continue
+      }
+
+      result += '\\\\' + next
+      i += 2
+      continue
+    }
+
+    result += ch
+    i += 1
+  }
+
+  return result
 }
 
 /** Российская запись в LaTeX: десятичная запятая, tg/ctg вместо tan/cot. */

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeRussianMathTex, preprocessMathText } from '@/data/mathTextUtils'
+import { normalizeRussianMathTex, preprocessMathText, repairJsonLatexEscapes } from '@/data/mathTextUtils'
+
+describe('repairJsonLatexEscapes', () => {
+  it('repairs \\tg corrupted by JSON tab escape', () => {
+    expect(repairJsonLatexEscapes('$' + '\t' + 'g 30^{\\circ}$')).toBe('$\\tg 30^{\\circ}$')
+  })
+})
 
 describe('normalizeRussianMathTex', () => {
   it('converts decimal dot to comma in expressions', () => {
