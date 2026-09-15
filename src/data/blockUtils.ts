@@ -542,7 +542,23 @@ export function getMatchingCorrectLinks(
   const left = block.leftItems ?? []
   const canonicalRight = block.rightItems ?? []
 
+  const findIndexedSide = (prefix: 'left' | 'right', token: string, items: { id: string }[]): number => {
+    const trimmed = token.trim()
+    const byId = items.findIndex((item) => item.id === trimmed)
+    if (byId >= 0) return byId
+
+    const indexMatch = trimmed.match(new RegExp(`^${prefix}_(\\d+)$`, 'i'))
+    if (indexMatch) {
+      const index = Number.parseInt(indexMatch[1], 10) - 1
+      if (index >= 0 && index < items.length) return index
+    }
+    return -1
+  }
+
   const findRightIndex = (raw: string): number => {
+    const bySide = findIndexedSide('right', raw, displayRight)
+    if (bySide >= 0) return bySide
+
     const normalized = normalizeMatchText(raw)
     let index = displayRight.findIndex((item) => normalizeMatchText(item.text) === normalized)
     if (index >= 0) return index
@@ -556,38 +572,47 @@ export function getMatchingCorrectLinks(
     return index
   }
 
-  if (block.correctAnswers?.length) {
-    return block.correctAnswers
+  const positionalLinks = () =>
+    left
+      .map((_, leftIndex) => {
+        const target = canonicalRight[leftIndex]
+        if (!target) return { leftIndex, rightIndex: -1 }
+        const rightIndex = displayRight.findIndex((item) => item.id === target.id)
+        return { leftIndex, rightIndex }
+      })
+      .filter((pair) => pair.rightIndex >= 0)
+
+  const answers = (block.correctAnswers ?? []).map((answer) => answer.trim()).filter(Boolean)
+  if (answers.length) {
+    const parsed = answers
       .map((answer) => {
         const idMatch = answer.match(/^(left_\d+)\s*(?:→|->)\s*(right_\d+)/i)
         if (idMatch) {
           return {
-            leftIndex: left.findIndex((item) => item.id === idMatch[1]),
-            rightIndex: displayRight.findIndex((item) => item.id === idMatch[2]),
+            leftIndex: findIndexedSide('left', idMatch[1], left),
+            rightIndex: findIndexedSide('right', idMatch[2], displayRight),
           }
         }
 
         const parts = answer.split(/\s*(?:→|->)\s*/)
         if (parts.length === 2) {
-          const leftIndex = left.findIndex(
+          let leftIndex = left.findIndex(
             (item) => normalizeMatchText(item.text) === normalizeMatchText(parts[0]),
           )
+          if (leftIndex < 0) {
+            leftIndex = findIndexedSide('left', parts[0], left)
+          }
           return { leftIndex, rightIndex: findRightIndex(parts[1]) }
         }
 
         return { leftIndex: -1, rightIndex: -1 }
       })
       .filter((pair) => pair.leftIndex >= 0 && pair.rightIndex >= 0)
+
+    if (parsed.length > 0) return parsed
   }
 
-  return left
-    .map((_, leftIndex) => {
-      const target = canonicalRight[leftIndex]
-      if (!target) return { leftIndex, rightIndex: -1 }
-      const rightIndex = displayRight.findIndex((item) => item.id === target.id)
-      return { leftIndex, rightIndex }
-    })
-    .filter((pair) => pair.rightIndex >= 0)
+  return positionalLinks()
 }
 
 export function getTableAnswerBank(block: WorksheetBlock, editable: boolean, selected: boolean): string[] {

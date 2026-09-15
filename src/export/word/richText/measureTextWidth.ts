@@ -1,11 +1,11 @@
 import type { ContentSegment } from '@/export/word/richText/parseRichText'
 import { normalizeExportText } from '@/export/word/richText/normalizeExportText'
-import { FONT } from '@/export/word/layoutTokens'
+import { FONT, FONT_CSS } from '@/export/word/layoutTokens'
 
-export const TEXT_CELL_PADDING_PX = 4
-export const MATH_CELL_PADDING_PX = 4
+export const TEXT_CELL_PADDING_PX = 1
+export const MATH_CELL_PADDING_PX = 2
 /** Word often renders STIX slightly wider than canvas measureText (esp. Cyrillic). */
-export const TEXT_MEASURE_SAFETY = 1.06
+export const TEXT_MEASURE_SAFETY = 1.03
 
 export type InlineWidthCell =
   | { kind: 'text'; segments: ContentSegment[] }
@@ -20,6 +20,26 @@ function getCanvasContext(): CanvasRenderingContext2D | null {
   return canvas.getContext('2d')
 }
 
+function measureTextWidthDomPx(text: string, fontSizePx: number, bold = false): number {
+  if (typeof document === 'undefined') return 0
+
+  const normalized = normalizeExportText(text)
+  if (!normalized) return 0
+
+  const span = document.createElement('span')
+  span.style.position = 'fixed'
+  span.style.left = '-10000px'
+  span.style.top = '0'
+  span.style.visibility = 'hidden'
+  span.style.whiteSpace = 'nowrap'
+  span.style.font = `${bold ? '600' : '400'} ${fontSizePx}px ${FONT_CSS}`
+  span.textContent = normalized
+  document.body.appendChild(span)
+  const width = span.getBoundingClientRect().width
+  span.remove()
+  return Math.ceil(width)
+}
+
 export function measureTextWidthPx(
   text: string,
   fontSizePx: number,
@@ -29,10 +49,14 @@ export function measureTextWidthPx(
   if (!normalized) return 0
 
   const ctx = getCanvasContext()
-  if (!ctx) return Math.ceil(normalized.length * fontSizePx * 0.55)
-
-  ctx.font = `${bold ? '600' : '400'} ${fontSizePx}px "${FONT}", "Times New Roman", serif`
-  return Math.ceil(ctx.measureText(normalized).width)
+  const canvasWidth = ctx
+    ? (() => {
+        ctx.font = `${bold ? '600' : '400'} ${fontSizePx}px "${FONT}", "Times New Roman", serif`
+        return Math.ceil(ctx.measureText(normalized).width)
+      })()
+    : Math.ceil(normalized.length * fontSizePx * 0.55)
+  const domWidth = measureTextWidthDomPx(normalized, fontSizePx, bold)
+  return Math.max(canvasWidth, domWidth)
 }
 
 export function measureSegmentsWidthPx(

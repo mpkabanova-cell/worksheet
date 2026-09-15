@@ -97,6 +97,9 @@ export function lineSpacingPx(linePx: number, sizePx: number): number {
 export const SLOT_CONTENT_WIDTH_PX =
   SHEET_CONTENT_WIDTH_PX - LAYOUT.slotPaddingLeft - LAYOUT.slotPaddingRight
 
+/** Matching widget export width — slightly narrower than slot to avoid table edge clipping. */
+export const MATCHING_EXPORT_WIDTH_PX = SLOT_CONTENT_WIDTH_PX - 16
+
 /** Grid columns for answer cells matching portal AnswerCellsGrid logic. */
 export function answerCellsColumnCount(contentWidthPx = SHEET_CONTENT_WIDTH_PX): number {
   const slotWidth = contentWidthPx - LAYOUT.slotPaddingLeft

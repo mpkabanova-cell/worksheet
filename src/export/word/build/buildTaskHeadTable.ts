@@ -52,7 +52,8 @@ type QuestionLine =
   | { kind: 'inline'; cells: InlineCell[] }
   | { kind: 'display'; tex: string }
 
-const CELL_MARGIN_TWIPS = 40
+const CELL_MARGIN_TWIPS = 0
+const NUM_CELL_MARGIN_RIGHT_TWIPS = 0
 const MIN_QUESTION_FONT_PX = 12
 const MAX_CONTENT_WIDTH_PX = SHEET_CONTENT_WIDTH_PX - LAYOUT.taskNumWidth
 const HIDDEN_BORDER = { style: BorderStyle.NONE, size: 0, color: COLORS.white } as const
@@ -90,8 +91,8 @@ function paragraphLineSpacing(style: TextStyleSpec) {
 
 function rowHeight(style: TextStyleSpec) {
   return {
-    value: pxToTwips(style.linePx + 8),
-    rule: HeightRule.ATLEAST,
+    value: pxToTwips(style.linePx),
+    rule: HeightRule.EXACT,
   }
 }
 
@@ -269,6 +270,7 @@ export function buildBodyContentRow(
 async function buildDifficultyParagraph(
   block: WorksheetBlock,
   ctx: ExportContext,
+  keepNext = false,
 ): Promise<Paragraph> {
   const starRuns: ImageRun[] = []
   for (let n = 1; n <= 3; n += 1) {
@@ -296,6 +298,7 @@ async function buildDifficultyParagraph(
 
   return new Paragraph({
     tabStops: [],
+    keepNext,
     spacing: {
       before: pxToTwips(4),
       after: pxToTwips(4),
@@ -311,15 +314,22 @@ function buildNumCell(
   numStyle: TextStyleSpec,
   numColor: string,
   numCellWidthDxa: number,
+  keepNext = false,
 ): TableCell {
   return new TableCell({
     width: { size: numCellWidthDxa, type: WidthType.DXA },
     borders: hiddenCellBorders(),
-    margins: { top: CELL_MARGIN_TWIPS, bottom: CELL_MARGIN_TWIPS, left: 0, right: 100 },
+    margins: {
+      top: CELL_MARGIN_TWIPS,
+      bottom: CELL_MARGIN_TWIPS,
+      left: 0,
+      right: NUM_CELL_MARGIN_RIGHT_TWIPS,
+    },
     verticalAlign: VerticalAlignTable.CENTER,
     children: [
       new Paragraph({
         alignment: 'center',
+        keepNext,
         spacing: paragraphLineSpacing(numStyle),
         children: [
           new TextRun({
@@ -334,14 +344,20 @@ function buildNumCell(
   })
 }
 
-function buildEmptyNumCell(numCellWidthDxa: number): TableCell {
+function buildEmptyNumCell(numCellWidthDxa: number, keepNext = false): TableCell {
   return new TableCell({
     width: { size: numCellWidthDxa, type: WidthType.DXA },
     borders: hiddenCellBorders(),
-    margins: { top: CELL_MARGIN_TWIPS, bottom: CELL_MARGIN_TWIPS, left: 0, right: 100 },
+    margins: {
+      top: CELL_MARGIN_TWIPS,
+      bottom: CELL_MARGIN_TWIPS,
+      left: 0,
+      right: NUM_CELL_MARGIN_RIGHT_TWIPS,
+    },
     verticalAlign: VerticalAlignTable.CENTER,
     children: [
       new Paragraph({
+        keepNext,
         spacing: paragraphLineSpacing(TYPO.taskNum),
         children: [
           new TextRun({
@@ -359,6 +375,7 @@ function buildTextCell(
   runs: (TextRun | ImageRun)[],
   style: TextStyleSpec,
   widthDxa: number,
+  keepNext = false,
 ): TableCell {
   return new TableCell({
     width: { size: widthDxa, type: WidthType.DXA },
@@ -368,6 +385,7 @@ function buildTextCell(
     children: [
       new Paragraph({
         tabStops: [],
+        keepNext,
         spacing: paragraphLineSpacing(style),
         children:
           runs.length > 0
@@ -378,7 +396,7 @@ function buildTextCell(
   })
 }
 
-function buildMathCell(widthDxa: number, imageRun: ImageRun): TableCell {
+function buildMathCell(widthDxa: number, imageRun: ImageRun, keepNext = false): TableCell {
   return new TableCell({
     width: { size: widthDxa, type: WidthType.DXA },
     borders: hiddenCellBorders(),
@@ -386,14 +404,15 @@ function buildMathCell(widthDxa: number, imageRun: ImageRun): TableCell {
     verticalAlign: VerticalAlignTable.CENTER,
     children: [
       new Paragraph({
-        spacing: { before: 0, after: 0, lineRule: 'exact' },
+        keepNext,
+        spacing: { before: 0, after: 0, lineRule: 'exact' as const },
         children: [imageRun],
       }),
     ],
   })
 }
 
-function buildPaddingCell(widthDxa: number, style: TextStyleSpec): TableCell {
+function buildPaddingCell(widthDxa: number, style: TextStyleSpec, keepNext = false): TableCell {
   return new TableCell({
     width: { size: widthDxa, type: WidthType.DXA },
     borders: hiddenCellBorders(),
@@ -402,6 +421,7 @@ function buildPaddingCell(widthDxa: number, style: TextStyleSpec): TableCell {
     children: [
       new Paragraph({
         tabStops: [],
+        keepNext,
         spacing: paragraphLineSpacing(style),
         children: [new TextRun({ text: '', font: runFont(), size: pxToHalfPoints(style.sizePx) })],
       }),
@@ -416,6 +436,7 @@ async function buildInlineContentCells(
   numCellWidthDxa: number,
   maxTableWidthDxa: number,
   maxContentWidthPx: number,
+  keepNext = false,
 ): Promise<{ cells: TableCell[]; columnWidthsDxa: number[] }> {
   const lineStyle = await fitInlineLineStyle(cells, style, ctx, maxContentWidthPx)
   const effectiveCells = cells.length > 0 ? cells : [{ kind: 'text' as const, segments: [] }]
@@ -454,12 +475,12 @@ async function buildInlineContentCells(
     if (cell.kind === 'math') {
       const img = mathImages.get(cell.tex)!
       const imageRun = await imageRunFromPngSized(img.data, img.width, img.height)
-      tableCells.push(buildMathCell(widthDxa, imageRun))
+      tableCells.push(buildMathCell(widthDxa, imageRun, keepNext))
       continue
     }
 
     const { runs } = await segmentsToRuns(cell.segments, lineStyle, ctx)
-    tableCells.push(buildTextCell(runs, lineStyle, widthDxa))
+    tableCells.push(buildTextCell(runs, lineStyle, widthDxa, keepNext))
   }
 
   return { cells: tableCells, columnWidthsDxa }
@@ -470,6 +491,7 @@ async function buildDisplayContentCell(
   style: TextStyleSpec,
   ctx: ExportContext,
   contentWidthDxa: number,
+  keepNext = false,
 ): Promise<TableCell> {
   const img = await renderMathToPng(tex, true, style.sizePx, ctx)
 
@@ -481,6 +503,7 @@ async function buildDisplayContentCell(
     children: [
       new Paragraph({
         alignment: 'center',
+        keepNext,
         spacing: {
           before: pxToTwips(6),
           after: pxToTwips(6),
@@ -516,19 +539,21 @@ export async function buildTaskHeadTable(
   const rows: TableRow[] = []
   let firstRowColumnWidths: number[] = [numCellWidthDxa]
   let paddingColDxa = 0
+  const hasExtraRows = extraRows != null
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
     const line = lines[lineIndex]
     const rowChildren: TableCell[] = []
+    const rowKeepNext = hasExtraRows || lineIndex < lines.length - 1 || showDifficulty
 
     if (lineIndex === 0) {
-      rowChildren.push(buildNumCell(taskNumber, numStyle, numColor, numCellWidthDxa))
+      rowChildren.push(buildNumCell(taskNumber, numStyle, numColor, numCellWidthDxa, rowKeepNext))
     } else {
-      rowChildren.push(buildEmptyNumCell(numCellWidthDxa))
+      rowChildren.push(buildEmptyNumCell(numCellWidthDxa, rowKeepNext))
     }
 
     if (line.kind === 'display') {
-      rowChildren.push(await buildDisplayContentCell(line.tex, qStyle, ctx, contentWidthDxa))
+      rowChildren.push(await buildDisplayContentCell(line.tex, qStyle, ctx, contentWidthDxa, rowKeepNext))
       if (lineIndex === 0) {
         firstRowColumnWidths = [numCellWidthDxa, contentWidthDxa]
       }
@@ -540,6 +565,7 @@ export async function buildTaskHeadTable(
         numCellWidthDxa,
         maxTableWidthDxa,
         maxContentWidthPx,
+        rowKeepNext,
       )
       rowChildren.push(...cells)
       if (lineIndex === 0) {
@@ -548,13 +574,13 @@ export async function buildTaskHeadTable(
           const contentSum = columnWidthsDxa.reduce((sum, width) => sum + width, 0)
           if (contentSum < contentWidthCapDxa) {
             paddingColDxa = contentWidthCapDxa - contentSum
-            rowChildren.push(buildPaddingCell(paddingColDxa, qStyle))
+            rowChildren.push(buildPaddingCell(paddingColDxa, qStyle, rowKeepNext))
             firstRowColumnWidths.push(paddingColDxa)
             maxContentCols = columnWidthsDxa.length + 1
           }
         }
       } else if (paddingColDxa > 0) {
-        rowChildren.push(buildPaddingCell(paddingColDxa, qStyle))
+        rowChildren.push(buildPaddingCell(paddingColDxa, qStyle, rowKeepNext))
       }
     }
 
@@ -575,7 +601,7 @@ export async function buildTaskHeadTable(
         cantSplit: true,
         height: rowHeight(TYPO.difficulty),
         children: [
-          buildEmptyNumCell(numCellWidthDxa),
+          buildEmptyNumCell(numCellWidthDxa, hasExtraRows),
           new TableCell({
             columnSpan: maxContentCols,
             width: {
@@ -585,7 +611,7 @@ export async function buildTaskHeadTable(
             borders: hiddenCellBorders(),
             margins: cellMargins(),
             verticalAlign: VerticalAlignTable.CENTER,
-            children: [await buildDifficultyParagraph(block, ctx)],
+            children: [await buildDifficultyParagraph(block, ctx, hasExtraRows)],
           }),
         ],
       }),

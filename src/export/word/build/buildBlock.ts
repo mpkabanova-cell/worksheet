@@ -30,6 +30,7 @@ import { rasterizeMatching } from '@/export/word/rasterize/renderMatchingDom'
 import {
   COLORS,
   LAYOUT,
+  MATCHING_EXPORT_WIDTH_PX,
   SLOT_CONTENT_WIDTH_PX,
   TYPO,
   pxToDxa,
@@ -298,12 +299,12 @@ async function buildMatching(
   ctx: ExportContext,
 ): Promise<Paragraph[]> {
   const image = await rasterizeMatching(block, showAnswer, ctx)
-  const displayWidth = Math.min(image.width, SLOT_CONTENT_WIDTH_PX)
+  const displayWidth = Math.min(image.width, MATCHING_EXPORT_WIDTH_PX)
   const displayHeight = Math.max(1, Math.round(image.height * (displayWidth / image.width)))
 
   return [
     new Paragraph({
-      spacing: { before: pxToTwips(LAYOUT.slotPaddingTop), after: pxToTwips(4) },
+      spacing: { before: 0, after: pxToTwips(4) },
       children: [imageRunFromPngSized(image.data, displayWidth, displayHeight)],
     }),
   ]
@@ -519,6 +520,7 @@ export async function buildBlockContent(
   let headOptions: TaskHeadTableOptions = {}
 
   const slotWidthDxa = pxToDxa(SLOT_CONTENT_WIDTH_PX)
+  const matchingWidthDxa = pxToDxa(MATCHING_EXPORT_WIDTH_PX)
 
   if (isChoiceBlock(block) && choiceFormat === 'text') {
     const optionParagraphs = await buildChoiceOptionParagraphs(block, showAnswer, ctx)
@@ -531,7 +533,7 @@ export async function buildBlockContent(
   } else if (block.type === 'matching') {
     const matchingParagraphs = await buildMatching(block, showAnswer, ctx)
     headOptions = {
-      contentWidthCapDxa: slotWidthDxa,
+      contentWidthCapDxa: matchingWidthDxa,
       extraRows: (grid) => [buildWidgetBodyRow(grid, matchingParagraphs)],
     }
   }

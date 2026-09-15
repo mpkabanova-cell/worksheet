@@ -3,13 +3,13 @@ import {
   getMatchingCorrectLinks,
   getMatchingRightItems,
 } from '@/data/blockUtils'
-import { SLOT_CONTENT_WIDTH_PX } from '@/export/word/layoutTokens'
+import { MATCHING_EXPORT_WIDTH_PX } from '@/export/word/layoutTokens'
 import { captureDomToPng } from '@/export/word/rasterize/domToPng'
 import { appendMathText, ensureKatexStyles } from '@/export/word/rasterize/renderMathHtml'
 import type { DomImageResult, ExportContext } from '@/export/word/types'
 import choiceImagePlaceholder from '@/assets/worksheet/choice-image-placeholder.png'
 
-const SLOT_WIDTH_PX = SLOT_CONTENT_WIDTH_PX
+const SLOT_WIDTH_PX = MATCHING_EXPORT_WIDTH_PX
 const BORDER_TERTIARY = '#9399BD'
 const BORDER_BRAND = '#503AE0'
 const BG_WHITE = '#ffffff'
@@ -93,7 +93,7 @@ function createImageBox(item: MatchPair, highlighted: boolean): HTMLDivElement {
   box.style.position = 'relative'
   box.style.flex = '1'
   box.style.minWidth = '0'
-  box.style.maxWidth = '276px'
+  box.style.maxWidth = '268px'
   box.style.aspectRatio = '1 / 1'
   box.style.border = `1px solid ${highlighted ? BORDER_BRAND : BORDER_TERTIARY}`
   box.style.borderRadius = '12px'
@@ -215,7 +215,7 @@ export async function rasterizeMatching(
   const highlightedRight = new Set(links.map((l) => l.rightIndex))
   const rowCount = Math.max(left.length, right.length)
 
-  const cacheKey = `matching:${block.id}:${showAnswer}:${rowCount}:${left.map((i) => i.text).join('|')}:${right.map((i) => i.text).join('|')}`
+  const cacheKey = `matching:${block.id}:${showAnswer}:${(block.correctAnswers ?? []).join('|')}:${rowCount}:${left.map((i) => i.text).join('|')}:${right.map((i) => i.text).join('|')}`
 
   ensureKatexStyles(document.body)
 
@@ -224,7 +224,7 @@ export async function rasterizeMatching(
   board.style.width = `${SLOT_WIDTH_PX}px`
   board.style.maxWidth = `${SLOT_WIDTH_PX}px`
   board.style.boxSizing = 'border-box'
-  board.style.overflow = 'hidden'
+  board.style.overflow = 'visible'
 
   const rowsWrap = document.createElement('div')
   rowsWrap.style.display = 'flex'
@@ -243,7 +243,7 @@ export async function rasterizeMatching(
     const row = document.createElement('div')
     row.style.display = 'flex'
     row.style.alignItems = 'center'
-    row.style.gap = '48px'
+    row.style.gap = '40px'
     row.style.width = '100%'
 
     const leftSide = createSide('left', leftFormat, leftItem, highlightedLeft.has(index))
