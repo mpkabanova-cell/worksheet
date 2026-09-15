@@ -97,6 +97,7 @@ const GREEK_AND_SYMBOLS: Record<string, string> = {
   partial: '∂',
   nabla: '∇',
   degree: '°',
+  circ: '°',
   bullet: '•',
   ellipsis: '…',
   ldots: '…',
@@ -122,6 +123,10 @@ const GREEK_AND_SYMBOLS: Record<string, string> = {
   langle: '⟨',
   rangle: '⟩',
 }
+
+const RUSSIAN_TRIG_FUNCTIONS = new Set(['tg', 'ctg'])
+
+const SPACE_MACROS = new Set([',', ';', ':', '!', 'quad', 'qquad', 'enspace', 'thinspace'])
 
 const FUNCTION_NAMES = new Set([
   'sin',
@@ -150,8 +155,34 @@ function isWhitespace(node: Node): boolean {
   return node.type === 'whitespace' || node.type === 'parbreak'
 }
 
+function coalesceDigitStrings(nodes: Node[]): Node[] {
+  const result: Node[] = []
+  let index = 0
+
+  while (index < nodes.length) {
+    const node = nodes[index]
+    if (node.type === 'string' && /^\d$/.test(node.content)) {
+      let digits = node.content
+      let next = index + 1
+      while (next < nodes.length) {
+        const candidate = nodes[next]
+        if (candidate.type !== 'string' || !/^\d$/.test(candidate.content)) break
+        digits += candidate.content
+        next += 1
+      }
+      result.push({ ...node, content: digits })
+      index = next
+      continue
+    }
+    result.push(node)
+    index += 1
+  }
+
+  return result
+}
+
 function visibleNodes(nodes: Node[]): Node[] {
-  return nodes.filter((node) => !isWhitespace(node))
+  return coalesceDigitStrings(nodes.filter((node) => !isWhitespace(node)))
 }
 
 function argumentContent(arg: Argument | undefined): Node[] {
@@ -276,6 +307,82 @@ function scriptFromMacro(macro: Macro): MathNode {
   return parseNodes(argContent)
 }
 
+function isArgumentStart(nodes: Node[], index: number): boolean {
+  let cursor = index
+  while (cursor < nodes.length && isWhitespace(nodes[cursor])) cursor += 1
+  if (cursor >= nodes.length) return false
+
+  const node = nodes[cursor]
+  if (node.type === 'string') {
+    return !'+-*/=,)'.includes(node.content)
+  }
+  if (node.type === 'macro') {
+    if (node.content === '^' || node.content === '_') return false
+    if (SPACE_MACROS.has(node.content)) return isArgumentStart(nodes, cursor + 1)
+    return true
+  }
+  return true
+}
+
+function attachScriptsToFunction(
+  name: string,
+  argument: MathNode,
+  scriptedName: MathNode,
+): MathNode {
+  const base: MathNode = { kind: 'function', name, argument }
+
+  switch (scriptedName.kind) {
+    case 'sup':
+      if (scriptedName.base.kind === 'text' && scriptedName.base.value === name) {
+        return { kind: 'sup', base, script: scriptedName.script }
+      }
+      break
+    case 'sub':
+      if (scriptedName.base.kind === 'text' && scriptedName.base.value === name) {
+        return { kind: 'sub', base, script: scriptedName.script }
+      }
+      break
+    case 'subsup':
+      if (scriptedName.base.kind === 'text' && scriptedName.base.value === name) {
+        return {
+          kind: 'subsup',
+          base,
+          sub: scriptedName.sub,
+          sup: scriptedName.sup,
+        }
+      }
+      break
+    default:
+      break
+  }
+
+  return base
+}
+
+function parseRussianTrigFunction(
+  nodes: Node[],
+  index: number,
+  name: string,
+): { node: MathNode; next: number } {
+  const scriptedName = applyScripts(textNode(name), nodes, index + 1)
+
+  if (!isArgumentStart(nodes, scriptedName.next)) {
+    if (scriptedName.node.kind === 'text' && scriptedName.node.value === name) {
+      return {
+        node: { kind: 'function', name, argument: textNode('') },
+        next: scriptedName.next,
+      }
+    }
+    return scriptedName
+  }
+
+  const argument = parseExpression(nodes, scriptedName.next)
+  return {
+    node: attachScriptsToFunction(name, argument.node, scriptedName.node),
+    next: argument.next,
+  }
+}
+
 function parsePrimary(nodes: Node[], start: number): { node: MathNode; next: number } {
   let index = start
   while (index < nodes.length && isWhitespace(nodes[index])) index += 1
@@ -307,6 +414,14 @@ function parsePrimary(nodes: Node[], start: number): { node: MathNode; next: num
 
   if (UNSUPPORTED_MACROS.has(name)) {
     throw new UnsupportedLatexError(`unsupported macro: \\${name}`)
+  }
+
+  if (SPACE_MACROS.has(name)) {
+    return { node: textNode(' '), next: index + 1 }
+  }
+
+  if (RUSSIAN_TRIG_FUNCTIONS.has(name)) {
+    return parseRussianTrigFunction(nodes, index, name)
   }
 
   if (name === 'frac') {
@@ -356,7 +471,10 @@ function parsePrimary(nodes: Node[], start: number): { node: MathNode; next: num
 
   if (name === 'text' || name === 'mathrm' || name === 'operatorname') {
     const args = macroArgs(node)
-    const text = args[0]?.map((part) => (part.type === 'string' ? part.content : '')).join('') ?? ''
+    const contentNodes =
+      name === 'operatorname' && args.length > 1 && args[0].length === 0 ? args[1] : args[0]
+    const text =
+      contentNodes?.map((part) => (part.type === 'string' ? part.content : '')).join('') ?? ''
     return { node: textNode(text), next: index + 1 }
   }
 
@@ -531,7 +649,10 @@ export async function mathSegmentToParagraphChild(
   try {
     return latexToWordMath(tex)
   } catch (error) {
-    console.warn('[docx] Unsupported LaTeX, fallback to image', tex, error)
+    console.warn('[docx-math] fallback to PNG', {
+      latex: tex,
+      error,
+    })
     return inlineMathImageRun(await renderMathToPng(tex, display, style.sizePx, ctx))
   }
 }
