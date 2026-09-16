@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ChoiceOptionFormat, MatchPair, WorksheetBlock } from '@/data/worksheet'
-import { getMatchingCorrectLinks, getMatchingRightItems } from '@/data/blockUtils'
+import { getMatchingCorrectLinks, getMatchingRightItems, getMatchingRowCount } from '@/data/blockUtils'
 import { MathEditableInput } from '@/components/MathEditableInput'
 import { MathText } from '@/components/MathText'
 import choiceImagePlaceholder from '@/assets/worksheet/choice-image-placeholder.png'
@@ -198,7 +198,7 @@ export function MatchingView({
     [block, right],
   )
 
-  const rowCount = Math.max(left.length, right.length)
+  const rowCount = getMatchingRowCount(block)
 
   const highlightedLeft = useMemo(
     () => new Set(showAnswer ? links.map((link) => link.leftIndex) : []),

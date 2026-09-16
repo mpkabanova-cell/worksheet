@@ -79,8 +79,20 @@ function toBlock(
     id: `option_${i + 1}`,
     text: sanitizeAiText(text),
   }))
-  const leftItems = task.left_items?.map((text, i) => ({ id: `left_${i + 1}`, text: sanitizeAiText(text) }))
-  const rightItems = task.right_items?.map((text, i) => ({ id: `right_${i + 1}`, text: sanitizeAiText(text) }))
+  const leftItemsRaw = task.left_items?.map((text, i) => ({ id: `left_${i + 1}`, text: sanitizeAiText(text) }))
+  const rightItemsRaw = task.right_items?.map((text, i) => ({ id: `right_${i + 1}`, text: sanitizeAiText(text) }))
+  const matchingPairCount =
+    type === 'matching' && leftItemsRaw?.length && rightItemsRaw?.length
+      ? Math.min(leftItemsRaw.length, rightItemsRaw.length)
+      : undefined
+  const leftItems =
+    type === 'matching' && leftItemsRaw && matchingPairCount
+      ? leftItemsRaw.slice(0, matchingPairCount)
+      : leftItemsRaw
+  const rightItems =
+    type === 'matching' && rightItemsRaw && matchingPairCount
+      ? rightItemsRaw.slice(0, matchingPairCount)
+      : rightItemsRaw
   let correctAnswers = task.correct_answers?.map(sanitizeAiText)
   if (
     type === 'matching' &&
@@ -123,6 +135,7 @@ function toBlock(
     gapsAnswers: task.gaps_answers?.map(sanitizeAiText),
     leftItems,
     rightItems,
+    matchingPairCount,
     groups: task.groups?.map((g, i) => ({
       id: `g${i + 1}`,
       title: sanitizeAiText(g.title),

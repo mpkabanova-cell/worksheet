@@ -414,6 +414,10 @@ export function sanitizeBlock(block: WorksheetBlock): WorksheetBlock {
     return rejectInvalidFillGapsBlock(sanitized)
   }
 
+  if (sanitized.type === 'matching') {
+    return normalizeMatchingBlock(sanitized)
+  }
+
   return sanitized
 }
 
@@ -732,21 +736,27 @@ function findMatchingRightIndex(
   raw: string,
   displayRight: { id: string; text: string }[],
   canonicalRight: { id: string; text: string }[],
+  usedRightIndices?: Set<number>,
 ): number {
   const bySide = findMatchingIndexedSide('right', raw, displayRight)
-  if (bySide >= 0) return bySide
+  if (bySide >= 0 && !usedRightIndices?.has(bySide)) return bySide
 
   const normalized = normalizeMatchText(raw)
-  let index = displayRight.findIndex((item) => normalizeMatchText(item.text) === normalized)
-  if (index >= 0) return index
+  for (let index = 0; index < displayRight.length; index += 1) {
+    if (usedRightIndices?.has(index)) continue
+    if (normalizeMatchText(displayRight[index].text) === normalized) return index
+  }
 
   const canonicalIndex = canonicalRight.findIndex(
     (item) => normalizeMatchText(item.text) === normalized || item.id === raw.trim(),
   )
   if (canonicalIndex < 0) return -1
   const target = canonicalRight[canonicalIndex]
-  index = displayRight.findIndex((item) => item.id === target.id)
-  return index
+  for (let index = 0; index < displayRight.length; index += 1) {
+    if (usedRightIndices?.has(index)) continue
+    if (displayRight[index].id === target.id) return index
+  }
+  return -1
 }
 
 function matchingItemHasContent(item: MatchPair, text: string): boolean {
@@ -827,7 +837,7 @@ export function getMatchingExportRows(
   showAnswer: boolean,
 ): { index: number; left: MatchPair; right: MatchPair }[] {
   const left = block.leftItems ?? []
-  const rowCount = Math.max(left.length, displayRight.length)
+  const rowCount = getMatchingRowCount(block)
   const rows: { index: number; left: MatchPair; right: MatchPair }[] = []
 
   for (let index = 0; index < rowCount; index += 1) {
@@ -854,30 +864,46 @@ export function getMatchingCorrectLinks(
 ): { leftIndex: number; rightIndex: number }[] {
   const left = block.leftItems ?? []
   const canonicalRight = block.rightItems ?? []
+  const usedRightIndices = new Set<number>()
 
-  const findRightIndex = (raw: string): number =>
-    findMatchingRightIndex(raw, displayRight, canonicalRight)
+  const findRightIndex = (raw: string): number => {
+    const index = findMatchingRightIndex(raw, displayRight, canonicalRight, usedRightIndices)
+    if (index >= 0) usedRightIndices.add(index)
+    return index
+  }
 
-  const positionalLinks = () =>
-    left
+  const positionalLinks = () => {
+    usedRightIndices.clear()
+    return left
       .map((_, leftIndex) => {
         const target = canonicalRight[leftIndex]
         if (!target) return { leftIndex, rightIndex: -1 }
-        const rightIndex = displayRight.findIndex((item) => item.id === target.id)
+        const rightIndex = findMatchingRightIndex(
+          target.id,
+          displayRight,
+          canonicalRight,
+          usedRightIndices,
+        )
+        if (rightIndex >= 0) usedRightIndices.add(rightIndex)
         return { leftIndex, rightIndex }
       })
       .filter((pair) => pair.rightIndex >= 0)
+  }
 
   const answers = (block.correctAnswers ?? []).map((answer) => answer.trim()).filter(Boolean)
   if (answers.length) {
+    usedRightIndices.clear()
     const parsed = answers
       .map((answer) => {
         const idMatch = answer.match(/^(left_\d+)\s*(?:→|->)\s*(right_\d+)/i)
         if (idMatch) {
-          return {
-            leftIndex: findMatchingIndexedSide('left', idMatch[1], left),
-            rightIndex: findMatchingIndexedSide('right', idMatch[2], displayRight),
+          const leftIndex = findMatchingIndexedSide('left', idMatch[1], left)
+          const rightIndex = findMatchingIndexedSide('right', idMatch[2], displayRight)
+          if (rightIndex >= 0 && usedRightIndices.has(rightIndex)) {
+            return { leftIndex: -1, rightIndex: -1 }
           }
+          if (rightIndex >= 0) usedRightIndices.add(rightIndex)
+          return { leftIndex, rightIndex }
         }
 
         const parts = answer.split(/\s*(?:→|->)\s*/)
@@ -1020,6 +1046,42 @@ export function resizeOrderItems(block: WorksheetBlock): WorksheetBlock {
 
 export function clampMatchingCount(n: number): number {
   return Math.max(MATCHING_PAIRS_MIN, Math.min(MATCHING_PAIRS_MAX, n))
+}
+
+function inferMatchingPairCount(left: MatchPair[], right: MatchPair[]): number {
+  const maxLen = Math.max(left.length, right.length)
+  let count = 0
+  for (let index = 0; index < maxLen; index += 1) {
+    const leftItem = left[index]
+    const rightItem = right[index]
+    const hasLeft = Boolean(leftItem && matchingItemHasContent(leftItem, leftItem.text ?? ''))
+    const hasRight = Boolean(rightItem && matchingItemHasContent(rightItem, rightItem.text ?? ''))
+    if (hasLeft && hasRight) count = index + 1
+  }
+  return clampMatchingCount(Math.max(count, MATCHING_PAIRS_MIN))
+}
+
+function normalizeMatchingBlock(block: WorksheetBlock): WorksheetBlock {
+  const left = block.leftItems ?? []
+  const right = block.rightItems ?? []
+  const count =
+    block.matchingPairCount != null
+      ? clampMatchingCount(block.matchingPairCount)
+      : inferMatchingPairCount(left, right)
+
+  return resizeMatchingPairs({
+    ...block,
+    matchingPairCount: count,
+    leftItems: left,
+    rightItems: right,
+  })
+}
+
+export function getMatchingRowCount(block: WorksheetBlock): number {
+  return clampMatchingCount(
+    block.matchingPairCount ??
+      inferMatchingPairCount(block.leftItems ?? [], block.rightItems ?? []),
+  )
 }
 
 export function resizeMatchingPairs(block: WorksheetBlock): WorksheetBlock {

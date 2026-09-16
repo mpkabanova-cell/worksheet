@@ -1713,7 +1713,7 @@
   resize: none;
   background: transparent;
   color: var(--text-default);
-  font-size: 12px;
+  font-size: 14px;
   line-height: var(--cell-size);
   font-family: inherit;
   overflow: hidden;
@@ -1728,7 +1728,7 @@
   margin: 0;
   overflow: hidden;
   color: var(--text-default);
-  font-size: 12px;
+  font-size: 14px;
   line-height: var(--cell-size);
   pointer-events: none;
 }
@@ -1736,11 +1736,11 @@
 .answer-cells-grid .math-text {
   display: block;
   line-height: var(--cell-size);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .answer-cells-grid .math-inline .katex {
-  font-size: 0.85em;
+  font-size: 1em;
   line-height: var(--cell-size);
 }
 
@@ -1750,7 +1750,7 @@
 }
 
 .answer-cells-grid .math-display .katex {
-  font-size: 0.9em;
+  font-size: 1em;
 }
 
 .answer-grid-overlay {
