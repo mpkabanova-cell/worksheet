@@ -1,27 +1,8 @@
 import { useRef, type RefObject } from 'react'
-import { FigmaIcon } from '@/components/ui'
 import { MathText } from '@/components/MathText'
-import iconBold from '@/assets/worksheet/tools/wysiwyg-bold.svg'
-import iconItalic from '@/assets/worksheet/tools/wysiwyg-italic.svg'
-import iconStrike from '@/assets/worksheet/tools/wysiwyg-strike.svg'
-import iconUnderline from '@/assets/worksheet/tools/wysiwyg-underline.svg'
-import iconMath from '@/assets/worksheet/tools/wysiwyg-math.svg'
-import iconCode from '@/assets/worksheet/tools/wysiwyg-code.svg'
-import iconSubscript from '@/assets/worksheet/tools/wysiwyg-subscript.svg'
-import iconSuperscript from '@/assets/worksheet/tools/wysiwyg-superscript.svg'
-import iconImage from '@/assets/worksheet/tools/wysiwyg-image.svg'
-import iconMore from '@/assets/worksheet/tools/wysiwyg-more.svg'
-
-type WrapMode = 'bold' | 'italic' | 'strike' | 'underline' | 'heading' | 'code'
-
-const WRAP: Record<WrapMode, { before: string; after: string }> = {
-  bold: { before: '**', after: '**' },
-  italic: { before: '*', after: '*' },
-  strike: { before: '~~', after: '~~' },
-  underline: { before: '<u>', after: '</u>' },
-  heading: { before: '### ', after: '' },
-  code: { before: '`', after: '`' },
-}
+import { MathFormulaEditor } from '@/components/MathFormulaEditor'
+import { WysiwygToolbar } from '@/components/WysiwygToolbar'
+import { useRichTextEditor } from '@/hooks/useRichTextEditor'
 
 interface WysiwygTextareaProps {
   className?: string
@@ -34,86 +15,6 @@ interface WysiwygTextareaProps {
   mathPreview?: boolean
   onChange: (value: string) => void
   onClick?: (e: React.MouseEvent) => void
-}
-
-function ToolButton({
-  floating,
-  label,
-  icon,
-  onClick,
-}: {
-  floating: boolean
-  label: string
-  icon: string
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      className={floating ? 'wysiwyg-btn' : undefined}
-      onClick={onClick}
-      aria-label={label}
-    >
-      <FigmaIcon src={icon} size={18} />
-    </button>
-  )
-}
-
-function WysiwygToolbar({
-  floating,
-  onWrap,
-  onInsert,
-}: {
-  floating: boolean
-  onWrap: (mode: WrapMode) => void
-  onInsert: (before: string, after: string, placeholder?: string) => void
-}) {
-  if (floating) {
-    return (
-      <>
-        <ToolButton floating icon={iconBold} label="Жирный" onClick={() => onWrap('bold')} />
-        <ToolButton floating icon={iconItalic} label="Курсив" onClick={() => onWrap('italic')} />
-        <ToolButton floating icon={iconStrike} label="Зачёркнутый" onClick={() => onWrap('strike')} />
-        <ToolButton floating icon={iconUnderline} label="Подчёркнутый" onClick={() => onWrap('underline')} />
-        <ToolButton floating icon={iconMath} label="Формула" onClick={() => onInsert('$', '$', 'x')} />
-        <ToolButton floating icon={iconCode} label="Код" onClick={() => onWrap('code')} />
-        <ToolButton
-          floating
-          icon={iconSubscript}
-          label="Подстрочный"
-          onClick={() => onInsert('$_{', '}$', 'x')}
-        />
-        <ToolButton
-          floating
-          icon={iconSuperscript}
-          label="Надстрочный"
-          onClick={() => onInsert('$^{', '}$', 'x')}
-        />
-        <ToolButton
-          floating
-          icon={iconImage}
-          label="Изображение"
-          onClick={() => onInsert('![', '](ссылка)', 'описание')}
-        />
-        <span className="wysiwyg-divider" aria-hidden />
-        <ToolButton
-          floating
-          icon={iconMore}
-          label="Разделитель"
-          onClick={() => onInsert('\n\n---\n\n', '', '')}
-        />
-      </>
-    )
-  }
-
-  return (
-    <>
-      <ToolButton floating={false} icon={iconBold} label="Жирный" onClick={() => onWrap('bold')} />
-      <ToolButton floating={false} icon={iconItalic} label="Курсив" onClick={() => onWrap('italic')} />
-      <ToolButton floating={false} icon={iconStrike} label="Зачёркнутый" onClick={() => onWrap('strike')} />
-      <ToolButton floating={false} icon={iconCode} label="Код" onClick={() => onWrap('code')} />
-    </>
-  )
 }
 
 export function WysiwygTextarea({
@@ -135,38 +36,15 @@ export function WysiwygTextarea({
     if (inputRef) inputRef.current = node
   }
 
-  const applyEdit = (next: string, cursor: number) => {
-    const trimmed = maxLength ? next.slice(0, maxLength) : next
-    onChange(trimmed)
-    requestAnimationFrame(() => {
-      const el = ref.current
-      if (!el) return
-      el.focus()
-      const pos = Math.min(cursor, trimmed.length)
-      el.setSelectionRange(pos, pos)
-    })
-  }
-
-  const applyWrap = (mode: WrapMode) => {
-    const el = ref.current
-    if (!el) return
-    const { before, after } = WRAP[mode]
-    const start = el.selectionStart
-    const end = el.selectionEnd
-    const selected = value.slice(start, end) || 'текст'
-    const next = value.slice(0, start) + before + selected + after + value.slice(end)
-    applyEdit(next, start + before.length + selected.length + after.length)
-  }
-
-  const applyInsert = (before: string, after: string, placeholder = '') => {
-    const el = ref.current
-    if (!el) return
-    const start = el.selectionStart
-    const end = el.selectionEnd
-    const selected = value.slice(start, end) || placeholder
-    const next = value.slice(0, start) + before + selected + after + value.slice(end)
-    applyEdit(next, start + before.length + selected.length)
-  }
+  const {
+    applyWrap,
+    applyInsert,
+    openFormulaEditor,
+    closeFormulaEditor,
+    confirmFormula,
+    formulaOpen,
+    formulaInitial,
+  } = useRichTextEditor(value, onChange, ref, maxLength)
 
   const textarea = mathPreview ? (
     <div className={`math-editable math-editable--multiline ${className ?? ''}`}>
@@ -185,6 +63,7 @@ export function WysiwygTextarea({
         maxLength={maxLength}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
+        onClick={onClick}
       />
     </div>
   ) : (
@@ -196,6 +75,7 @@ export function WysiwygTextarea({
       maxLength={maxLength}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
+      onClick={onClick}
     />
   )
 
@@ -206,27 +86,53 @@ export function WysiwygTextarea({
       </span>
     ) : null
 
+  const formulaEditor = (
+    <MathFormulaEditor
+      open={formulaOpen}
+      initialLatex={formulaInitial}
+      onClose={closeFormulaEditor}
+      onConfirm={confirmFormula}
+    />
+  )
+
   if (floatingToolbar) {
     return (
-      <div className="wysiwyg-field wysiwyg-field--block" onClick={onClick}>
-        <div className="block-wysiwyg" onClick={(e) => e.stopPropagation()}>
-          <div className="wysiwyg-tools">
-            <WysiwygToolbar floating onWrap={applyWrap} onInsert={applyInsert} />
+      <>
+        <div className="wysiwyg-field wysiwyg-field--block" onClick={onClick}>
+          <div className="block-wysiwyg" onClick={(e) => e.stopPropagation()}>
+            <div className="wysiwyg-tools">
+              <WysiwygToolbar
+                floating
+                onWrap={applyWrap}
+                onInsert={applyInsert}
+                onOpenFormula={openFormulaEditor}
+              />
+            </div>
           </div>
+          {textarea}
+          {counter}
         </div>
-        {textarea}
-        {counter}
-      </div>
+        {formulaEditor}
+      </>
     )
   }
 
   return (
-    <div className="wysiwyg-field" onClick={onClick}>
-      <div className="wysiwyg-mini-tools">
-        <WysiwygToolbar floating={false} onWrap={applyWrap} onInsert={applyInsert} />
+    <>
+      <div className="wysiwyg-field" onClick={onClick}>
+        <div className="wysiwyg-mini-tools">
+          <WysiwygToolbar
+            floating={false}
+            compact
+            onWrap={applyWrap}
+            onInsert={applyInsert}
+            onOpenFormula={openFormulaEditor}
+          />
+        </div>
+        {textarea}
+        {counter}
       </div>
-      {textarea}
-      {counter}
-    </div>
+      {formulaEditor}
+    </>
   )
 }

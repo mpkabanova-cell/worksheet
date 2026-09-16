@@ -86,6 +86,8 @@ export function OrderingView({
                   className="order-row-input"
                   value={item}
                   placeholder="Текст"
+                  showToolbar
+                  floatingToolbar
                   onChange={(value) => updateItem(index, value)}
                   onClick={(e) => e.stopPropagation()}
                 />

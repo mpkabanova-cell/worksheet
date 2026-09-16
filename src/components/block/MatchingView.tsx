@@ -63,6 +63,8 @@ function MatchTextBox({
           className="match-answer-input"
           value={text}
           placeholder="Ответ"
+          showToolbar
+          floatingToolbar
           onChange={(value) => onChange?.(value)}
           onClick={(e) => e.stopPropagation()}
         />

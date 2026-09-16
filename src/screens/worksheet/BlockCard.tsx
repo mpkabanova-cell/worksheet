@@ -301,6 +301,7 @@ export function BlockCard({
                     maxLength={questionMaxLength}
                     placeholder={questionPlaceholder}
                     floatingToolbar
+                    mathPreview
                     onChange={(value) =>
                       patchBlock({ question: clampText(value, questionMaxLength) })
                     }
@@ -351,6 +352,7 @@ export function BlockCard({
                 maxLength={TEXT_BODY_MAX_LENGTH}
                 placeholder="Текст блока…"
                 floatingToolbar
+                mathPreview
                 onChange={(value) =>
                   patchBlock({ body: clampText(value, TEXT_BODY_MAX_LENGTH) })
                 }

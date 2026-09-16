@@ -738,6 +738,140 @@
   flex-shrink: 0;
 }
 
+.field-wysiwyg {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 6;
+  pointer-events: auto;
+}
+
+.field-wysiwyg--floating .wysiwyg-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  background: var(--bg-white);
+  border-radius: 8px;
+  box-shadow:
+    0 8px 8px rgba(38, 52, 96, 0.05),
+    0 10px 14px rgba(38, 52, 96, 0.05),
+    0 12px 27px rgba(38, 52, 96, 0.05);
+}
+
+.math-editable--with-toolbar {
+  position: relative;
+  overflow: visible;
+}
+
+.math-formula-editor {
+  padding: 16px 20px 20px;
+}
+
+.math-formula-editor__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.math-formula-editor__head h3 {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.math-formula-editor__preview {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  margin-bottom: 12px;
+  border: 1px solid var(--border-secondary);
+  border-radius: 8px;
+  background: var(--bg-white);
+  font-size: 20px;
+}
+
+.math-formula-editor__modes {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.math-formula-editor__modes button {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-default);
+  font-size: 14px;
+}
+
+.math-formula-editor__modes button.on {
+  background: var(--bg-brand-soft);
+  color: var(--text-brand);
+}
+
+.math-formula-editor__fraction {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.math-formula-editor__fraction-field {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.math-formula-editor__fraction-field.is-active .math-formula-editor__fraction-value {
+  border-color: var(--border-brand);
+  box-shadow: 0 0 0 1px var(--border-brand);
+}
+
+.math-formula-editor__fraction-field span {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.math-formula-editor__fraction-value {
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-secondary);
+  border-radius: 8px;
+  background: var(--bg-white);
+  font-size: 16px;
+}
+
+.math-formula-editor__keys {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.math-formula-editor__keys button {
+  min-height: 40px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  color: var(--text-default);
+  font-size: 16px;
+}
+
+.math-formula-editor__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .wysiwyg-format {
   position: relative;
   flex-shrink: 0;
@@ -1309,8 +1443,8 @@
 }
 
 .math-editable--focused .math-editable-input {
-  color: var(--text-default);
-  -webkit-text-fill-color: currentColor;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
 }
 
 .math-editable:not(.math-editable--multiline) .math-editable-input {
@@ -1912,6 +2046,7 @@
   align-items: center;
   min-height: 40px;
   padding: 10px 12px;
+  overflow: visible;
 }
 
 .order-list-stack--editing .order-row-body {
@@ -2328,6 +2463,24 @@
   flex-direction: column;
   gap: 4px;
   font-size: 14px;
+}
+
+.group-title-input.math-editable,
+.group-item-input.math-editable {
+  width: 100%;
+}
+
+.group-title-input.math-editable {
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.group-title-input.math-editable .math-editable-input,
+.group-item-input.math-editable .math-editable-input {
+  font-size: 14px;
+  font-weight: inherit;
+  padding: 0;
+  min-height: 24px;
 }
 
 .group-title-input,

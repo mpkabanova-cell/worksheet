@@ -236,6 +236,8 @@ export function ChoiceOptionsView({
                 value={opt.text}
                 maxLength={CHOICE_OPTION_MAX}
                 placeholder="Ответ"
+                showToolbar
+                floatingToolbar
                 onChange={(text) => patchOption(index, { text: clampText(text, CHOICE_OPTION_MAX) })}
                 onClick={(e) => e.stopPropagation()}
               />

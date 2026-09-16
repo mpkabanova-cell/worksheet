@@ -1,4 +1,5 @@
 import type { WorksheetBlock } from '@/data/worksheet'
+import { MathEditableInput } from '@/components/MathEditableInput'
 import { MathText } from '@/components/MathText'
 
 interface GroupingViewProps {
@@ -14,23 +15,27 @@ export function GroupingView({ groups, isEditing, onChangeGroup }: GroupingViewP
         <div key={group.id} className="group-card">
           {isEditing ? (
             <>
-              <input
+              <MathEditableInput
                 className="group-title-input"
                 value={group.title}
                 placeholder="Название группы"
-                onChange={(e) => onChangeGroup?.(group.id, { title: e.target.value })}
+                showToolbar
+                floatingToolbar
+                onChange={(title) => onChangeGroup?.(group.id, { title })}
                 onClick={(e) => e.stopPropagation()}
               />
               <ul className="group-items-edit">
                 {(group.items ?? []).map((item, index) => (
                   <li key={`${group.id}-${index}`}>
-                    <input
+                    <MathEditableInput
                       className="group-item-input"
                       value={item}
                       placeholder="Элемент"
-                      onChange={(e) => {
+                      showToolbar
+                      floatingToolbar
+                      onChange={(value) => {
                         const next = [...(group.items ?? [])]
-                        next[index] = e.target.value
+                        next[index] = value
                         onChangeGroup?.(group.id, { items: next })
                       }}
                       onClick={(e) => e.stopPropagation()}

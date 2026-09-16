@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
+import { MathEditableInput } from '@/components/MathEditableInput'
 import { MathText } from '@/components/MathText'
 import { ANSWER_CELL_SIZE } from '@/data/blockUtils'
 import { AnswerGridOverlay, type GridOverlayType } from '@/components/block/AnswerGridOverlay'
@@ -58,12 +59,14 @@ export function AnswerCellsGrid({
         aria-hidden={mode === 'empty' ? true : undefined}
       >
         {mode === 'edit' ? (
-          <textarea
+          <MathEditableInput
             className="answer-inline-input answer-inline-input--cells"
-            value={value}
+            multiline
             rows={rows}
-            spellCheck={false}
-            onChange={(e) => onChange?.(e.target.value)}
+            value={value}
+            showToolbar
+            floatingToolbar
+            onChange={(text) => onChange?.(text)}
             onClick={(e) => e.stopPropagation()}
           />
         ) : null}

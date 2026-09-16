@@ -42,6 +42,8 @@ function AnswerInlineEditor({
       value={value}
       placeholder={style === 'block' ? 'Введите текст' : undefined}
       style={{ minHeight: `${minHeight}px` }}
+      showToolbar
+      floatingToolbar
       onChange={(text) => onChange?.(text)}
       onClick={(e) => e.stopPropagation()}
     />
