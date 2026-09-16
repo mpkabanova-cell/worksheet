@@ -1,6 +1,6 @@
 import type { DifficultyMode, PlanTask, TaskType, WorksheetBlock, WorksheetDraft } from './worksheet'
 import { createPlan, labelForType, uid } from './worksheet'
-import { defaultAnswerHeight, defaultAnswerStyle } from './blockUtils'
+import { createDefaultGroupingTableFields, defaultAnswerHeight, defaultAnswerStyle, groupsToTableFields } from './blockUtils'
 import { expectationToQuestion } from './taskContent'
 
 function starsForIndex(i: number, mode: DifficultyMode, total: number): 1 | 2 | 3 {
@@ -109,17 +109,20 @@ function blockForType(
         ],
         correctAnswers: ['left_1→right_1', 'left_2→right_2', 'left_3→right_3'],
       }
-    case 'grouping':
+    case 'grouping': {
+      const groups = [
+        { title: 'Группа A', items: ['Пример 1', 'Пример 2'] },
+        { title: 'Группа B', items: ['Пример 3', 'Пример 4'] },
+      ]
       return {
         ...base,
         instruction: '',
-        question: expectation || `Примеры по группам в рамках темы «${topic}».`,
-        groups: [
-          { id: 'g1', title: 'Группа A', items: ['Пример 1', 'Пример 2'] },
-          { id: 'g2', title: 'Группа B', items: ['Пример 3', 'Пример 4'] },
-        ],
-        correctAnswers: ['Группа A: Пример 1, Пример 2'],
+        question: expectation || `Распределите элементы по группам в рамках темы «${topic}».`,
+        ...groupsToTableFields(groups),
+        tableShowAnswerBank: true,
+        tableShuffleAnswers: true,
       }
+    }
     case 'ordering':
       return {
         ...base,
@@ -156,9 +159,9 @@ function blockForType(
     case 'table':
       return {
         ...base,
-        title: 'Таблица',
-        question: expectation || `Заполни таблицу по теме «${topic}».`,
-        body: '3×3',
+        type: 'grouping',
+        question: expectation || `Распределите элементы по группам.`,
+        ...createDefaultGroupingTableFields(),
       }
     case 'page_break':
       return { ...base, title: 'Разрыв страницы' }
@@ -281,11 +284,8 @@ export function createEmptyBlock(type: TaskType, page = 0, subject = ''): Worksh
       return {
         ...base,
         instruction: '',
-        question: 'Раздели на группы',
-        groups: [
-          { id: 'g1', title: 'Группа 1', items: ['Элемент A'] },
-          { id: 'g2', title: 'Группа 2', items: ['Элемент B'] },
-        ],
+        question: 'Распределите элементы по группам',
+        ...createDefaultGroupingTableFields(),
       }
     case 'ordering':
       return {
@@ -313,14 +313,9 @@ export function createEmptyBlock(type: TaskType, page = 0, subject = ''): Worksh
     case 'table':
       return {
         ...base,
-        question: 'Заполни таблицу',
-        tableRows: 3,
-        tableCols: 3,
-        tableCells: Array.from({ length: 3 }, () => Array.from({ length: 3 }, () => '')),
-        tableHeaders: ['Группа 1', 'Группа 2', 'Группа 3'],
-        tableAnswerBank: [],
-        tableShowAnswerBank: false,
-        tableShuffleAnswers: false,
+        type: 'grouping',
+        question: 'Распределите элементы по группам',
+        ...createDefaultGroupingTableFields(),
       }
     case 'page_break':
       return { ...base, title: 'Разрыв страницы' }

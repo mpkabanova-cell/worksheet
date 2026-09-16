@@ -24,9 +24,12 @@ import {
   ORDER_ITEM_COUNT_DEFAULT,
   ORDER_ITEM_COUNT_OPTIONS,
   resizeChoiceOptions,
+  resizeGroupingTable,
   resizeMatchingPairs,
   resizeOrderItems,
   shuffleArray,
+  TABLE_COLS_DEFAULT,
+  TABLE_ROWS_DEFAULT,
 } from '@/data/blockUtils'
 import { Input, Select } from '@/components/ui'
 import starFilled from '@/assets/worksheet/star-filled.svg'
@@ -394,26 +397,45 @@ export function BlockEditorPanel({
     return null
   }
 
+  if (block.type === 'grouping') {
+    return shell(
+      'Настройки задания',
+      <>
+        <GroupingTableEditor block={block} onChange={onChange} />
+        <label className="side-field">
+          <span>Сложность</span>
+          <div className="diff-picker">
+            {([1, 2, 3] as const).map((n) => (
+              <button
+                key={n}
+                type="button"
+                className={(block.difficulty ?? 0) >= n ? 'on' : ''}
+                onClick={() => onChange({ ...block, difficulty: n })}
+              >
+                <img
+                  src={(block.difficulty ?? 0) >= n ? starFilled : starEmpty}
+                  alt=""
+                  width={16}
+                  height={16}
+                />
+              </button>
+            ))}
+            <button
+              type="button"
+              className="diff-clear"
+              onClick={() => onChange({ ...block, difficulty: undefined })}
+            >
+              Сбросить
+            </button>
+          </div>
+        </label>
+      </>,
+    )
+  }
+
   return shell(
     'Настройки задания',
     <>
-      {block.type === 'table' ? <TableEditor block={block} onChange={onChange} /> : null}
-
-      {block.type === 'grouping' || block.type === 'table' ? (
-        <label className="side-field">
-          <span>Правильный ответ</span>
-          <Input
-            value={block.correctAnswers?.join(', ') ?? ''}
-            onChange={(e) =>
-              onChange({
-                ...block,
-                correctAnswers: e.target.value.split(',').map((s) => s.trim()),
-              })
-            }
-          />
-        </label>
-      ) : null}
-
       <label className="side-field">
         <span>Сложность</span>
         <div className="diff-picker">
@@ -441,72 +463,56 @@ export function BlockEditorPanel({
   )
 }
 
-function TableEditor({
+function GroupingTableEditor({
   block,
   onChange,
 }: {
   block: WorksheetBlock
   onChange: (block: WorksheetBlock) => void
 }) {
-  const rows = block.tableRows ?? 3
-  const cols = block.tableCols ?? 3
-  const cells =
-    block.tableCells ?? Array.from({ length: rows }, () => Array.from({ length: cols }, () => ''))
-  const headers = block.tableHeaders ?? Array.from({ length: cols }, (_, i) => `Группа ${i + 1}`)
-
-  const resize = (newRows: number, newCols: number) => {
-    const r = clampTableRows(newRows)
-    const c = clampTableCols(newCols)
-    const next = Array.from({ length: r }, (_, ri) =>
-      Array.from({ length: c }, (_, ci) => cells[ri]?.[ci] ?? ''),
-    )
-    const nextHeaders = Array.from({ length: c }, (_, i) => headers[i] ?? `Группа ${i + 1}`)
-    onChange({ ...block, tableRows: r, tableCols: c, tableCells: next, tableHeaders: nextHeaders })
-  }
-
-  const setCell = (r: number, c: number, value: string) => {
-    const next = cells.map((row, ri) => row.map((cell, ci) => (ri === r && ci === c ? value : cell)))
-    onChange({ ...block, tableCells: next })
-  }
+  const rows = block.tableRows ?? TABLE_ROWS_DEFAULT
+  const cols = block.tableCols ?? TABLE_COLS_DEFAULT
 
   return (
     <>
-      <div className="table-size-row">
-        <FieldInline label="Строк" value={rows} min={2} max={10} onChange={(n) => resize(n, cols)} />
-        <FieldInline label="Столбцов" value={cols} min={2} max={6} onChange={(n) => resize(rows, n)} />
-      </div>
-      <p className="side-section-label">Заголовки групп</p>
-      {headers.slice(0, cols).map((h, i) => (
+      <label className="side-field">
+        <span>Количество столбцов</span>
         <Input
-          key={i}
-          value={h}
+          type="number"
+          min={2}
+          max={6}
+          value={cols}
           onChange={(e) => {
-            const next = [...headers]
-            next[i] = e.target.value
-            onChange({ ...block, tableHeaders: next })
+            const nextCols = clampTableCols(Number(e.target.value) || TABLE_COLS_DEFAULT)
+            onChange(resizeGroupingTable(block, rows, nextCols))
           }}
         />
-      ))}
-      <div className="table-editor-grid">
-        {cells.map((row, r) =>
-          row.map((cell, c) => (
-            <input
-              key={`${r}-${c}`}
-              className="table-cell-input"
-              value={cell}
-              onChange={(e) => setCell(r, c, e.target.value)}
-            />
-          )),
-        )}
-      </div>
+      </label>
       <label className="side-field">
-        <span>Ответы для распределения (через запятую)</span>
+        <span>Количество строк</span>
+        <Input
+          type="number"
+          min={2}
+          max={10}
+          value={rows}
+          onChange={(e) => {
+            const nextRows = clampTableRows(Number(e.target.value) || TABLE_ROWS_DEFAULT)
+            onChange(resizeGroupingTable(block, nextRows, cols))
+          }}
+        />
+      </label>
+      <label className="side-field">
+        <span>Элементы для распределения</span>
         <Input
           value={(block.tableAnswerBank ?? []).join(', ')}
+          placeholder="Слово 1, Слово 2, …"
           onChange={(e) =>
             onChange({
               ...block,
-              tableAnswerBank: e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
+              tableAnswerBank: e.target.value
+                .split(',')
+                .map((item) => item.trim())
+                .filter(Boolean),
             })
           }
         />
@@ -516,9 +522,11 @@ function TableEditor({
         <button
           type="button"
           role="switch"
-          aria-checked={block.tableShowAnswerBank ?? false}
-          className={`switch ${block.tableShowAnswerBank ? 'on' : ''}`}
-          onClick={() => onChange({ ...block, tableShowAnswerBank: !block.tableShowAnswerBank })}
+          aria-checked={block.tableShowAnswerBank ?? true}
+          className={`switch ${block.tableShowAnswerBank !== false ? 'on' : ''}`}
+          onClick={() =>
+            onChange({ ...block, tableShowAnswerBank: !(block.tableShowAnswerBank ?? true) })
+          }
         >
           <span className="knob" />
         </button>
@@ -528,9 +536,14 @@ function TableEditor({
         <button
           type="button"
           role="switch"
-          aria-checked={block.tableShuffleAnswers ?? false}
-          className={`switch ${block.tableShuffleAnswers ? 'on' : ''}`}
-          onClick={() => onChange({ ...block, tableShuffleAnswers: !block.tableShuffleAnswers })}
+          aria-checked={block.tableShuffleAnswers ?? true}
+          className={`switch ${block.tableShuffleAnswers !== false ? 'on' : ''}`}
+          onClick={() =>
+            onChange({
+              ...block,
+              tableShuffleAnswers: !(block.tableShuffleAnswers ?? true),
+            })
+          }
         >
           <span className="knob" />
         </button>

@@ -2162,6 +2162,46 @@
   background: var(--bg-white);
 }
 
+.table-cell-trigger {
+  width: 100%;
+  min-height: 32px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: text;
+}
+
+.table-cell-trigger.is-placeholder {
+  color: var(--text-secondary);
+}
+
+.table-cell-trigger.is-empty {
+  min-height: 32px;
+}
+
+.table-cell-answer {
+  color: var(--text-positive, #0db56c);
+}
+
+.table-header-input,
+.table-cell-input {
+  width: 100%;
+  min-height: 32px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+
+.table-header-input:focus-within,
+.table-cell-input:focus-within {
+  outline: none;
+}
+
 .matching-slot {
   gap: 0;
 }

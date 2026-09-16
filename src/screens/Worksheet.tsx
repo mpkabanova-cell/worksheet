@@ -47,7 +47,7 @@ const TOOL_SECTIONS: {
       { type: 'fill_gaps', label: 'Заполнение пропусков', icon: toolFillGaps },
       { type: 'matching', label: 'Сопоставление', icon: toolMatching },
       { type: 'ordering', label: 'Упорядочивание', icon: toolOrdering },
-      { type: 'table', label: 'Таблица', icon: toolTable },
+      { type: 'grouping', label: 'Группировка', icon: toolTable },
     ],
   },
   {

@@ -1,5 +1,8 @@
 import type { WorksheetBlock } from '@/data/worksheet'
 import {
+  GROUPING_HEADER_PLACEHOLDER,
+  TABLE_COLS_DEFAULT,
+  TABLE_ROWS_DEFAULT,
   getBlockAnswerStyle,
   getChoiceDisplayOptions,
   getGapsDisplayAnswers,
@@ -358,55 +361,13 @@ async function buildOrdering(
   ]
 }
 
-async function buildGrouping(block: WorksheetBlock, ctx: ExportContext): Promise<DocxBlock[]> {
-  const groups = block.groups ?? []
-  const cells: TableCell[] = []
-
-  for (const group of groups) {
-    const { children: titleChildren } = await segmentsToParagraphChildren(
-      parseContent(group.title || 'Название группы'),
-      { ...TYPO.option, bold: true },
-      ctx,
-    )
-    const itemParas: Paragraph[] = []
-    for (const item of group.items ?? []) {
-      const { children: itemChildren } = await segmentsToParagraphChildren(parseContent(item.trim() || 'Элемент'), TYPO.option, ctx)
-      itemParas.push(
-        new Paragraph({
-          children: [
-            new TextRun({ text: '• ', font: runFont(), size: pxToHalfPoints(TYPO.option.sizePx) }),
-            ...itemChildren,
-          ],
-        }),
-      )
-    }
-    cells.push(
-      new TableCell({
-        borders: {
-          top: { style: BorderStyle.SINGLE, size: 1, color: COLORS.borderSecondary },
-          bottom: { style: BorderStyle.SINGLE, size: 1, color: COLORS.borderSecondary },
-          left: { style: BorderStyle.SINGLE, size: 1, color: COLORS.borderSecondary },
-          right: { style: BorderStyle.SINGLE, size: 1, color: COLORS.borderSecondary },
-        },
-        children: [
-          new Paragraph({ children: titleChildren }),
-          ...itemParas,
-        ],
-      }),
-    )
-  }
-
-  return [
-    new Table({
-      width: { size: 100, type: WidthType.PERCENTAGE },
-      rows: [new TableRow({ children: cells })],
-    }),
-  ]
-}
-
-async function buildTableBlock(block: WorksheetBlock, ctx: ExportContext): Promise<DocxBlock[]> {
-  const rows = block.tableRows ?? 3
-  const cols = block.tableCols ?? 3
+async function buildGroupingTable(
+  block: WorksheetBlock,
+  showAnswer: boolean,
+  ctx: ExportContext,
+): Promise<DocxBlock[]> {
+  const rows = block.tableRows ?? TABLE_ROWS_DEFAULT
+  const cols = block.tableCols ?? TABLE_COLS_DEFAULT
   const cells = block.tableCells ?? []
   const headers = block.tableHeaders ?? []
   const tableRows: TableRow[] = []
@@ -420,10 +381,11 @@ async function buildTableBlock(block: WorksheetBlock, ctx: ExportContext): Promi
             new Paragraph({
               children: [
                 new TextRun({
-                  text: headers[colIndex] || 'Название группы',
+                  text: headers[colIndex]?.trim() || GROUPING_HEADER_PLACEHOLDER,
                   font: runFont(),
                   size: pxToHalfPoints(TYPO.option.sizePx),
                   bold: true,
+                  color: COLORS.textSecondary,
                 }),
               ],
             }),
@@ -433,12 +395,16 @@ async function buildTableBlock(block: WorksheetBlock, ctx: ExportContext): Promi
     }),
   )
 
-  for (let r = 0; r < rows; r += 1) {
+  for (let rowIndex = 0; rowIndex < rows; rowIndex += 1) {
     const rowCells: TableCell[] = []
-    for (let c = 0; c < cols; c += 1) {
-      const value = cells[r]?.[c] ?? ''
-      const cellChildren = value
-        ? (await segmentsToParagraphChildren(parseContent(value), TYPO.option, ctx)).children
+    for (let colIndex = 0; colIndex < cols; colIndex += 1) {
+      const value = cells[rowIndex]?.[colIndex]?.trim() ?? ''
+      const displayValue = showAnswer ? value : ''
+      const cellStyle = showAnswer && value
+        ? { ...TYPO.option, color: COLORS.textPositive }
+        : TYPO.option
+      const cellChildren = displayValue
+        ? (await segmentsToParagraphChildren(parseContent(displayValue), cellStyle, ctx)).children
         : [new TextRun({ text: ' ' })]
       rowCells.push(
         new TableCell({
@@ -456,14 +422,20 @@ async function buildTableBlock(block: WorksheetBlock, ctx: ExportContext): Promi
     }),
   ]
 
-  const bank = getTableAnswerBank(block, false, false)
-  if (bank.length > 0) {
-    result.push(
-      plainParagraph(bank.join('   '), TYPO.option, {
-        spacing: { before: pxToTwips(8) },
-        indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) },
-      }),
-    )
+  if (!showAnswer) {
+    const bank = getTableAnswerBank(block, false, false)
+    if (bank.length > 0) {
+      const bankParagraphs = await richParagraphs(
+        bank.join('   '),
+        TYPO.option,
+        ctx,
+        {
+          spacing: { before: pxToTwips(8) },
+          indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) },
+        },
+      )
+      result.push(...bankParagraphs)
+    }
   }
 
   return result
@@ -596,11 +568,7 @@ export async function buildBlockContent(
   }
 
   if (block.type === 'grouping') {
-    bodyParts.push(...(await buildGrouping(block, ctx)))
-  }
-
-  if (block.type === 'table') {
-    bodyParts.push(...(await buildTableBlock(block, ctx)))
+    bodyParts.push(...(await buildGroupingTable(block, showAnswer, ctx)))
   }
 
   result.push(head)

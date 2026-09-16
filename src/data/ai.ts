@@ -6,7 +6,7 @@ import {
   generateSingleTask as mockSingle,
 } from './generator'
 import { promptsForPlan, promptsForSingleTask, promptsForWorksheet } from './aiPrompts'
-import { sanitizeBlock, clampAnswerHeight, defaultAnswerHeight, defaultAnswerStyle } from './blockUtils'
+import { sanitizeBlock, clampAnswerHeight, defaultAnswerHeight, defaultAnswerStyle, groupsToTableFields, createDefaultGroupingTableFields } from './blockUtils'
 import { normalizeAiTask } from './taskContent'
 import { repairJsonLatexEscapes } from './mathTextUtils'
 
@@ -136,11 +136,16 @@ function toBlock(
     leftItems,
     rightItems,
     matchingPairCount,
-    groups: task.groups?.map((g, i) => ({
-      id: `g${i + 1}`,
-      title: sanitizeAiText(g.title),
-      items: Array.isArray(g.items) ? g.items.map(sanitizeAiText) : [],
-    })),
+    ...(type === 'grouping' && task.groups?.length
+      ? groupsToTableFields(
+          task.groups.map((g) => ({
+            title: sanitizeAiText(g.title),
+            items: Array.isArray(g.items) ? g.items.map(sanitizeAiText) : [],
+          })),
+        )
+      : type === 'grouping'
+        ? createDefaultGroupingTableFields()
+        : {}),
     orderItems: task.order_items?.map(sanitizeAiText),
     difficulty: task.difficulty ?? stars(index, draft.taskCount, draft.difficulty),
   })

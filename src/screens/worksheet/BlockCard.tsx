@@ -26,7 +26,6 @@ import { AnswerArea } from '@/components/block/AnswerArea'
 import { ChoiceOptionsView } from '@/components/block/ChoiceOptionsView'
 import { FillGapsEditor, FillGapsStudent } from '@/components/block/FillGapsBody'
 import { MatchingView } from '@/components/block/MatchingView'
-import { GroupingView } from '@/components/block/GroupingView'
 import { MediaBlockView } from '@/components/block/MediaBlockView'
 import { OrderingView } from '@/components/block/OrderingView'
 import { TableView } from '@/components/block/TableView'
@@ -235,9 +234,8 @@ export function BlockCard({
     isChoiceTask ||
     block.type === 'matching' ||
     block.type === 'ordering' ||
-    block.type === 'table' ||
-    block.type === 'fill_gaps' ||
-    block.type === 'grouping'
+    block.type === 'grouping' ||
+    block.type === 'fill_gaps'
   const questionMaxLength = getChoiceQuestionMaxLength(block)
   const effectiveShowAnswer = showAnswer || previewState === 'show-answer'
   const visualState: BlockPreviewState =
@@ -443,20 +441,14 @@ export function BlockCard({
         ) : null}
 
         {block.type === 'grouping' ? (
-          <div className="ws-task-slot">
-            <GroupingView
-              groups={block.groups ?? []}
+          <div className="ws-task-slot table-slot">
+            <TableView
+              block={block}
+              editable={editable}
+              selected={selected}
               isEditing={isEditing}
-              onChangeGroup={
-                isEditing
-                  ? (groupId, patch) =>
-                      patchBlock({
-                        groups: (block.groups ?? []).map((group) =>
-                          group.id === groupId ? { ...group, ...patch } : group,
-                        ),
-                      })
-                  : undefined
-              }
+              showAnswer={effectiveShowAnswer}
+              onChange={isEditing ? patchBlock : undefined}
             />
           </div>
         ) : null}
@@ -479,18 +471,6 @@ export function BlockCard({
                       })
                   : undefined
               }
-            />
-          </div>
-        ) : null}
-
-        {block.type === 'table' ? (
-          <div className="ws-task-slot table-slot">
-            <TableView
-              block={block}
-              editable={editable}
-              selected={selected}
-              isEditing={isEditing}
-              onChange={isEditing ? patchBlock : undefined}
             />
           </div>
         ) : null}

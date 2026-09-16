@@ -95,8 +95,11 @@ export function questionPlaceholderForBlock(block: WorksheetBlock): string {
 
 export const TABLE_ROWS_MIN = 2
 export const TABLE_ROWS_MAX = 10
+export const TABLE_ROWS_DEFAULT = 4
 export const TABLE_COLS_MIN = 2
 export const TABLE_COLS_MAX = 6
+export const TABLE_COLS_DEFAULT = 3
+export const GROUPING_HEADER_PLACEHOLDER = 'Название группы'
 
 export const ORDER_ITEMS_MIN = 2
 export const ORDER_ITEMS_MAX = 10
@@ -416,6 +419,10 @@ export function sanitizeBlock(block: WorksheetBlock): WorksheetBlock {
 
   if (sanitized.type === 'matching') {
     return rejectInvalidMatchingBlock(normalizeMatchingBlock(sanitized))
+  }
+
+  if (sanitized.type === 'grouping' || sanitized.type === 'table') {
+    return normalizeGroupingBlock(sanitized)
   }
 
   return sanitized
@@ -1149,6 +1156,133 @@ export function clampTableRows(n: number): number {
 
 export function clampTableCols(n: number): number {
   return Math.max(TABLE_COLS_MIN, Math.min(TABLE_COLS_MAX, n))
+}
+
+export function isGroupingTableBlock(block: WorksheetBlock): boolean {
+  return block.type === 'grouping' || block.type === 'table'
+}
+
+export function groupsToTableFields(
+  groups: { title?: string; items?: string[] }[],
+): Pick<
+  WorksheetBlock,
+  'tableRows' | 'tableCols' | 'tableHeaders' | 'tableCells' | 'tableAnswerBank'
+> {
+  const cols = clampTableCols(groups.length || TABLE_COLS_DEFAULT)
+  const headers = Array.from({ length: cols }, (_, index) =>
+    groups[index]?.title?.trim() || GROUPING_HEADER_PLACEHOLDER,
+  )
+  const itemRows = groups.slice(0, cols).map((group) => group.items ?? [])
+  const rows = clampTableRows(
+    Math.max(TABLE_ROWS_DEFAULT, ...itemRows.map((items) => items.length), 0),
+  )
+  const cells = Array.from({ length: rows }, (_, rowIndex) =>
+    Array.from({ length: cols }, (_, colIndex) => itemRows[colIndex]?.[rowIndex]?.trim() ?? ''),
+  )
+  const bank = [
+    ...new Set(
+      groups
+        .flatMap((group) => group.items ?? [])
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  ]
+
+  return {
+    tableRows: rows,
+    tableCols: cols,
+    tableHeaders: headers,
+    tableCells: cells,
+    tableAnswerBank: bank,
+  }
+}
+
+export function createDefaultGroupingTableFields(): Pick<
+  WorksheetBlock,
+  | 'tableRows'
+  | 'tableCols'
+  | 'tableHeaders'
+  | 'tableCells'
+  | 'tableAnswerBank'
+  | 'tableShowAnswerBank'
+  | 'tableShuffleAnswers'
+> {
+  const rows = TABLE_ROWS_DEFAULT
+  const cols = TABLE_COLS_DEFAULT
+  return {
+    tableRows: rows,
+    tableCols: cols,
+    tableHeaders: Array.from({ length: cols }, () => GROUPING_HEADER_PLACEHOLDER),
+    tableCells: Array.from({ length: rows }, () => Array.from({ length: cols }, () => '')),
+    tableAnswerBank: [],
+    tableShowAnswerBank: true,
+    tableShuffleAnswers: true,
+  }
+}
+
+export function resizeGroupingTable(
+  block: WorksheetBlock,
+  newRows: number,
+  newCols: number,
+): WorksheetBlock {
+  const rows = clampTableRows(newRows)
+  const cols = clampTableCols(newCols)
+  const cells = block.tableCells ?? []
+  const headers = block.tableHeaders ?? []
+  const nextCells = Array.from({ length: rows }, (_, rowIndex) =>
+    Array.from({ length: cols }, (_, colIndex) => cells[rowIndex]?.[colIndex] ?? ''),
+  )
+  const nextHeaders = Array.from({ length: cols }, (_, index) =>
+    headers[index]?.trim() ? headers[index] : GROUPING_HEADER_PLACEHOLDER,
+  )
+
+  return {
+    ...block,
+    tableRows: rows,
+    tableCols: cols,
+    tableCells: nextCells,
+    tableHeaders: nextHeaders,
+  }
+}
+
+function normalizeGroupingBlock(block: WorksheetBlock): WorksheetBlock {
+  let next: WorksheetBlock =
+    block.type === 'table'
+      ? { ...block, type: 'grouping' }
+      : { ...block }
+
+  if (next.type !== 'grouping') return block
+
+  if (next.groups?.length && !next.tableCells?.length) {
+    next = {
+      ...next,
+      ...groupsToTableFields(next.groups),
+      groups: undefined,
+    }
+  }
+
+  const rows = clampTableRows(next.tableRows ?? TABLE_ROWS_DEFAULT)
+  const cols = clampTableCols(next.tableCols ?? TABLE_COLS_DEFAULT)
+  const cells = next.tableCells ?? []
+  const headers = next.tableHeaders ?? []
+
+  next = {
+    ...next,
+    tableRows: rows,
+    tableCols: cols,
+    tableHeaders: Array.from({ length: cols }, (_, index) =>
+      headers[index]?.trim() ? headers[index] : GROUPING_HEADER_PLACEHOLDER,
+    ),
+    tableCells: Array.from({ length: rows }, (_, rowIndex) =>
+      Array.from({ length: cols }, (_, colIndex) => cells[rowIndex]?.[colIndex] ?? ''),
+    ),
+    tableAnswerBank: next.tableAnswerBank ?? [],
+    tableShowAnswerBank: next.tableShowAnswerBank ?? true,
+    tableShuffleAnswers: next.tableShuffleAnswers ?? true,
+    groups: undefined,
+  }
+
+  return next
 }
 
 export function clampOrderCount(n: number): number {
