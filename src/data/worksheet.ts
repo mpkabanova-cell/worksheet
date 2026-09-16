@@ -107,6 +107,8 @@ export interface WorksheetBlock {
   rightItems?: MatchPair[]
   groups?: { id: string; title: string; items: string[] }[]
   orderItems?: string[]
+  /** Перемешивать элементы при показе ученику (после выхода из редактирования). */
+  orderShuffle?: boolean
   gapsText?: string
   gapsSourceText?: string
   gapsAnswers?: string[]

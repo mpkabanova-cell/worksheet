@@ -351,15 +351,7 @@ async function buildOrdering(block: WorksheetBlock, ctx: ExportContext): Promise
       new Paragraph({
         indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) },
         spacing: { after: pxToTwips(8) },
-        children: [
-          new TextRun({
-            text: `${i + 1}. `,
-            font: runFont(),
-            size: pxToHalfPoints(TYPO.option.sizePx),
-            color: COLORS.textSecondary,
-          }),
-          ...children,
-        ],
+        children,
       }),
     )
   }

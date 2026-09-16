@@ -126,6 +126,7 @@ function blockForType(
         instruction: '',
         question: expectation || `Порядок действий по теме «${topic}».`,
         orderItems: ['Шаг 1', 'Шаг 2', 'Шаг 3', 'Шаг 4'],
+        orderShuffle: true,
         correctAnswers: ['Шаг 1 → Шаг 2 → Шаг 3 → Шаг 4'],
       }
     case 'extended_answer':
@@ -291,7 +292,8 @@ export function createEmptyBlock(type: TaskType, page = 0, subject = ''): Worksh
         ...base,
         instruction: '',
         question: 'Восстанови последовательность',
-        orderItems: ['Первый', 'Второй', 'Третий'],
+        orderItems: ['', '', '', '', ''],
+        orderShuffle: true,
       }
     case 'extended_answer':
       return {

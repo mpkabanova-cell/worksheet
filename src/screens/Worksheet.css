@@ -1906,6 +1906,10 @@
   display: flex;
   align-items: center;
   min-height: 40px;
+  padding: 10px 12px;
+}
+
+.order-list-stack--numbered .order-row-body {
   padding: 10px 44px 10px 12px;
 }
 

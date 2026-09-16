@@ -21,16 +21,14 @@ import {
   getBlockAnswerStyle,
   MATCHING_PAIR_COUNT_DEFAULT,
   MATCHING_PAIR_COUNT_OPTIONS,
-  MATCHING_PAIRS_MAX,
-  MATCHING_PAIRS_MIN,
-  ORDER_ITEMS_MAX,
-  ORDER_ITEMS_MIN,
+  ORDER_ITEM_COUNT_DEFAULT,
+  ORDER_ITEM_COUNT_OPTIONS,
   resizeChoiceOptions,
   resizeMatchingPairs,
+  resizeOrderItems,
   shuffleArray,
 } from '@/data/blockUtils'
-import { Button, Input, Select } from '@/components/ui'
-import { uid } from '@/data/worksheet'
+import { Input, Select } from '@/components/ui'
 import starFilled from '@/assets/worksheet/star-filled.svg'
 import starEmpty from '@/assets/worksheet/star-empty.svg'
 
@@ -256,6 +254,58 @@ export function MatchingTaskSettingsPanel({
   )
 }
 
+export function OrderingTaskSettingsPanel({
+  block,
+  onChange,
+}: {
+  block: WorksheetBlock
+  onChange: (block: WorksheetBlock) => void
+}) {
+  const count = block.orderItems?.length ?? ORDER_ITEM_COUNT_DEFAULT
+
+  return (
+    <section className="ws-task-settings-panel">
+      <p className="side-section-heading">Настройки задания</p>
+      <label className="side-field">
+        <span>Количество строк</span>
+        <Select
+          options={ORDER_ITEM_COUNT_OPTIONS}
+          value={String(count)}
+          onChange={(e) => {
+            const nextCount = clampOrderCount(Number(e.target.value) || ORDER_ITEM_COUNT_DEFAULT)
+            const items = [...(block.orderItems ?? [])]
+            while (items.length < nextCount) items.push('')
+            onChange(
+              resizeOrderItems({
+                ...block,
+                orderItems: items.slice(0, nextCount),
+              }),
+            )
+          }}
+        />
+      </label>
+      <div className="side-switch-row">
+        <span>Перемешать ответы</span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={block.orderShuffle !== false}
+          className={`switch ${block.orderShuffle !== false ? 'on' : ''}`}
+          onClick={() =>
+            onChange({
+              ...block,
+              orderShuffle: block.orderShuffle === false,
+              orderDisplayItems: undefined,
+            })
+          }
+        >
+          <span className="knob" />
+        </button>
+      </div>
+    </section>
+  )
+}
+
 export function BlockEditorPanel({
   block,
   subject: _subject,
@@ -339,17 +389,16 @@ export function BlockEditorPanel({
     return null
   }
 
+  if (block.type === 'matching' || block.type === 'ordering') {
+    return null
+  }
+
   return shell(
     'Настройки задания',
     <>
-      {block.type === 'matching' ? <MatchingEditor block={block} onChange={onChange} /> : null}
-      {block.type === 'ordering' ? <OrderingEditor block={block} onChange={onChange} /> : null}
       {block.type === 'table' ? <TableEditor block={block} onChange={onChange} /> : null}
 
-      {block.type === 'grouping' ||
-      block.type === 'ordering' ||
-      block.type === 'matching' ||
-      block.type === 'table' ? (
+      {block.type === 'grouping' || block.type === 'table' ? (
         <label className="side-field">
           <span>Правильный ответ</span>
           <Input
@@ -388,120 +437,6 @@ export function BlockEditorPanel({
         </div>
       </label>
     </>,
-  )
-}
-
-function MatchingEditor({
-  block,
-  onChange,
-}: {
-  block: WorksheetBlock
-  onChange: (block: WorksheetBlock) => void
-}) {
-  const left = block.leftItems ?? []
-  const right = block.rightItems ?? []
-  const updateLeft = (index: number, text: string) => {
-    onChange({ ...block, leftItems: left.map((item, i) => (i === index ? { ...item, text } : item)) })
-  }
-  const updateRight = (index: number, text: string) => {
-    onChange({ ...block, rightItems: right.map((item, i) => (i === index ? { ...item, text } : item)) })
-  }
-  const addPair = () => {
-    if (left.length >= clampMatchingCount(10)) return
-    onChange({
-      ...block,
-      leftItems: [...left, { id: uid('left'), text: 'Новый элемент' }],
-      rightItems: [...right, { id: uid('right'), text: 'Новый элемент' }],
-    })
-  }
-  const removePair = (index: number) => {
-    if (left.length <= MATCHING_PAIRS_MIN) return
-    onChange({
-      ...block,
-      leftItems: left.filter((_, i) => i !== index),
-      rightItems: right.filter((_, i) => i !== index),
-    })
-  }
-  return (
-    <>
-      <p className="side-section-label">Пары ({MATCHING_PAIRS_MIN}–{MATCHING_PAIRS_MAX})</p>
-      {left.map((item, i) => (
-        <div key={item.id} className="matching-editor-row">
-          <Input value={item.text} placeholder="Слева" onChange={(e) => updateLeft(i, e.target.value)} />
-          <Input
-            value={right[i]?.text ?? ''}
-            placeholder="Справа"
-            onChange={(e) => updateRight(i, e.target.value)}
-          />
-          <button type="button" className="icon-btn" onClick={() => removePair(i)} aria-label="Удалить пару">
-            ×
-          </button>
-        </div>
-      ))}
-      <Button variant="secondary" size="sm" onClick={addPair} disabled={left.length >= MATCHING_PAIRS_MAX}>
-        + Пара
-      </Button>
-      <Button
-        variant="secondary"
-        size="sm"
-        onClick={() =>
-          onChange({
-            ...block,
-            matchingDisplayRight: shuffleArray(block.rightItems ?? []),
-          })
-        }
-      >
-        Перемешать правую колонку
-      </Button>
-    </>
-  )
-}
-
-function OrderingEditor({
-  block,
-  onChange,
-}: {
-  block: WorksheetBlock
-  onChange: (block: WorksheetBlock) => void
-}) {
-  const items = block.orderItems ?? []
-  return (
-    <>
-      <label className="side-field">
-        <span>Элементы ({ORDER_ITEMS_MIN}–{ORDER_ITEMS_MAX})</span>
-        <textarea
-          className="side-field-textarea"
-          rows={5}
-          value={items.join('\n')}
-          onChange={(e) => {
-            const next = e.target.value.split('\n').filter(Boolean).slice(0, ORDER_ITEMS_MAX)
-            onChange({ ...block, orderItems: next, orderDisplayItems: undefined })
-          }}
-        />
-      </label>
-      <label className="side-field inline">
-        <span>Количество строк</span>
-        <Input
-          type="number"
-          min={ORDER_ITEMS_MIN}
-          max={ORDER_ITEMS_MAX}
-          value={items.length}
-          onChange={(e) => {
-            const count = clampOrderCount(Number(e.target.value) || ORDER_ITEMS_MIN)
-            const next = [...items]
-            while (next.length < count) next.push(`Элемент ${next.length + 1}`)
-            onChange({ ...block, orderItems: next.slice(0, count), orderDisplayItems: undefined })
-          }}
-        />
-      </label>
-      <Button
-        variant="secondary"
-        size="sm"
-        onClick={() => onChange({ ...block, orderDisplayItems: shuffleArray(items) })}
-      >
-        Перемешать ответы
-      </Button>
-    </>
   )
 }
 

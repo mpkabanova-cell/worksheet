@@ -1,15 +1,22 @@
 import { useState, type DragEvent } from 'react'
-import { FigmaIcon } from '@/components/ui'
+import { MathEditableInput } from '@/components/MathEditableInput'
 import { MathText } from '@/components/MathText'
+import { FigmaIcon } from '@/components/ui'
 import widgetDragHandle from '@/assets/worksheet/tools/widget-drag-handle.svg'
 
 interface OrderingViewProps {
   items: string[]
   isEditing: boolean
+  showNumbers: boolean
   onChangeItems?: (items: string[]) => void
 }
 
-export function OrderingView({ items, isEditing, onChangeItems }: OrderingViewProps) {
+export function OrderingView({
+  items,
+  isEditing,
+  showNumbers,
+  onChangeItems,
+}: OrderingViewProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null)
 
   const reorder = (from: number, to: number) => {
@@ -43,12 +50,12 @@ export function OrderingView({ items, isEditing, onChangeItems }: OrderingViewPr
   }
 
   return (
-    <div className="order-list-stack">
+    <div className={`order-list-stack ${showNumbers ? 'order-list-stack--numbered' : ''}`}>
       {items.map((item, index) => {
         const isEmpty = !item.trim()
         return (
           <div
-            key={`${index}-${item}`}
+            key={`${index}-${item.slice(0, 24)}`}
             className={`order-row ${isEmpty ? 'is-empty' : ''} ${dragIndex === index ? 'dragging' : ''}`}
             draggable={isEditing}
             onDragStart={isEditing ? onRowDragStart(index) : undefined}
@@ -56,14 +63,14 @@ export function OrderingView({ items, isEditing, onChangeItems }: OrderingViewPr
             onDrop={isEditing ? onRowDrop(index) : undefined}
             onDragEnd={isEditing ? () => setDragIndex(null) : undefined}
           >
-            <span className="order-row-num">{index + 1}</span>
+            {showNumbers ? <span className="order-row-num">{index + 1}</span> : null}
             <div className="order-row-body">
               {isEditing ? (
-                <input
+                <MathEditableInput
                   className="order-row-input"
                   value={item}
                   placeholder="Текст"
-                  onChange={(e) => updateItem(index, e.target.value)}
+                  onChange={(value) => updateItem(index, value)}
                   onClick={(e) => e.stopPropagation()}
                 />
               ) : (

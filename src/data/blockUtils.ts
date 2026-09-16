@@ -98,6 +98,12 @@ export const TABLE_COLS_MAX = 6
 
 export const ORDER_ITEMS_MIN = 2
 export const ORDER_ITEMS_MAX = 10
+export const ORDER_ITEM_COUNT_DEFAULT = 5
+
+export const ORDER_ITEM_COUNT_OPTIONS = Array.from(
+  { length: ORDER_ITEMS_MAX - ORDER_ITEMS_MIN + 1 },
+  (_, index) => String(index + ORDER_ITEMS_MIN),
+)
 
 export const MATCHING_PAIRS_MIN = 2
 export const MATCHING_PAIRS_MAX = 10
@@ -374,8 +380,9 @@ export function sanitizeBlock(block: WorksheetBlock): WorksheetBlock {
         : [],
     })),
     orderItems: Array.isArray(block.orderItems)
-      ? block.orderItems.map((item) => asText(item) ?? '').filter(Boolean)
+      ? block.orderItems.map((item) => asText(item) ?? '')
       : block.orderItems,
+    ...(block.type === 'ordering' ? { orderShuffle: block.orderShuffle ?? true } : {}),
     gapsText: asText(block.gapsText),
     gapsSourceText: asText(block.gapsSourceText),
     gapsAnswers: Array.isArray(block.gapsAnswers)
@@ -458,6 +465,7 @@ export function cloneBlock(block: WorksheetBlock): WorksheetBlock {
       items: [...group.items],
     })),
     orderItems: block.orderItems ? [...block.orderItems] : block.orderItems,
+    orderShuffle: block.orderShuffle,
     gapsAnswers: block.gapsAnswers ? [...block.gapsAnswers] : block.gapsAnswers,
     correctAnswers: block.correctAnswers ? [...block.correctAnswers] : block.correctAnswers,
     correctOptionIds: block.correctOptionIds ? [...block.correctOptionIds] : block.correctOptionIds,
@@ -634,6 +642,7 @@ export function getOrderDisplayItems(
 ): string[] {
   const items = block.orderItems ?? []
   if (editable && selected) return items
+  if (block.orderShuffle === false) return items
   if (block.orderDisplayItems?.length === items.length) return block.orderDisplayItems
   return stableShuffle(items, block.id)
 }
@@ -945,6 +954,19 @@ export function clampTableCols(n: number): number {
 
 export function clampOrderCount(n: number): number {
   return Math.max(ORDER_ITEMS_MIN, Math.min(ORDER_ITEMS_MAX, n))
+}
+
+export function resizeOrderItems(block: WorksheetBlock): WorksheetBlock {
+  const count = clampOrderCount(block.orderItems?.length ?? ORDER_ITEM_COUNT_DEFAULT)
+  const items = [...(block.orderItems ?? [])]
+
+  while (items.length < count) items.push('')
+
+  return {
+    ...block,
+    orderItems: items.slice(0, count),
+    orderDisplayItems: undefined,
+  }
 }
 
 export function clampMatchingCount(n: number): number {

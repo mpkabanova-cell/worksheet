@@ -1,5 +1,5 @@
 import type { DragEvent } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { BlockPreviewState, WorksheetBlock } from '@/data/worksheet'
 import {
   clampText,
@@ -14,6 +14,7 @@ import {
   isQuestionPlaceholder,
   isValidFillGapsBlock,
   questionPlaceholderForBlock,
+  shuffleArray,
   TEXT_BODY_MAX_LENGTH,
 } from '@/data/blockUtils'
 import { getBlockQuestion } from '@/data/taskContent'
@@ -125,6 +126,23 @@ export function BlockCard({
   const isIssued = block.issued === true || previewState === 'issued'
   const isEditing = editable && selected && !!onChangeBlock && !isIssued
   const [editingQuestion, setEditingQuestion] = useState(false)
+  const prevIsEditingRef = useRef(isEditing)
+
+  useEffect(() => {
+    if (
+      prevIsEditingRef.current &&
+      !isEditing &&
+      block.type === 'ordering' &&
+      onChangeBlock &&
+      block.orderShuffle !== false
+    ) {
+      const items = block.orderItems ?? []
+      if (items.length > 0) {
+        onChangeBlock({ ...block, orderDisplayItems: shuffleArray(items) })
+      }
+    }
+    prevIsEditingRef.current = isEditing
+  }, [isEditing, block, onChangeBlock])
 
   useEffect(() => {
     if (!selected) {
@@ -444,6 +462,7 @@ export function BlockCard({
             <OrderingView
               items={orderItems}
               isEditing={isEditing}
+              showNumbers={isEditing}
               onChangeItems={
                 isEditing
                   ? (items) => patchBlock({ orderItems: items, orderDisplayItems: undefined })

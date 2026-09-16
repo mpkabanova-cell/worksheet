@@ -4,7 +4,7 @@ import { GRADES, SUBJECTS, breadcrumbLabel, formatSavedAgo, sheetTopicLabel } fr
 import { countTaskBlocksBefore, reconcileAnswerBlockStyle } from '@/data/blockUtils'
 import { Button, FigmaIcon, Icon, Select } from '@/components/ui'
 import { BlockCard } from '@/screens/worksheet/BlockCard'
-import { AnswerTaskSettingsPanel, BlockEditorPanel, ChoiceTaskSettingsPanel, FillGapsTaskSettingsPanel, MatchingTaskSettingsPanel } from '@/screens/worksheet/blockEditors'
+import { AnswerTaskSettingsPanel, BlockEditorPanel, ChoiceTaskSettingsPanel, FillGapsTaskSettingsPanel, MatchingTaskSettingsPanel, OrderingTaskSettingsPanel } from '@/screens/worksheet/blockEditors'
 import pageAddIcon from '@/assets/worksheet/tools/page-add.svg'
 import toolText from '@/assets/worksheet/tools/tool-text.svg'
 import toolMedia from '@/assets/worksheet/tools/tool-media.svg'
@@ -189,6 +189,7 @@ export function WorksheetScreen({
     selected?.type === 'single_choice' || selected?.type === 'multiple_choice'
   const isFillGapsBlockSelected = selected?.type === 'fill_gaps'
   const isMatchingBlockSelected = selected?.type === 'matching'
+  const isOrderingBlockSelected = selected?.type === 'ordering'
   const hasTaskSettings = Boolean(selected && onChangeBlock && isEdit)
 
   useEffect(() => {
@@ -216,6 +217,9 @@ export function WorksheetScreen({
           }
           if (isMatchingBlockSelected) {
             return <MatchingTaskSettingsPanel block={selected} onChange={onChangeBlock} />
+          }
+          if (isOrderingBlockSelected) {
+            return <OrderingTaskSettingsPanel block={selected} onChange={onChangeBlock} />
           }
           return (
             <BlockEditorPanel
