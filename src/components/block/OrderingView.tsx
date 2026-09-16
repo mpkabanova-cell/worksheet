@@ -55,7 +55,7 @@ export function OrderingView({
         const isEmpty = !item.trim()
         return (
           <div
-            key={`${index}-${item.slice(0, 24)}`}
+            key={index}
             className={`order-row ${isEmpty ? 'is-empty' : ''} ${dragIndex === index ? 'dragging' : ''}`}
             draggable={isEditing}
             onDragStart={isEditing ? onRowDragStart(index) : undefined}
