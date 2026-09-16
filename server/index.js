@@ -96,12 +96,27 @@ app.post('/api/chat', async (req, res) => {
 })
 
 if (fs.existsSync(dist)) {
-  app.use(express.static(dist, { index: false, maxAge: '1h' }))
+  app.use(
+    express.static(dist, {
+      index: false,
+      maxAge: '1h',
+      setHeaders(res, filePath) {
+        if (filePath.endsWith(`${path.sep}index.html`)) {
+          res.setHeader('Cache-Control', 'no-cache')
+        }
+      },
+    }),
+  )
   app.use((req, res, next) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       next()
       return
     }
+    if (req.path.startsWith('/assets/')) {
+      res.status(404).type('text/plain').send('Not found')
+      return
+    }
+    res.setHeader('Cache-Control', 'no-cache')
     res.sendFile(path.join(dist, 'index.html'), (err) => {
       if (err) next(err)
     })

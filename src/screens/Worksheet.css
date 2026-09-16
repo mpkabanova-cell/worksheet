@@ -1840,7 +1840,7 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  padding: 0 0 0 var(--cell-size);
+  padding: 0;
   margin: 0;
   border: none;
   outline: none;
@@ -1854,15 +1854,22 @@
   word-break: break-word;
 }
 
+.answer-cells-grid .math-editable-preview {
+  inset: 0 0 0 var(--cell-size);
+  padding: 0;
+}
+
 .answer-cells-grid .math-editable-input {
   color: transparent;
   -webkit-text-fill-color: transparent;
+  padding-left: var(--cell-size);
+  box-sizing: border-box;
 }
 
 .answer-inline-readonly--cells {
   position: absolute;
-  inset: 0;
-  padding: 0 0 0 var(--cell-size);
+  inset: 0 0 0 var(--cell-size);
+  padding: 0;
   margin: 0;
   overflow: hidden;
   color: var(--text-default);

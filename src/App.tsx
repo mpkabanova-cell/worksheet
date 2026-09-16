@@ -21,6 +21,7 @@ import {
   type WorksheetDraft,
 } from '@/data/worksheet'
 import { cloneBlock, isPageEmpty, normalizeWorksheetDraft, removePageFromDraft, syncPagesFromBreaks } from '@/data/blockUtils'
+import { exportWorksheetDocx } from '@/export/word/exportWorksheetDocx'
 import { Home } from '@/screens/Home'
 import { Create } from '@/screens/Create'
 import { Loader } from '@/screens/Loader'
@@ -380,7 +381,6 @@ export default function App() {
   const handleExportDocx = async () => {
     setModal(null)
     try {
-      const { exportWorksheetDocx } = await import('@/export/word/exportWorksheetDocx')
       await exportWorksheetDocx(draft)
       showToast('DOCX сохранён')
     } catch (err) {

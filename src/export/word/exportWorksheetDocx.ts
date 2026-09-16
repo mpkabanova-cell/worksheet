@@ -1,5 +1,6 @@
 import type { WorksheetDraft } from '@/data/worksheet'
 import { worksheetDisplayName } from '@/data/worksheet'
+import { normalizeWorksheetDraft } from '@/data/blockUtils'
 import { buildWorksheetDocumentChildren } from '@/export/word/build/buildSheet'
 import { PAGE_MARGIN_TWIPS } from '@/export/word/build/buildHeader'
 import { ensureExportFontsLoaded } from '@/export/word/loadExportFonts'
@@ -25,7 +26,6 @@ function downloadBlob(blob: Blob, fileName: string): void {
 }
 
 export async function exportWorksheetDocx(draft: WorksheetDraft): Promise<void> {
-  const { normalizeWorksheetDraft } = await import('@/data/blockUtils')
   const normalizedDraft = normalizeWorksheetDraft(draft)
   const options: ExportOptions = {
     showAnswers: normalizedDraft.showAnswers,
