@@ -68,8 +68,12 @@ describe('grouping table normalization', () => {
       title: 'Test',
       topic: 'Test',
       subject: 'Математика',
+      grade: '7',
       taskCount: 1,
       difficulty: 'basic',
+      wishes: '',
+      showDifficulty: true,
+      showAnswers: false,
       addIntro: false,
       intro: '',
       plan: [],
@@ -84,6 +88,7 @@ describe('grouping table normalization', () => {
         },
       ],
       pages: 1,
+      print: { answersSeparate: true, copies: 1, orientation: 'portrait' },
     })
 
     expect(draft.blocks[0]?.tableHeaders).toEqual(['A', GROUPING_HEADER_PLACEHOLDER])

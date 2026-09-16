@@ -551,30 +551,3 @@ function GroupingTableEditor({
     </>
   )
 }
-
-function FieldInline({
-  label,
-  value,
-  min,
-  max,
-  onChange,
-}: {
-  label: string
-  value: number
-  min: number
-  max: number
-  onChange: (n: number) => void
-}) {
-  return (
-    <label className="side-field inline">
-      <span>{label}</span>
-      <Input
-        type="number"
-        min={min}
-        max={max}
-        value={value}
-        onChange={(e) => onChange(Math.max(min, Math.min(max, Number(e.target.value) || min)))}
-      />
-    </label>
-  )
-}
