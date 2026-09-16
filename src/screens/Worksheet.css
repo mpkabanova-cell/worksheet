@@ -2150,16 +2150,14 @@
 .table-answer-bank {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
+  gap: 24px;
+  margin-top: 24px;
 }
 
-.table-answer-chip {
-  padding: 4px 10px;
-  border: 1px solid var(--border-secondary);
-  border-radius: 999px;
-  font-size: 13px;
-  background: var(--bg-white);
+.table-answer-item {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--text-default);
 }
 
 .table-cell-trigger {

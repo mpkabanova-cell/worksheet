@@ -1,17 +1,12 @@
 import type { WorksheetBlock } from '@/data/worksheet'
 import {
-  GROUPING_HEADER_PLACEHOLDER,
-  TABLE_COLS_DEFAULT,
-  TABLE_ROWS_DEFAULT,
   getBlockAnswerStyle,
   getChoiceDisplayOptions,
-  getGapsDisplayAnswers,
   getGapsSourceText,
   getGapsStudentText,
   getValidGapAnswers,
   isValidFillGapsBlock,
   markGapAnswersInText,
-  getTableAnswerBank,
   isChoiceBlock,
   isOptionCorrect,
   isQuestionPlaceholder,
@@ -32,17 +27,16 @@ import {
   type TaskHeadTableOptions,
 } from '@/export/word/build/buildTaskHeadTable'
 import { rasterizeMatching } from '@/export/word/rasterize/renderMatchingDom'
+import { rasterizeGrouping } from '@/export/word/rasterize/renderGroupingDom'
 import { rasterizeOrdering } from '@/export/word/rasterize/renderOrderingDom'
 import {
   COLORS,
   LAYOUT,
   TYPO,
-  pxToHalfPoints,
   pxToTwips,
-  runFont,
   slotBodyTopSpacingPx,
 } from '@/export/word/layoutTokens'
-import { getMatchingLayoutSpec, getOrderingLayoutSpec, getTaskBlockLayout } from '@/export/word/layoutSpec'
+import { getGroupingLayoutSpec, getMatchingLayoutSpec, getOrderingLayoutSpec, getTaskBlockLayout } from '@/export/word/layoutSpec'
 import { fetchImageBytes } from '@/export/word/imageUtils'
 import { parseContent } from '@/export/word/richText/parseRichText'
 import {
@@ -65,7 +59,6 @@ import {
   TableRow,
   TextRun,
   WidthType,
-  type ParagraphChild,
 } from 'docx'
 
 type DocxBlock = Paragraph | Table
@@ -279,49 +272,6 @@ async function buildFillGaps(
   )
   result.push(...paras)
 
-  const showWordBank = !showAnswer && Boolean(block.gapsShuffleAnswers)
-  const shuffledWords = showWordBank ? getGapsDisplayAnswers(block, false, false) : []
-  const words = showWordBank && shuffledWords.length > 0 ? shuffledWords : gapWords
-
-  if (words.length > 0) {
-    const bankRuns: ParagraphChild[] = [
-      new TextRun({
-        text: 'Пропущенные слова:',
-        font: runFont(),
-        size: pxToHalfPoints(TYPO.gapsBank.sizePx),
-        color: COLORS.textSecondary,
-      }),
-    ]
-
-    for (let i = 0; i < words.length; i += 1) {
-      bankRuns.push(
-        new TextRun({
-          text: i === 0 ? ' ' : ', ',
-          font: runFont(),
-          size: pxToHalfPoints(TYPO.gapsBank.sizePx),
-        }),
-      )
-      bankRuns.push(
-        ...(await segmentsToParagraphChildren(
-          parseContent(words[i]),
-          { ...TYPO.gapsBank, color: COLORS.textDefault },
-          ctx,
-        )).children,
-      )
-    }
-
-    result.push(
-      new Paragraph({
-        indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) },
-        spacing: {
-          before: pxToTwips(LAYOUT.gapsTextToBankGapPx),
-          after: pxToTwips(LAYOUT.gapsBankBottomPx),
-        },
-        children: bankRuns,
-      }),
-    )
-  }
-
   return result
 }
 
@@ -361,84 +311,22 @@ async function buildOrdering(
   ]
 }
 
-async function buildGroupingTable(
+async function buildGrouping(
   block: WorksheetBlock,
   showAnswer: boolean,
   ctx: ExportContext,
-): Promise<DocxBlock[]> {
-  const rows = block.tableRows ?? TABLE_ROWS_DEFAULT
-  const cols = block.tableCols ?? TABLE_COLS_DEFAULT
-  const cells = block.tableCells ?? []
-  const headers = block.tableHeaders ?? []
-  const tableRows: TableRow[] = []
+): Promise<Paragraph[]> {
+  const { imageWidthPx } = getGroupingLayoutSpec()
+  const image = await rasterizeGrouping(block, showAnswer, ctx)
+  const displayWidth = imageWidthPx
+  const displayHeight = Math.max(1, Math.round(image.height * (displayWidth / image.width)))
 
-  tableRows.push(
-    new TableRow({
-      children: Array.from({ length: cols }).map((_, colIndex) =>
-        new TableCell({
-          shading: { fill: COLORS.bgTertiary },
-          children: [
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: headers[colIndex]?.trim() || GROUPING_HEADER_PLACEHOLDER,
-                  font: runFont(),
-                  size: pxToHalfPoints(TYPO.option.sizePx),
-                  bold: true,
-                  color: COLORS.textSecondary,
-                }),
-              ],
-            }),
-          ],
-        }),
-      ),
-    }),
-  )
-
-  for (let rowIndex = 0; rowIndex < rows; rowIndex += 1) {
-    const rowCells: TableCell[] = []
-    for (let colIndex = 0; colIndex < cols; colIndex += 1) {
-      const value = cells[rowIndex]?.[colIndex]?.trim() ?? ''
-      const displayValue = showAnswer ? value : ''
-      const cellStyle = showAnswer && value
-        ? { ...TYPO.option, color: COLORS.textPositive }
-        : TYPO.option
-      const cellChildren = displayValue
-        ? (await segmentsToParagraphChildren(parseContent(displayValue), cellStyle, ctx)).children
-        : [new TextRun({ text: ' ' })]
-      rowCells.push(
-        new TableCell({
-          children: [new Paragraph({ children: cellChildren })],
-        }),
-      )
-    }
-    tableRows.push(new TableRow({ children: rowCells }))
-  }
-
-  const result: DocxBlock[] = [
-    new Table({
-      width: { size: 100, type: WidthType.PERCENTAGE },
-      rows: tableRows,
+  return [
+    new Paragraph({
+      spacing: { before: 0, after: pxToTwips(4) },
+      children: [imageRunFromPngSized(image.data, displayWidth, displayHeight)],
     }),
   ]
-
-  if (!showAnswer) {
-    const bank = getTableAnswerBank(block, false, false)
-    if (bank.length > 0) {
-      const bankParagraphs = await richParagraphs(
-        bank.join('   '),
-        TYPO.option,
-        ctx,
-        {
-          spacing: { before: pxToTwips(8) },
-          indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) },
-        },
-      )
-      result.push(...bankParagraphs)
-    }
-  }
-
-  return result
 }
 
 async function buildMediaBlock(block: WorksheetBlock, ctx: ExportContext): Promise<DocxBlock[]> {
@@ -542,6 +430,18 @@ export async function buildBlockContent(
         }),
       ],
     }
+  } else if (block.type === 'grouping') {
+    const layout = getTaskBlockLayout(block)
+    const groupingParagraphs = await buildGrouping(block, showAnswer, ctx)
+    headOptions = {
+      contentWidthCapDxa: layout.contentWidthCapDxa,
+      padQuestionRowToCap: true,
+      extraRows: (grid) => [
+        buildWidgetBodyRow(grid, groupingParagraphs, {
+          cellMarginTopPx: slotBodyTopSpacingPx(),
+        }),
+      ],
+    }
   }
 
   const head = await buildTaskHeadTable(
@@ -565,10 +465,6 @@ export async function buildBlockContent(
 
   if (block.type === 'fill_gaps') {
     bodyParts.push(...(await buildFillGaps(block, showAnswer, ctx)))
-  }
-
-  if (block.type === 'grouping') {
-    bodyParts.push(...(await buildGroupingTable(block, showAnswer, ctx)))
   }
 
   result.push(head)

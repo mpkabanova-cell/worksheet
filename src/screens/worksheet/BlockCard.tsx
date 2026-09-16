@@ -406,7 +406,7 @@ export function BlockCard({
                 text={effectiveShowAnswer ? getGapsSourceText(block) : gapsStudentText}
                 gapWords={getValidGapAnswers(block)}
                 showAnswer={effectiveShowAnswer}
-                showWordBank={!effectiveShowAnswer && Boolean(block.gapsShuffleAnswers)}
+                showWordBank={false}
                 shuffledWords={getGapsDisplayAnswers(block, editable, selected)}
                 invalid={!isValidFillGapsBlock(block)}
               />

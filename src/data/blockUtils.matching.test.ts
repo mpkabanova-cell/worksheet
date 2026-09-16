@@ -3,7 +3,9 @@ import {
   isMatchingBijective,
   isValidMatchingBlock,
   looksLikeAmbiguousSetMatching,
+  createDefaultGroupingTableFields,
   sanitizeBlock,
+  sanitizeBlocks,
 } from './blockUtils'
 import type { WorksheetBlock } from './worksheet'
 
@@ -40,11 +42,38 @@ describe('matching validation', () => {
     expect(isValidMatchingBlock(makeSetMatchingBlock())).toBe(false)
   })
 
-  it('converts invalid matching block to text during sanitize', () => {
+  it('converts invalid matching block to grouping during sanitize', () => {
     const sanitized = sanitizeBlock(makeSetMatchingBlock())
-    expect(sanitized.type).toBe('text')
-    expect(sanitized.body).toContain('Соотнесите число')
+    expect(sanitized.type).toBe('grouping')
+    expect(sanitized.question).toContain('Соотнесите число')
+    expect(sanitized.tableHeaders?.length).toBeGreaterThan(1)
+    expect(sanitized.tableAnswerBank?.length).toBeGreaterThan(0)
     expect(sanitized.leftItems).toBeUndefined()
+  })
+
+  it('removes rejected matching text dumps from worksheets', () => {
+    const blocks = sanitizeBlocks([
+      {
+        id: 'text-1',
+        type: 'text',
+        page: 0,
+        title: 'Мусор',
+        issued: false,
+        body: 'Сопоставьте дроби с их типом.\n\n• $2/3$\n• $5/2$\n\n• Правильная дробь\n• Неправильная дробь',
+      },
+      {
+        id: 'task-3',
+        type: 'grouping',
+        page: 0,
+        title: 'Задание 3',
+        issued: false,
+        question: 'Распределите дроби.',
+        ...createDefaultGroupingTableFields(),
+      },
+    ])
+
+    expect(blocks).toHaveLength(1)
+    expect(blocks[0]?.type).toBe('grouping')
   })
 
   it('accepts bijective matching answers', () => {

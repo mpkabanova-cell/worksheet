@@ -90,6 +90,9 @@ export function questionPlaceholderForBlock(block: WorksheetBlock): string {
   if (isChoiceBlock(block)) {
     return CHOICE_QUESTION_PLACEHOLDER
   }
+  if (block.type === 'grouping') {
+    return GROUPING_QUESTION_PLACEHOLDER
+  }
   return 'Введите текст'
 }
 
@@ -100,6 +103,8 @@ export const TABLE_COLS_MIN = 2
 export const TABLE_COLS_MAX = 6
 export const TABLE_COLS_DEFAULT = 3
 export const GROUPING_HEADER_PLACEHOLDER = 'Название группы'
+export const GROUPING_DEFAULT_QUESTION = 'Распределите элементы по группам.'
+export const GROUPING_QUESTION_PLACEHOLDER = GROUPING_DEFAULT_QUESTION
 
 export const ORDER_ITEMS_MIN = 2
 export const ORDER_ITEMS_MAX = 10
@@ -542,26 +547,9 @@ export function isValidMatchingBlock(block: WorksheetBlock): boolean {
   return isMatchingBijective(block)
 }
 
-function rejectInvalidMatchingBlock(block: WorksheetBlock): WorksheetBlock {
-  if (block.type !== 'matching') return block
-  if (isValidMatchingBlock(block)) return block
-
-  const question = block.question?.trim() || 'Сопоставьте элементы.'
-  const leftLines = (block.leftItems ?? [])
-    .map((item) => item.text.trim())
-    .filter(Boolean)
-    .map((text) => `• ${text}`)
-  const rightLines = (block.rightItems ?? [])
-    .map((item) => item.text.trim())
-    .filter(Boolean)
-    .map((text) => `• ${text}`)
-  const body = [question, '', ...leftLines, '', ...rightLines].join('\n')
-
+function stripMatchingBlockFields(block: WorksheetBlock): WorksheetBlock {
   return {
     ...block,
-    type: 'text',
-    body,
-    question: undefined,
     leftItems: undefined,
     rightItems: undefined,
     matchingPairCount: undefined,
@@ -570,11 +558,94 @@ function rejectInvalidMatchingBlock(block: WorksheetBlock): WorksheetBlock {
     matchingShuffleRight: undefined,
     matchingDisplayRight: undefined,
     correctAnswers: undefined,
+    groups: undefined,
   }
 }
 
+function buildGroupingFromClassification(
+  block: WorksheetBlock,
+  question: string,
+  leftTexts: string[],
+  rightTexts: string[],
+): WorksheetBlock {
+  const uniqueRight = [...new Set(rightTexts.map((text) => text.trim()).filter(Boolean))]
+  const cols = clampTableCols(Math.max(uniqueRight.length, TABLE_COLS_MIN))
+  const headers = Array.from({ length: cols }, (_, index) =>
+    uniqueRight[index] || GROUPING_HEADER_PLACEHOLDER,
+  )
+  let rows = clampTableRows(
+    Math.max(TABLE_ROWS_DEFAULT, leftTexts.filter(Boolean).length),
+  )
+  const cells = Array.from({ length: rows }, () => Array.from({ length: cols }, () => ''))
+
+  for (const answer of block.correctAnswers ?? []) {
+    const parts = answer.split(/\s*(?:→|->)\s*/)
+    if (parts.length !== 2) continue
+    const leftText = parts[0].trim()
+    const rightText = parts[1].trim()
+    const colIndex = headers.findIndex(
+      (header) => normalizeMatchText(header) === normalizeMatchText(rightText),
+    )
+    if (colIndex < 0 || !leftText) continue
+    let rowIndex = cells.findIndex((row) => !row[colIndex]?.trim())
+    if (rowIndex < 0) {
+      cells.push(Array.from({ length: cols }, () => ''))
+      rowIndex = cells.length - 1
+    }
+    cells[rowIndex][colIndex] = leftText
+    rows = Math.max(rows, cells.length)
+  }
+
+  return stripMatchingBlockFields({
+    ...block,
+    type: 'grouping',
+    question: question.trim() || GROUPING_DEFAULT_QUESTION,
+    tableRows: clampTableRows(cells.length),
+    tableCols: cols,
+    tableHeaders: headers,
+    tableCells: cells.slice(0, rows),
+    tableAnswerBank: [...new Set(leftTexts.map((text) => text.trim()).filter(Boolean))],
+    tableShowAnswerBank: block.tableShowAnswerBank ?? true,
+    tableShuffleAnswers: block.tableShuffleAnswers ?? true,
+  })
+}
+
+function convertMatchingToGrouping(block: WorksheetBlock): WorksheetBlock {
+  const leftTexts = (block.leftItems ?? []).map((item) => item.text.trim()).filter(Boolean)
+  const rightTexts = (block.rightItems ?? []).map((item) => item.text.trim()).filter(Boolean)
+  if (!leftTexts.length || !rightTexts.length) {
+    return stripMatchingBlockFields({
+      ...block,
+      type: 'grouping',
+      question: block.question?.trim() || GROUPING_DEFAULT_QUESTION,
+      ...createDefaultGroupingTableFields(),
+    })
+  }
+
+  return buildGroupingFromClassification(
+    block,
+    block.question?.trim() || GROUPING_DEFAULT_QUESTION,
+    leftTexts,
+    rightTexts,
+  )
+}
+
+export function looksLikeRejectedMatchingDump(text: string): boolean {
+  const value = text.trim()
+  if (!value || !/^Сопостав/i.test(value)) return false
+  return value.includes('•') || /\n\s*•\s*/.test(value)
+}
+
+function rejectInvalidMatchingBlock(block: WorksheetBlock): WorksheetBlock {
+  if (block.type !== 'matching') return block
+  if (isValidMatchingBlock(block)) return block
+  return convertMatchingToGrouping(block)
+}
+
 export function sanitizeBlocks(blocks: WorksheetBlock[]): WorksheetBlock[] {
-  return blocks.map(sanitizeBlock)
+  return blocks
+    .filter((block) => block.type !== 'text' || !looksLikeRejectedMatchingDump(block.body ?? ''))
+    .map(sanitizeBlock)
 }
 
 export function normalizeWorksheetDraft(draft: WorksheetDraft): WorksheetDraft {
@@ -1279,6 +1350,10 @@ function normalizeGroupingBlock(block: WorksheetBlock): WorksheetBlock {
     tableAnswerBank: next.tableAnswerBank ?? [],
     tableShowAnswerBank: next.tableShowAnswerBank ?? true,
     tableShuffleAnswers: next.tableShuffleAnswers ?? true,
+    question:
+      isQuestionPlaceholder(next.question?.trim() ?? '') || !next.question?.trim()
+        ? GROUPING_DEFAULT_QUESTION
+        : next.question,
     groups: undefined,
   }
 

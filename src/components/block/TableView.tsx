@@ -154,7 +154,7 @@ export function TableView({
       {answerBank.length > 0 ? (
         <div className="table-answer-bank">
           {answerBank.map((word, index) => (
-            <span key={`${word}-${index}`} className="table-answer-chip">
+            <span key={`${word}-${index}`} className="table-answer-item">
               <MathText text={word} as="span" />
             </span>
           ))}

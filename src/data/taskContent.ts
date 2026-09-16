@@ -197,6 +197,14 @@ export function getBlockQuestion(block: WorksheetBlock): string {
     return stripTheoryFromField(block.question?.trim() || DEFAULT_MATCHING_QUESTION)
   }
 
+  if (block.type === 'grouping') {
+    const question = block.question?.trim()
+    if (!question || question === 'Введите текст') {
+      return 'Распределите элементы по группам.'
+    }
+    return stripTheoryFromField(question)
+  }
+
   if (block.type === 'text') {
     return block.body ?? ''
   }
