@@ -7,6 +7,7 @@ import {
   replaceRange,
   wrapInlineFormula,
 } from '@/data/mathFormulaUtils'
+import { looksLikeMathPlainText } from '@/data/mathTextUtils'
 
 type TextControl = HTMLInputElement | HTMLTextAreaElement
 
@@ -69,6 +70,9 @@ export function useRichTextEditor(
     if (range) {
       formulaRangeRef.current = { start: range.start, end: range.end }
       setFormulaInitial(range.latex)
+    } else if (looksLikeMathPlainText(value.trim()) && !value.includes('$')) {
+      formulaRangeRef.current = { start: 0, end: value.length }
+      setFormulaInitial(value.trim())
     } else {
       formulaRangeRef.current = null
       setFormulaInitial('')
@@ -90,9 +94,18 @@ export function useRichTextEditor(
         applyEdit(next, cursor)
       } else {
         const el = inputRef.current
-        const cursor = el?.selectionStart ?? value.length
-        const { next, cursor: nextCursor } = insertAtCursor(value, cursor, wrapped)
-        applyEdit(next, nextCursor)
+        const start = el?.selectionStart ?? value.length
+        const end = el?.selectionEnd ?? start
+        if (end > start) {
+          const { next, cursor } = replaceRange(value, start, end, wrapped)
+          applyEdit(next, cursor)
+        } else if (looksLikeMathPlainText(value.trim())) {
+          const { next, cursor } = replaceRange(value, 0, value.length, wrapped)
+          applyEdit(next, cursor)
+        } else {
+          const { next, cursor: nextCursor } = insertAtCursor(value, start, wrapped)
+          applyEdit(next, nextCursor)
+        }
       }
       closeFormulaEditor()
     },

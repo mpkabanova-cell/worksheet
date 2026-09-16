@@ -127,11 +127,32 @@ export function normalizeRussianMathTex(tex: string): string {
   return result
 }
 
+function normalizeMathComparison(value: string): string {
+  return value.replace(/\s+/g, '').replace(/[−–—]/g, '-').toLowerCase()
+}
+
+/** Plain math immediately followed by an equivalent $...$ span — keep only the formula. */
+export function stripDuplicatePlainMath(input: string): string {
+  const match = input.match(/^([\s\S]*?)(\$[^$\n]+?\$)\s*$/)
+  if (!match) return input
+
+  const [, plain, wrapped] = match
+  const trimmedPlain = plain.trim()
+  if (!trimmedPlain || !looksLikeMathPlainText(trimmedPlain)) return input
+
+  const latex = wrapped.slice(1, -1)
+  if (normalizeMathComparison(trimmedPlain) === normalizeMathComparison(latex)) {
+    return wrapped
+  }
+
+  return input
+}
+
 /** Подготовка текста перед MathText / KaTeX. */
 export function preprocessMathText(input: string): string {
   if (!input) return ''
 
-  let text = repairJsonLatexEscapes(input)
+  let text = stripDuplicatePlainMath(repairJsonLatexEscapes(input))
   text = text.replace(/\\div\b/g, ':')
 
   return expandMathSegments(splitMathSegments(text))

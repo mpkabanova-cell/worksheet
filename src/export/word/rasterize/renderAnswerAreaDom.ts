@@ -129,7 +129,7 @@ function createCellsGrid(
     const overlayDiv = document.createElement('div')
     overlayDiv.style.position = 'absolute'
     overlayDiv.style.inset = '0'
-    overlayDiv.style.padding = '0'
+    overlayDiv.style.padding = `0 0 0 ${ANSWER_CELL_SIZE}px`
     overlayDiv.style.margin = '0'
     overlayDiv.style.overflow = 'hidden'
     overlayDiv.style.color = '#161A33'

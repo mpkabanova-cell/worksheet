@@ -47,4 +47,8 @@ describe('preprocessMathText', () => {
       `Запишите степень многочлена $${tex}$.`,
     )
   })
+
+  it('removes plain math duplicated by an equivalent $...$ suffix', () => {
+    expect(preprocessMathText('y = 3x - 2$y=3x-2$')).toBe('$y=3x-2$')
+  })
 })
