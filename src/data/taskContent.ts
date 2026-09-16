@@ -6,6 +6,7 @@ export interface AiTaskFields {
   gaps_text?: string
   left_items?: string[]
   right_items?: string[]
+  options?: string[]
 }
 
 export function normalizeWs(text: string): string {
@@ -29,16 +30,66 @@ export function expectationToQuestion(expectation?: string): string {
     .replace(/^Распределить/i, 'Распределите')
 }
 
+function hasGapMarker(text: string): boolean {
+  return text.includes('___') || text.includes('_______')
+}
+
+export function splitParagraphs(text: string): string[] {
+  return text
+    .split(/\n\s*\n/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+}
+
 export function looksLikeTheory(text: string): boolean {
   const value = text.trim()
-  if (value.length < 60) return false
+  if (value.length < 40) return false
+  if (hasGapMarker(value)) return false
 
   const numberedRules = value.match(/\d\.\s/g)?.length ?? 0
-  const hasNumberedRules = numberedRules >= 2
-  const theoryKeywords = /пишется|имеет значени|правил|приставк|определени/i
-  const hasNoBlanks = !value.includes('___') && !value.includes('_______')
+  if (numberedRules >= 2) return true
 
-  return hasNoBlanks && (hasNumberedRules || theoryKeywords.test(value))
+  const theoryKeywords =
+    /пишется|имеет значени|правил|приставк|определени|обозначается|обозначают|множеств.*букв|буквой\s*[A-ZА-ЯQNЗ]|любое целое|любое число|называется|называют|можно представить/i
+  return theoryKeywords.test(value)
+}
+
+/** Убирает теоретические абзацы в конце или целиком теоретический текст. */
+export function stripTheoryFromField(text: string): string {
+  const trimmed = text.trim()
+  if (!trimmed) return ''
+
+  const paragraphs = splitParagraphs(trimmed)
+  if (paragraphs.length <= 1) {
+    if (!looksLikeTheory(trimmed)) return trimmed
+    const firstLine = trimmed.split('\n')[0]?.trim() ?? ''
+    return firstLine && !looksLikeTheory(firstLine) ? firstLine : ''
+  }
+
+  const kept = paragraphs.filter((part) => !looksLikeTheory(part))
+  if (kept.length > 0) return kept.join('\n\n').trim()
+
+  const firstLine = paragraphs[0]?.split('\n')[0]?.trim() ?? ''
+  return firstLine && !looksLikeTheory(firstLine) ? firstLine : ''
+}
+
+/** Убирает теоретическое вступление перед текстом с пропусками. */
+export function stripLeadingTheoryFromGaps(text: string): string {
+  const paragraphs = splitParagraphs(text.trim())
+  if (paragraphs.length <= 1) {
+    return looksLikeTheory(text) && !hasGapMarker(text) ? '' : text.trim()
+  }
+
+  let start = 0
+  while (
+    start < paragraphs.length &&
+    looksLikeTheory(paragraphs[start]) &&
+    !hasGapMarker(paragraphs[start])
+  ) {
+    start += 1
+  }
+
+  return paragraphs.slice(start).join('\n\n').trim()
 }
 
 const DEFAULT_FILL_GAPS_QUESTION = 'Заполните пропуски в тексте.'
@@ -52,6 +103,24 @@ function defaultQuestionForType(type: TaskType, expectation?: string): string {
   if (type === 'fill_gaps') return DEFAULT_FILL_GAPS_QUESTION
   if (type === 'matching') return DEFAULT_MATCHING_QUESTION
   return ''
+}
+
+function sanitizeTaskTextFields<T extends AiTaskFields>(task: T): T {
+  const next = { ...task }
+
+  if (next.question != null) {
+    next.question = stripTheoryFromField(next.question)
+  }
+
+  if (next.options?.length) {
+    next.options = next.options.map((option) => stripTheoryFromField(option))
+  }
+
+  if (next.gaps_text != null) {
+    next.gaps_text = stripLeadingTheoryFromGaps(next.gaps_text)
+  }
+
+  return next
 }
 
 function normalizeFillGapsTask<T extends AiTaskFields>(
@@ -95,19 +164,21 @@ export function normalizeAiTask<T extends AiTaskFields>(
   type: TaskType,
   expectation?: string,
 ): T {
+  const sanitized = sanitizeTaskTextFields(task)
+
   switch (type) {
     case 'fill_gaps':
-      return normalizeFillGapsTask(task, expectation)
+      return normalizeFillGapsTask(sanitized, expectation)
     case 'matching':
-      return normalizeMatchingTask(task, expectation)
+      return normalizeMatchingTask(sanitized, expectation)
     default:
-      return task
+      return sanitized
   }
 }
 
 export function getBlockQuestion(block: WorksheetBlock): string {
   if (block.type === 'fill_gaps') {
-    let question = block.question?.trim() || DEFAULT_FILL_GAPS_QUESTION
+    let question = stripTheoryFromField(block.question?.trim() || DEFAULT_FILL_GAPS_QUESTION)
     const gapsText = block.gapsText?.trim() ?? ''
 
     if (gapsText) {
@@ -119,16 +190,16 @@ export function getBlockQuestion(block: WorksheetBlock): string {
       }
     }
 
-    return question
+    return question || DEFAULT_FILL_GAPS_QUESTION
   }
 
   if (block.type === 'matching') {
-    return block.question?.trim() || DEFAULT_MATCHING_QUESTION
+    return stripTheoryFromField(block.question?.trim() || DEFAULT_MATCHING_QUESTION)
   }
 
   if (block.type === 'text') {
     return block.body ?? ''
   }
 
-  return block.question ?? block.body ?? ''
+  return stripTheoryFromField(block.question ?? block.body ?? '')
 }

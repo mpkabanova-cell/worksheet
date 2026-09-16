@@ -16,6 +16,7 @@ import {
   sanitizeGapsSourceText,
   splitMathSegments,
 } from '@/data/mathTextUtils'
+import { stripLeadingTheoryFromGaps, stripTheoryFromField } from '@/data/taskContent'
 
 export const CHOICE_QUESTION_MAX = 500
 export const CHOICE_OPTION_MAX = 300
@@ -326,7 +327,7 @@ function asText(value: unknown): string | undefined {
 export function sanitizeBlock(block: WorksheetBlock): WorksheetBlock {
   const baseOptions = block.options?.map((option, index) => ({
     id: option.id || `option_${index + 1}`,
-    text: clampText(asText(option.text) ?? '', CHOICE_OPTION_MAX),
+    text: clampText(stripTheoryFromField(asText(option.text) ?? ''), CHOICE_OPTION_MAX),
     imageData: option.imageData,
     imageFileName: asText(option.imageFileName),
   }))
@@ -352,7 +353,7 @@ export function sanitizeBlock(block: WorksheetBlock): WorksheetBlock {
 
   const sanitized: WorksheetBlock = {
     ...block,
-    question: asText(block.question),
+    question: stripTheoryFromField(asText(block.question) ?? ''),
     body: asText(block.body),
     instruction: asText(block.instruction) ?? '',
     options: baseOptions,
@@ -380,8 +381,10 @@ export function sanitizeBlock(block: WorksheetBlock): WorksheetBlock {
       ? block.orderItems.map((item) => asText(item) ?? '')
       : block.orderItems,
     ...(block.type === 'ordering' ? { orderShuffle: block.orderShuffle ?? true } : {}),
-    gapsText: asText(block.gapsText),
-    gapsSourceText: asText(block.gapsSourceText),
+    gapsText: block.gapsText != null ? stripLeadingTheoryFromGaps(asText(block.gapsText) ?? '') : undefined,
+    gapsSourceText: block.gapsSourceText != null
+      ? stripLeadingTheoryFromGaps(asText(block.gapsSourceText) ?? '')
+      : undefined,
     gapsAnswers: Array.isArray(block.gapsAnswers)
       ? block.gapsAnswers.map((item) => asText(item) ?? '').filter(Boolean)
       : block.gapsAnswers,
@@ -412,7 +415,7 @@ export function sanitizeBlock(block: WorksheetBlock): WorksheetBlock {
   }
 
   if (sanitized.type === 'matching') {
-    return normalizeMatchingBlock(sanitized)
+    return rejectInvalidMatchingBlock(normalizeMatchingBlock(sanitized))
   }
 
   return sanitized
@@ -435,6 +438,131 @@ function rejectInvalidFillGapsBlock(block: WorksheetBlock): WorksheetBlock {
     gapsText: undefined,
     gapsAnswers: undefined,
     gapsShuffleAnswers: undefined,
+  }
+}
+
+function parseMatchingPairsFromAnswers(
+  block: WorksheetBlock,
+): { leftIndex: number; rightIndex: number }[] {
+  const left = block.leftItems ?? []
+  const right = block.rightItems ?? []
+  const answers = (block.correctAnswers ?? []).map((answer) => answer.trim()).filter(Boolean)
+  const usedRightIndices = new Set<number>()
+  const pairs: { leftIndex: number; rightIndex: number }[] = []
+
+  const findRightIndex = (raw: string): number => {
+    const index = findMatchingRightIndex(raw, right, right, usedRightIndices)
+    if (index >= 0) usedRightIndices.add(index)
+    return index
+  }
+
+  for (const answer of answers) {
+    const idMatch = answer.match(/^(left_\d+)\s*(?:→|->)\s*(right_\d+)/i)
+    if (idMatch) {
+      const leftIndex = findMatchingIndexedSide('left', idMatch[1], left)
+      const rightIndex = findMatchingIndexedSide('right', idMatch[2], right)
+      if (leftIndex < 0 || rightIndex < 0) continue
+      if (usedRightIndices.has(rightIndex)) continue
+      usedRightIndices.add(rightIndex)
+      pairs.push({ leftIndex, rightIndex })
+      continue
+    }
+
+    const parts = answer.split(/\s*(?:→|->)\s*/)
+    if (parts.length !== 2) continue
+
+    let leftIndex = left.findIndex(
+      (item) => normalizeMatchText(item.text) === normalizeMatchText(parts[0]),
+    )
+    if (leftIndex < 0) {
+      leftIndex = findMatchingIndexedSide('left', parts[0], left)
+    }
+    const rightIndex = findRightIndex(parts[1])
+    if (leftIndex < 0 || rightIndex < 0) continue
+    pairs.push({ leftIndex, rightIndex })
+  }
+
+  return pairs
+}
+
+export function looksLikeAmbiguousSetMatching(block: WorksheetBlock): boolean {
+  if (block.type !== 'matching') return false
+
+  const question = normalizeMatchText(block.question ?? '')
+  if (/наименьш/i.test(question) && /множеств/i.test(question)) return true
+
+  const rightLabels = (block.rightItems ?? []).map((item) => item.text.toLowerCase())
+  const numberSetLabels = ['рациональн', 'цел', 'натуральн', 'действительн', 'иррациональн']
+  const setLabelCount = rightLabels.filter((label) =>
+    numberSetLabels.some((keyword) => label.includes(keyword)),
+  ).length
+
+  const leftHasNumbers = (block.leftItems ?? []).some((item) => {
+    const text = item.text.trim()
+    return /^-?\d+([,.]\d+)?$/.test(text) || /\$[^$]*\d[^$]*\$/.test(text)
+  })
+
+  return setLabelCount >= 2 && leftHasNumbers
+}
+
+export function isMatchingBijective(block: WorksheetBlock): boolean {
+  if (block.type !== 'matching') return true
+
+  const rowCount = getMatchingRowCount(block)
+  if (rowCount === 0) return false
+
+  const pairs = parseMatchingPairsFromAnswers(block)
+  if (pairs.length !== rowCount) return false
+
+  const leftUsed = new Set<number>()
+  const rightUsed = new Set<number>()
+
+  for (const { leftIndex, rightIndex } of pairs) {
+    if (leftIndex < 0 || leftIndex >= rowCount || rightIndex < 0 || rightIndex >= rowCount) {
+      return false
+    }
+    if (leftUsed.has(leftIndex) || rightUsed.has(rightIndex)) return false
+    leftUsed.add(leftIndex)
+    rightUsed.add(rightIndex)
+  }
+
+  return leftUsed.size === rowCount && rightUsed.size === rowCount
+}
+
+export function isValidMatchingBlock(block: WorksheetBlock): boolean {
+  if (block.type !== 'matching') return true
+  if (looksLikeAmbiguousSetMatching(block)) return false
+  return isMatchingBijective(block)
+}
+
+function rejectInvalidMatchingBlock(block: WorksheetBlock): WorksheetBlock {
+  if (block.type !== 'matching') return block
+  if (isValidMatchingBlock(block)) return block
+
+  const question = block.question?.trim() || 'Сопоставьте элементы.'
+  const leftLines = (block.leftItems ?? [])
+    .map((item) => item.text.trim())
+    .filter(Boolean)
+    .map((text) => `• ${text}`)
+  const rightLines = (block.rightItems ?? [])
+    .map((item) => item.text.trim())
+    .filter(Boolean)
+    .map((text) => `• ${text}`)
+  const body = [question, '', ...leftLines, '', ...rightLines].join('\n')
+
+  return {
+    ...block,
+    type: 'text',
+    body,
+    question: undefined,
+    leftItems: undefined,
+    rightItems: undefined,
+    matchingPairCount: undefined,
+    matchingLeftFormat: undefined,
+    matchingRightFormat: undefined,
+    matchingShuffleRight: undefined,
+    matchingDisplayRight: undefined,
+    correctAnswers: undefined,
   }
 }
 
