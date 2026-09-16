@@ -493,9 +493,21 @@
 }
 
 .ws-task-question-row .ws-task-text,
-.ws-task-question-row .ws-inline-textarea {
+.ws-task-question-row .ws-inline-textarea,
+.ws-task-question-row .math-editable {
   flex: 1;
   min-width: 0;
+}
+
+.ws-task-question-row .ws-task-text,
+.ws-task-question-row .ws-inline-textarea,
+.ws-task-question-row .math-editable,
+.ws-task-question-row .math-editable-preview,
+.ws-task-question-row .math-editable-input {
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 24px;
+  letter-spacing: -0.1px;
 }
 
 .ws-task-issued-label {
@@ -999,7 +1011,7 @@
   color: var(--text-secondary);
 }
 
-.ws-task.answer-task.editing-inline .ws-inline-textarea {
+.ws-task.answer-task.editing-inline textarea.ws-inline-textarea {
   border: none;
   background: transparent;
   padding: 0;
@@ -1007,12 +1019,12 @@
   color: var(--text-default);
   resize: none;
   min-height: 24px;
-  height: 24px;
+  height: auto;
   overflow: hidden;
   line-height: 24px;
 }
 
-.ws-task.answer-task.editing-inline .ws-inline-textarea::placeholder {
+.ws-task.answer-task.editing-inline textarea.ws-inline-textarea::placeholder {
   color: var(--text-secondary);
 }
 
@@ -1057,22 +1069,13 @@
   gap: 4px;
 }
 
-.ws-task.answer-task .ws-task-num,
-.ws-task.answer-task .ws-task-text,
-.ws-task.answer-task .ws-inline-textarea {
-  font-size: 16px;
-  font-weight: 500;
-  line-height: 24px;
-  letter-spacing: -0.1px;
-}
-
 .ws-task.answer-task .ws-task-num {
   color: var(--text-secondary);
 }
 
 .ws-task.answer-task .ws-task-head:has(.ws-task-text:not(.is-placeholder)) .ws-task-num,
 .ws-task.answer-task.editing-inline
-  .ws-task-head:has(.ws-inline-textarea:not(:placeholder-shown))
+  .ws-task-head:has(textarea.ws-inline-textarea:not(:placeholder-shown))
   .ws-task-num {
   color: var(--text-default);
 }

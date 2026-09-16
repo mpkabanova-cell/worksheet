@@ -111,12 +111,12 @@ async function buildLayout(
 }
 
 describe('task head table diagnostics (screenshot worksheet)', () => {
-  it('screenshot task is short_answer — uses 16px answer typography, no choice extraRows', async () => {
+  it('screenshot task is short_answer — uses same typography as other tasks', async () => {
     const layout = await buildLayout(screenshotShortAnswerBlock(), false)
 
     expect(layout.blockType).toBe('short_answer')
     expect(layout.isAnswerBlock).toBe(true)
-    expect(layout.questionFontSizePx).toBe(TYPO.answerTaskQuestion.sizePx)
+    expect(layout.questionFontSizePx).toBe(TYPO.taskQuestion.sizePx)
     expect(layout.firstRowColumnWidthsDxa).toHaveLength(2)
     expect(layout.paragraphCount).toBeGreaterThan(0)
   })
