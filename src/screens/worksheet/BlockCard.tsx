@@ -9,12 +9,13 @@ import {
   getGapsStudentText,
   getGapsDisplayAnswers,
   getValidGapAnswers,
+  getOrderAnswerNumbers,
   getOrderDisplayItems,
   isChoiceBlock,
   isQuestionPlaceholder,
   isValidFillGapsBlock,
   questionPlaceholderForBlock,
-  shuffleArray,
+  shuffleOrderDisplay,
   TEXT_BODY_MAX_LENGTH,
 } from '@/data/blockUtils'
 import { getBlockQuestion } from '@/data/taskContent'
@@ -138,7 +139,7 @@ export function BlockCard({
     ) {
       const items = block.orderItems ?? []
       if (items.length > 0) {
-        onChangeBlock({ ...block, orderDisplayItems: shuffleArray(items) })
+        onChangeBlock({ ...block, ...shuffleOrderDisplay(items) })
       }
     }
     prevIsEditingRef.current = isEditing
@@ -225,6 +226,7 @@ export function BlockCard({
   const orderItems = isEditing
     ? (block.orderItems ?? [])
     : getOrderDisplayItems(block, editable, selected)
+  const orderAnswerNumbers = getOrderAnswerNumbers(block)
   const answerStyle = getBlockAnswerStyle(block, subject)
   const isAnswerBlock = block.type === 'short_answer' || block.type === 'extended_answer'
   const isChoiceTask = isChoiceBlock(block)
@@ -463,9 +465,16 @@ export function BlockCard({
               items={orderItems}
               isEditing={isEditing}
               showNumbers={isEditing}
+              showAnswer={effectiveShowAnswer && !isEditing}
+              answerNumbers={orderAnswerNumbers}
               onChangeItems={
                 isEditing
-                  ? (items) => patchBlock({ orderItems: items, orderDisplayItems: undefined })
+                  ? (items) =>
+                      patchBlock({
+                        orderItems: items,
+                        orderDisplayItems: undefined,
+                        orderDisplayOrder: undefined,
+                      })
                   : undefined
               }
             />

@@ -121,6 +121,8 @@ export interface WorksheetBlock {
   tableShowAnswerBank?: boolean
   tableShuffleAnswers?: boolean
   orderDisplayItems?: string[]
+  /** Индексы orderItems в порядке показа ученику. */
+  orderDisplayOrder?: number[]
   matchingDisplayRight?: MatchPair[]
   /** Количество пар сопоставления (2–10). */
   matchingPairCount?: number

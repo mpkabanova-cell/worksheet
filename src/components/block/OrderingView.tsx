@@ -8,6 +8,8 @@ interface OrderingViewProps {
   items: string[]
   isEditing: boolean
   showNumbers: boolean
+  showAnswer?: boolean
+  answerNumbers?: number[]
   onChangeItems?: (items: string[]) => void
 }
 
@@ -15,6 +17,8 @@ export function OrderingView({
   items,
   isEditing,
   showNumbers,
+  showAnswer = false,
+  answerNumbers = [],
   onChangeItems,
 }: OrderingViewProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null)
@@ -49,10 +53,17 @@ export function OrderingView({
     setDragIndex(null)
   }
 
+  const rowNumber = (index: number): number | null => {
+    if (isEditing && showNumbers) return index + 1
+    if (showAnswer) return answerNumbers[index] ?? null
+    return null
+  }
+
   return (
     <div className={`order-list-stack ${isEditing ? 'order-list-stack--editing' : ''}`}>
       {items.map((item, index) => {
         const isEmpty = !item.trim()
+        const number = rowNumber(index)
         return (
           <div
             key={index}
@@ -63,7 +74,12 @@ export function OrderingView({
             onDrop={isEditing ? onRowDrop(index) : undefined}
             onDragEnd={isEditing ? () => setDragIndex(null) : undefined}
           >
-            <span className="order-row-num">{showNumbers ? index + 1 : null}</span>
+            <span
+              className={`order-row-num ${showAnswer && number != null ? 'order-row-num--answer' : ''}`}
+              aria-hidden={number == null}
+            >
+              {number ?? '\u00a0'}
+            </span>
             <div className="order-row-body">
               {isEditing ? (
                 <MathEditableInput

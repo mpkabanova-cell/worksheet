@@ -1899,6 +1899,11 @@
   text-align: center;
 }
 
+.order-row-num--answer {
+  color: var(--text-positive);
+  font-weight: 500;
+}
+
 .order-row-body {
   flex: 1;
   min-width: 0;

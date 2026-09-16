@@ -296,6 +296,7 @@ export function OrderingTaskSettingsPanel({
               ...block,
               orderShuffle: block.orderShuffle === false,
               orderDisplayItems: undefined,
+              orderDisplayOrder: undefined,
             })
           }
         >

@@ -25,6 +25,8 @@ export type MatchingLayoutSpec = {
   cellWidthDxa: number
 }
 
+export type OrderingLayoutSpec = MatchingLayoutSpec
+
 export type TaskBlockLayout = {
   questionWidthPx: number
   widgetWidthPx?: number
@@ -50,6 +52,10 @@ export function getMatchingLayoutSpec(): MatchingLayoutSpec {
   }
 }
 
+export function getOrderingLayoutSpec(): OrderingLayoutSpec {
+  return getMatchingLayoutSpec()
+}
+
 /** Question line budget in px; respects widget cap when provided. */
 export function getTaskQuestionWidthPx(contentWidthCapDxa?: number): number {
   if (contentWidthCapDxa == null) return TASK_QUESTION_WIDTH_PX
@@ -64,6 +70,16 @@ export function getTaskBlockLayout(block: Pick<WorksheetBlock, 'type'>): TaskBlo
       widgetWidthPx: matching.contentWidthPx,
       contentWidthCapDxa: matching.cellWidthDxa,
       widgetCellMarginPx: matching.cellMarginPx,
+    }
+  }
+
+  if (block.type === 'ordering') {
+    const ordering = getOrderingLayoutSpec()
+    return {
+      questionWidthPx: getTaskQuestionWidthPx(ordering.cellWidthDxa),
+      widgetWidthPx: ordering.contentWidthPx,
+      contentWidthCapDxa: ordering.cellWidthDxa,
+      widgetCellMarginPx: ordering.cellMarginPx,
     }
   }
 

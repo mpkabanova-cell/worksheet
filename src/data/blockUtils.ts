@@ -474,6 +474,7 @@ export function cloneBlock(block: WorksheetBlock): WorksheetBlock {
     tableHeaders: block.tableHeaders ? [...block.tableHeaders] : block.tableHeaders,
     tableAnswerBank: block.tableAnswerBank ? [...block.tableAnswerBank] : block.tableAnswerBank,
     orderDisplayItems: block.orderDisplayItems ? [...block.orderDisplayItems] : block.orderDisplayItems,
+    orderDisplayOrder: block.orderDisplayOrder ? [...block.orderDisplayOrder] : block.orderDisplayOrder,
     matchingDisplayRight: block.matchingDisplayRight?.map((item) => ({ ...item })),
   }
 }
@@ -641,10 +642,57 @@ export function getOrderDisplayItems(
   selected: boolean,
 ): string[] {
   const items = block.orderItems ?? []
-  if (editable && selected) return items
-  if (block.orderShuffle === false) return items
-  if (block.orderDisplayItems?.length === items.length) return block.orderDisplayItems
-  return stableShuffle(items, block.id)
+  const order = getOrderDisplayOrder(block, editable, selected)
+  return order.map((index) => items[index] ?? '')
+}
+
+function deriveOrderIndices(correctItems: string[], displayItems: string[]): number[] {
+  const used = new Set<number>()
+  return displayItems.map((item) => {
+    for (let i = 0; i < correctItems.length; i += 1) {
+      if (used.has(i)) continue
+      if (correctItems[i] === item) {
+        used.add(i)
+        return i
+      }
+    }
+    return 0
+  })
+}
+
+export function getOrderDisplayOrder(
+  block: WorksheetBlock,
+  editable: boolean,
+  selected: boolean,
+): number[] {
+  const items = block.orderItems ?? []
+  const count = items.length
+  if (count === 0) return []
+  if (editable && selected) return items.map((_, index) => index)
+  if (block.orderShuffle === false) return items.map((_, index) => index)
+  if (block.orderDisplayOrder?.length === count) return block.orderDisplayOrder
+  if (block.orderDisplayItems?.length === count) {
+    return deriveOrderIndices(items, block.orderDisplayItems)
+  }
+  return stableShuffle(
+    Array.from({ length: count }, (_, index) => index),
+    block.id,
+  )
+}
+
+export function getOrderAnswerNumbers(block: WorksheetBlock): number[] {
+  return getOrderDisplayOrder(block, false, false).map((index) => index + 1)
+}
+
+export function shuffleOrderDisplay(items: string[]): {
+  orderDisplayItems: string[]
+  orderDisplayOrder: number[]
+} {
+  const order = shuffleArray(Array.from({ length: items.length }, (_, index) => index))
+  return {
+    orderDisplayOrder: order,
+    orderDisplayItems: order.map((index) => items[index] ?? ''),
+  }
 }
 
 export function getMatchingRightItems(
@@ -966,6 +1014,7 @@ export function resizeOrderItems(block: WorksheetBlock): WorksheetBlock {
     ...block,
     orderItems: items.slice(0, count),
     orderDisplayItems: undefined,
+    orderDisplayOrder: undefined,
   }
 }
 

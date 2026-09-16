@@ -8,7 +8,6 @@ import {
   getValidGapAnswers,
   isValidFillGapsBlock,
   markGapAnswersInText,
-  getOrderDisplayItems,
   getTableAnswerBank,
   isChoiceBlock,
   isOptionCorrect,
@@ -30,6 +29,7 @@ import {
   type TaskHeadTableOptions,
 } from '@/export/word/build/buildTaskHeadTable'
 import { rasterizeMatching } from '@/export/word/rasterize/renderMatchingDom'
+import { rasterizeOrdering } from '@/export/word/rasterize/renderOrderingDom'
 import {
   COLORS,
   LAYOUT,
@@ -39,7 +39,7 @@ import {
   runFont,
   slotBodyTopSpacingPx,
 } from '@/export/word/layoutTokens'
-import { getMatchingLayoutSpec, getTaskBlockLayout } from '@/export/word/layoutSpec'
+import { getMatchingLayoutSpec, getOrderingLayoutSpec, getTaskBlockLayout } from '@/export/word/layoutSpec'
 import { fetchImageBytes } from '@/export/word/imageUtils'
 import { parseContent } from '@/export/word/richText/parseRichText'
 import {
@@ -340,22 +340,22 @@ async function buildMatching(
   ]
 }
 
-async function buildOrdering(block: WorksheetBlock, ctx: ExportContext): Promise<DocxBlock[]> {
-  const items = getOrderDisplayItems(block, false, false)
-  const result: DocxBlock[] = []
+async function buildOrdering(
+  block: WorksheetBlock,
+  showAnswer: boolean,
+  ctx: ExportContext,
+): Promise<Paragraph[]> {
+  const { imageWidthPx } = getOrderingLayoutSpec()
+  const image = await rasterizeOrdering(block, showAnswer, ctx)
+  const displayWidth = imageWidthPx
+  const displayHeight = Math.max(1, Math.round(image.height * (displayWidth / image.width)))
 
-  for (let i = 0; i < items.length; i += 1) {
-    const text = items[i]?.trim() || 'Текст'
-    const { children } = await segmentsToParagraphChildren(parseContent(text), TYPO.option, ctx)
-    result.push(
-      new Paragraph({
-        indent: { left: pxToTwips(LAYOUT.slotPaddingLeft) },
-        spacing: { after: pxToTwips(8) },
-        children,
-      }),
-    )
-  }
-  return result
+  return [
+    new Paragraph({
+      spacing: { before: 0, after: pxToTwips(4) },
+      children: [imageRunFromPngSized(image.data, displayWidth, displayHeight)],
+    }),
+  ]
 }
 
 async function buildGrouping(block: WorksheetBlock, ctx: ExportContext): Promise<DocxBlock[]> {
@@ -558,6 +558,18 @@ export async function buildBlockContent(
         }),
       ],
     }
+  } else if (block.type === 'ordering') {
+    const layout = getTaskBlockLayout(block)
+    const orderingParagraphs = await buildOrdering(block, showAnswer, ctx)
+    headOptions = {
+      contentWidthCapDxa: layout.contentWidthCapDxa,
+      padQuestionRowToCap: true,
+      extraRows: (grid) => [
+        buildWidgetBodyRow(grid, orderingParagraphs, {
+          cellMarginTopPx: slotBodyTopSpacingPx(),
+        }),
+      ],
+    }
   }
 
   const head = await buildTaskHeadTable(
@@ -581,10 +593,6 @@ export async function buildBlockContent(
 
   if (block.type === 'fill_gaps') {
     bodyParts.push(...(await buildFillGaps(block, showAnswer, ctx)))
-  }
-
-  if (block.type === 'ordering') {
-    bodyParts.push(...(await buildOrdering(block, ctx)))
   }
 
   if (block.type === 'grouping') {
