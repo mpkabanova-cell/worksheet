@@ -10,6 +10,7 @@ import {
 import {
   MATH_SCRIPT_SCALE,
   pxToHalfPoints,
+  resolveTextColor,
   runMathFont,
 } from '@/export/word/layoutTokens'
 import type { TextStyleSpec } from '@/export/word/types'
@@ -43,6 +44,7 @@ function wordRunProperties(style: TextStyleSpec, role: MathRunRole = 'base'): Ru
     size: pxToHalfPoints(sizePx),
     italics: false,
     italicsComplexScript: false,
+    color: resolveTextColor(style),
   })
 }
 

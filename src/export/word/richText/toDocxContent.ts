@@ -8,10 +8,10 @@ import {
   type ParagraphChild,
 } from 'docx'
 import {
-  COLORS,
   lineSpacingPx,
   pxToHalfPoints,
   pxToTwips,
+  resolveTextColor,
   runFont,
 } from '@/export/word/layoutTokens'
 import { parseContent, type ContentSegment } from '@/export/word/richText/parseRichText'
@@ -19,18 +19,12 @@ import { normalizeExportText } from '@/export/word/richText/normalizeExportText'
 import { mathSegmentToParagraphChild } from '@/export/word/richText/latexToWordMath'
 import type { ExportContext, TextStyleSpec } from '@/export/word/types'
 
-function resolveColor(style: TextStyleSpec): string {
-  if (style.color) return style.color
-  if (style.secondary) return COLORS.textSecondary
-  return COLORS.textDefault
-}
-
 function baseRunOptions(style: TextStyleSpec): IRunOptions {
   return {
     font: runFont(),
     size: pxToHalfPoints(style.sizePx),
     bold: style.bold,
-    color: resolveColor(style),
+    color: resolveTextColor(style),
   }
 }
 

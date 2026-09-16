@@ -659,7 +659,7 @@ export async function mathSegmentToParagraphChild(
       latex: tex,
       error,
     })
-    return inlineMathImageRun(await renderMathToPng(tex, display, style.sizePx, ctx))
+    return inlineMathImageRun(await renderMathToPng(tex, display, style, ctx))
   }
 }
 

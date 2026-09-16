@@ -61,6 +61,18 @@ export const COLORS = {
   white: 'FFFFFF',
 } as const
 
+/** Docx text/math color from style (hex without #). */
+export function resolveTextColor(style: { color?: string; secondary?: boolean }): string {
+  if (style.color) return style.color.replace(/^#/, '')
+  if (style.secondary) return COLORS.textSecondary
+  return COLORS.textDefault
+}
+
+/** CSS color for off-screen math rasterization. */
+export function resolveTextColorCss(style: { color?: string; secondary?: boolean }): string {
+  return `#${resolveTextColor(style)}`
+}
+
 export const TYPO = {
   sheetTitle: { sizePx: 20, linePx: 26, weight: 500 },
   sheetIntro: { sizePx: 14, linePx: 20, weight: 400 },

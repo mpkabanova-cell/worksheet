@@ -1,7 +1,8 @@
 import katex from 'katex'
 import katexCss from 'katex/dist/katex.min.css?inline'
 import { toPng } from 'html-to-image'
-import type { ExportContext, MathImageResult } from '@/export/word/types'
+import { resolveTextColorCss } from '@/export/word/layoutTokens'
+import type { ExportContext, MathImageResult, TextStyleSpec } from '@/export/word/types'
 
 const PIXEL_RATIO = 2
 
@@ -29,8 +30,16 @@ function getMountNode(): HTMLDivElement {
   return mountNode
 }
 
-function cacheKey(tex: string, displayMode: boolean, fontSizePx: number): string {
-  return `${displayMode ? 'd' : 'i'}:${fontSizePx}:${tex}`
+function cacheKey(tex: string, displayMode: boolean, style: TextStyleSpec): string {
+  const color = resolveTextColorCss(style)
+  return `${displayMode ? 'd' : 'i'}:${style.sizePx}:${color}:${tex}`
+}
+
+function applyKatexColor(root: HTMLElement, color: string): void {
+  root.style.color = color
+  root.querySelectorAll('.katex').forEach((node) => {
+    ;(node as HTMLElement).style.color = color
+  })
 }
 
 function isInkPixel(data: Uint8ClampedArray, index: number): boolean {
@@ -95,12 +104,15 @@ async function canvasToPng(canvas: HTMLCanvasElement): Promise<Uint8Array> {
 export async function renderMathToPng(
   tex: string,
   displayMode: boolean,
-  fontSizePx: number,
+  style: TextStyleSpec,
   ctx: ExportContext,
 ): Promise<MathImageResult> {
-  const key = cacheKey(tex, displayMode, fontSizePx)
+  const key = cacheKey(tex, displayMode, style)
   const cached = ctx.mathCache.get(key)
   if (cached) return cached
+
+  const color = resolveTextColorCss(style)
+  const fontSizePx = style.sizePx
 
   const html = katex.renderToString(tex, {
     displayMode,
@@ -113,13 +125,13 @@ export async function renderMathToPng(
   wrapper.className = displayMode ? 'math-display' : 'math-inline'
   wrapper.style.display = displayMode ? 'block' : 'inline-block'
   wrapper.style.fontSize = `${fontSizePx}px`
-  wrapper.style.color = '#161a33'
   wrapper.style.background = '#ffffff'
   wrapper.style.lineHeight = displayMode ? '1.2' : '1'
   wrapper.style.padding = '0'
   wrapper.style.margin = '0'
   wrapper.style.verticalAlign = 'baseline'
   wrapper.innerHTML = html
+  applyKatexColor(wrapper, color)
 
   const mount = getMountNode()
   const captureRoot = document.createElement('span')

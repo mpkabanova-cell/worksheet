@@ -6,7 +6,7 @@ import {
   splitMathSegments,
   texForCellsLayout,
 } from '@/data/mathTextUtils'
-import { FONT_MATH_CSS } from '@/export/word/layoutTokens'
+import { FONT_MATH_CSS, resolveTextColorCss } from '@/export/word/layoutTokens'
 
 let katexStyleNode: HTMLStyleElement | null = null
 
@@ -33,14 +33,22 @@ function applyCellsDoubleHeightStyles(span: HTMLElement, cellSize: number): void
   span.style.minHeight = `${cellSize * 2}px`
 }
 
+function applyKatexColor(root: HTMLElement, color: string): void {
+  root.style.color = color
+  root.querySelectorAll('.katex').forEach((node) => {
+    ;(node as HTMLElement).style.color = color
+  })
+}
+
 export function appendMathText(parent: HTMLElement, text: string, options: MathHtmlOptions = {}): HTMLElement {
   const cellSize = options.cellSize ?? options.lineHeight ?? 16
+  const color = options.positive ? '#0DB56C' : (options.color ?? resolveTextColorCss({}))
   const container = document.createElement('span')
   container.className = options.cellsLayout ? 'math-text math-text--cells' : 'math-text'
   container.style.fontFamily = FONT_MATH_CSS
   container.style.fontSize = `${options.fontSize ?? 14}px`
   container.style.lineHeight = `${options.cellsLayout ? cellSize : (options.lineHeight ?? 20)}px`
-  container.style.color = options.positive ? '#0DB56C' : (options.color ?? '#161A33')
+  container.style.color = color
 
   const preparedRaw = preprocessMathText(text)
   const prepared =
@@ -71,6 +79,7 @@ export function appendMathText(parent: HTMLElement, text: string, options: MathH
       })
       const katexEl = span.querySelector('.katex') as HTMLElement | null
       if (katexEl) katexEl.style.fontSize = '14px'
+      applyKatexColor(span, color)
     } else {
       span.innerHTML = katex.renderToString(tex, {
         displayMode: segment.display,
@@ -78,6 +87,7 @@ export function appendMathText(parent: HTMLElement, text: string, options: MathH
         strict: 'ignore',
         trust: false,
       })
+      applyKatexColor(span, color)
     }
     container.appendChild(span)
   }

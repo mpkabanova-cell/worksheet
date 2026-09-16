@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { FONT_MATH, MATH_SCRIPT_SCALE, pxToHalfPoints, TYPO } from '@/export/word/layoutTokens'
+import { COLORS, FONT_MATH, MATH_SCRIPT_SCALE, pxToHalfPoints, TYPO } from '@/export/word/layoutTokens'
 import {
   latexToWordMath,
   ommlXmlFromLatex,
@@ -71,6 +71,14 @@ describe('latexToWordMath', () => {
     expect(xml).toContain('<m:type m:val="bar"/>')
     expect(xml).toContain('<m:num>')
     expect(xml).toContain('<m:den>')
+  })
+
+  it('uses secondary color for math in gray text blocks', async () => {
+    const xml = await ommlXmlFromLatex(String.raw`\frac{m}{n}`, {
+      ...TYPO.sheetIntro,
+      secondary: true,
+    })
+    expect(xml).toContain(`<w:color w:val="${COLORS.textSecondary}"/>`)
   })
 
   it('parses numeric fractions without flattening digits', async () => {
