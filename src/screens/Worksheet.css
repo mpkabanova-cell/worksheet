@@ -1909,7 +1909,7 @@
   padding: 10px 12px;
 }
 
-.order-list-stack--numbered .order-row-body {
+.order-list-stack--editing .order-row-body {
   padding: 10px 44px 10px 12px;
 }
 

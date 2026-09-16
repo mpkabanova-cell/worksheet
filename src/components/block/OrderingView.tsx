@@ -50,7 +50,7 @@ export function OrderingView({
   }
 
   return (
-    <div className={`order-list-stack ${showNumbers ? 'order-list-stack--numbered' : ''}`}>
+    <div className={`order-list-stack ${isEditing ? 'order-list-stack--editing' : ''}`}>
       {items.map((item, index) => {
         const isEmpty = !item.trim()
         return (
@@ -63,7 +63,7 @@ export function OrderingView({
             onDrop={isEditing ? onRowDrop(index) : undefined}
             onDragEnd={isEditing ? () => setDragIndex(null) : undefined}
           >
-            {showNumbers ? <span className="order-row-num">{index + 1}</span> : null}
+            <span className="order-row-num">{showNumbers ? index + 1 : null}</span>
             <div className="order-row-body">
               {isEditing ? (
                 <MathEditableInput
