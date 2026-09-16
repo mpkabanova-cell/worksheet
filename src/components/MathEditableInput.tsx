@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { MathText } from '@/components/MathText'
+import { MathText, type MathTextLayout } from '@/components/MathText'
 import { MathFormulaEditor } from '@/components/MathFormulaEditor'
 import { WysiwygToolbar } from '@/components/WysiwygToolbar'
 import { useRichTextEditor } from '@/hooks/useRichTextEditor'
@@ -16,6 +16,7 @@ interface MathEditableInputProps {
   onClick?: (e: React.MouseEvent) => void
   showToolbar?: boolean
   floatingToolbar?: boolean
+  layout?: MathTextLayout
 }
 
 export function MathEditableInput({
@@ -30,6 +31,7 @@ export function MathEditableInput({
   onClick,
   showToolbar = false,
   floatingToolbar = false,
+  layout = 'default',
 }: MathEditableInputProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -47,7 +49,7 @@ export function MathEditableInput({
   } = useRichTextEditor(value, onChange, controlRef, maxLength)
 
   const preview = value.trim() ? (
-    <MathText text={value} as={multiline ? 'div' : 'span'} />
+    <MathText text={value} as={multiline ? 'div' : 'span'} layout={layout} />
   ) : placeholder ? (
     <span className="math-editable-placeholder">{placeholder}</span>
   ) : null

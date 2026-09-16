@@ -64,6 +64,7 @@ export function AnswerCellsGrid({
             multiline
             rows={rows}
             value={value}
+            layout="cells"
             showToolbar
             floatingToolbar
             onChange={(text) => onChange?.(text)}
@@ -72,7 +73,7 @@ export function AnswerCellsGrid({
         ) : null}
         {mode === 'readonly' && value ? (
           <div className="answer-inline-readonly answer-inline-readonly--cells">
-            <MathText text={value} as="div" />
+            <MathText text={value} as="div" layout="cells" />
           </div>
         ) : null}
         {overlay && cols > 0 ? (

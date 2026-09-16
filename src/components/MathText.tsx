@@ -1,12 +1,19 @@
 import { Fragment, useMemo, type ReactNode } from 'react'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
-import { preprocessMathText } from '@/data/mathTextUtils'
+import {
+  needsDoubleCellHeight,
+  preprocessMathText,
+  texForCellsLayout,
+} from '@/data/mathTextUtils'
+
+export type MathTextLayout = 'default' | 'cells'
 
 interface MathTextProps {
   text: string
   className?: string
   as?: 'span' | 'div' | 'p'
+  layout?: MathTextLayout
 }
 
 function renderKatex(tex: string, displayMode: boolean): string {
@@ -22,17 +29,28 @@ function renderKatex(tex: string, displayMode: boolean): string {
   }
 }
 
+function mathSpanClass(display: boolean, layout: MathTextLayout, tex: string): string {
+  const base = display ? 'math-display' : 'math-inline'
+  if (layout === 'cells' && needsDoubleCellHeight(tex)) {
+    return `${base} ${base}--cell-double`
+  }
+  return base
+}
+
 /** Renders plain text with inline `$...$` and display `$$...$$` LaTeX via KaTeX. */
-export function MathText({ text, className, as: Tag = 'span' }: MathTextProps) {
+export function MathText({ text, className, as: Tag = 'span', layout = 'default' }: MathTextProps) {
   const safeText = typeof text === 'string' ? text : text == null ? '' : String(text)
   const prepared = useMemo(() => preprocessMathText(safeText), [safeText])
-  const nodes = useMemo(() => parseMathText(prepared), [prepared])
+  const nodes = useMemo(() => parseMathText(prepared, layout), [prepared, layout])
 
-  return (
-    <Tag className={className ? `math-text ${className}` : 'math-text'}>
-      {nodes}
-    </Tag>
-  )
+  const rootClass =
+    className != null
+      ? `math-text ${layout === 'cells' ? 'math-text--cells ' : ''}${className}`
+      : layout === 'cells'
+        ? 'math-text math-text--cells'
+        : 'math-text'
+
+  return <Tag className={rootClass}>{nodes}</Tag>
 }
 
 function parsePlainText(input: string, keyStart: number): ReactNode[] {
@@ -63,11 +81,10 @@ function parsePlainText(input: string, keyStart: number): ReactNode[] {
   return nodes
 }
 
-function parseMathText(input: string): ReactNode[] {
+function parseMathText(input: string, layout: MathTextLayout): ReactNode[] {
   if (!input) return []
 
   const nodes: ReactNode[] = []
-  // Display math first: $$...$$, then inline $...$
   const re = /\$\$([\s\S]+?)\$\$|\$([^$\n]+?)\$/g
   let last = 0
   let match: RegExpExecArray | null
@@ -80,11 +97,12 @@ function parseMathText(input: string): ReactNode[] {
       key += plainNodes.length
     }
     const display = match[1] != null
-    const tex = (display ? match[1] : match[2] ?? '').trim()
+    const rawTex = (display ? match[1] : match[2] ?? '').trim()
+    const tex = layout === 'cells' ? texForCellsLayout(rawTex) : rawTex
     nodes.push(
       <span
         key={key++}
-        className={display ? 'math-display' : 'math-inline'}
+        className={mathSpanClass(display, layout, rawTex)}
         dangerouslySetInnerHTML={{ __html: renderKatex(tex, display) }}
       />,
     )

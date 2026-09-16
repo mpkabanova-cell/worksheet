@@ -8,6 +8,7 @@ import type {
 } from './worksheet'
 import { uid } from './worksheet'
 import {
+  cellsRowsNeededForText,
   gapWordOccursOutsideMath,
   hasForbiddenGapsInFormulas,
   looksLikeMathPlainText,
@@ -282,12 +283,8 @@ function linesNeededForAnswerText(text: string, style: AnswerAreaStyle): number 
       0,
     )
   }
-  if (style === 'cells') {
-    const charsPerRow = 48
-    return paragraphs.reduce(
-      (sum, paragraph) => sum + Math.max(1, Math.ceil(paragraph.length / charsPerRow)),
-      0,
-    )
+  if (style === 'cells' || style === 'axes' || style === 'number_line' || style === 'ray') {
+    return cellsRowsNeededForText(text)
   }
   return paragraphs.reduce((sum, paragraph) => sum + Math.max(1, paragraph.length > 0 ? 1 : 0), 0)
 }

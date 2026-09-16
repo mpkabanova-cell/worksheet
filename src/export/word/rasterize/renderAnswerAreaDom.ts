@@ -136,7 +136,12 @@ function createCellsGrid(
     overlayDiv.style.fontSize = '14px'
     overlayDiv.style.lineHeight = `${ANSWER_CELL_SIZE}px`
     overlayDiv.style.pointerEvents = 'none'
-    appendMathText(overlayDiv, answerText, { fontSize: 14, lineHeight: ANSWER_CELL_SIZE })
+    appendMathText(overlayDiv, answerText, {
+      fontSize: 14,
+      lineHeight: ANSWER_CELL_SIZE,
+      cellSize: ANSWER_CELL_SIZE,
+      cellsLayout: true,
+    })
     grid.appendChild(overlayDiv)
   }
 

@@ -1871,7 +1871,8 @@
   pointer-events: none;
 }
 
-.answer-cells-grid .math-text {
+.answer-cells-grid .math-text,
+.answer-cells-grid .math-text--cells {
   display: block;
   line-height: var(--cell-size);
   font-size: 14px;
@@ -1879,7 +1880,17 @@
 
 .answer-cells-grid .math-inline .katex {
   font-size: 1em;
-  line-height: var(--cell-size);
+}
+
+.answer-cells-grid .math-inline--cell-double {
+  display: inline-block;
+  vertical-align: top;
+  line-height: calc(var(--cell-size) * 2);
+  min-height: calc(var(--cell-size) * 2);
+}
+
+.answer-cells-grid .math-inline--cell-double .katex {
+  font-size: 14px;
 }
 
 .answer-cells-grid .math-display {
@@ -1887,8 +1898,17 @@
   line-height: var(--cell-size);
 }
 
+.answer-cells-grid .math-display--cell-double {
+  line-height: calc(var(--cell-size) * 2);
+  min-height: calc(var(--cell-size) * 2);
+}
+
 .answer-cells-grid .math-display .katex {
   font-size: 1em;
+}
+
+.answer-cells-grid .math-display--cell-double .katex {
+  font-size: 14px;
 }
 
 .answer-grid-overlay {

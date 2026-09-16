@@ -148,6 +148,30 @@ export function stripDuplicatePlainMath(input: string): string {
   return input
 }
 
+const CELLS_CHARS_PER_ROW = 48
+const FRACTION_TEX_RE = /\\(?:d|t|c)?frac\b/
+
+/** Whether answer text contains a fraction that needs two cell rows. */
+export function needsDoubleCellHeight(source: string): boolean {
+  if (!source.trim()) return false
+  return FRACTION_TEX_RE.test(source)
+}
+
+/** Use display-style fractions in the cells grid for readable numerator/denominator. */
+export function texForCellsLayout(tex: string): string {
+  return tex.replace(/\\frac\b/g, '\\dfrac')
+}
+
+/** Grid row count for a cells answer (1 row per plain line, 2 per line with fractions). */
+export function cellsRowsNeededForText(text: string): number {
+  if (!text.trim()) return 0
+  return text.split(/\n/).reduce((sum, paragraph) => {
+    const horizontalLines = Math.max(1, Math.ceil(paragraph.length / CELLS_CHARS_PER_ROW))
+    const rowHeight = needsDoubleCellHeight(paragraph) ? 2 : 1
+    return sum + horizontalLines * rowHeight
+  }, 0)
+}
+
 /** Подготовка текста перед MathText / KaTeX. */
 export function preprocessMathText(input: string): string {
   if (!input) return ''

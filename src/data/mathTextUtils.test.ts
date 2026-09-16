@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeRussianMathTex, preprocessMathText, repairJsonLatexEscapes } from '@/data/mathTextUtils'
+import {
+  cellsRowsNeededForText,
+  normalizeRussianMathTex,
+  preprocessMathText,
+  repairJsonLatexEscapes,
+  texForCellsLayout,
+} from '@/data/mathTextUtils'
 
 describe('repairJsonLatexEscapes', () => {
   it('repairs \\tg corrupted by JSON tab escape', () => {
@@ -50,5 +56,16 @@ describe('preprocessMathText', () => {
 
   it('removes plain math duplicated by an equivalent $...$ suffix', () => {
     expect(preprocessMathText('y = 3x - 2$y=3x-2$')).toBe('$y=3x-2$')
+  })
+})
+
+describe('cells layout helpers', () => {
+  it('promotes fractions to dfrac for cells', () => {
+    expect(texForCellsLayout(String.raw`\frac{3}{10}`)).toBe(String.raw`\dfrac{3}{10}`)
+  })
+
+  it('counts one row for plain text and two for fractions', () => {
+    expect(cellsRowsNeededForText('7')).toBe(1)
+    expect(cellsRowsNeededForText(String.raw`$\frac{3}{10}$`)).toBe(2)
   })
 })
