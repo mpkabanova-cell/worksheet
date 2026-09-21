@@ -257,7 +257,7 @@ export function getBlockQuestion(block: WorksheetBlock): string {
     if (isMissingTaskQuestion(question)) {
       return DEFAULT_GROUPING_QUESTION
     }
-    return stripTheoryFromField(question) || DEFAULT_GROUPING_QUESTION
+    return stripTheoryFromField(question ?? '') || DEFAULT_GROUPING_QUESTION
   }
 
   if (block.type === 'ordering') {
