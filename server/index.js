@@ -3,6 +3,8 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import dotenv from 'dotenv'
+import { extractContextFromFile, ContextExtractError, MAX_UPLOAD_BYTES } from './extractContext.js'
+import { parseSingleFileUpload, UploadError } from './upload.js'
 
 dotenv.config()
 
@@ -28,6 +30,22 @@ app.get('/health', (_req, res) => {
     hasKey: Boolean(OPENAI_API_KEY),
     model: OPENAI_MODEL,
   })
+})
+
+app.post('/api/extract-context', async (req, res) => {
+  try {
+    const { buffer, filename, mimeType } = await parseSingleFileUpload(req, MAX_UPLOAD_BYTES)
+    const result = await extractContextFromFile(buffer, filename, mimeType)
+    res.status(200).json(result)
+  } catch (err) {
+    if (err instanceof UploadError || err instanceof ContextExtractError) {
+      res.status(err.status).json({ error: err.code, message: err.message })
+      return
+    }
+    const message = err instanceof Error ? err.message : 'Ошибка извлечения контекста'
+    console.error('[api/extract-context]', message)
+    res.status(502).json({ error: 'EXTRACT_ERROR', message })
+  }
 })
 
 app.post('/api/chat', async (req, res) => {

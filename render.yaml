@@ -19,5 +19,7 @@ services:
         value: https://openrouter.ai/api/v1
       - key: OPENAI_MODEL
         value: google/gemini-2.5-flash
+      - key: CONTEXT_OCR_MODEL
+        value: qwen/qwen3-vl-235b-a22b-instruct
       - key: APP_URL
         sync: false

@@ -1,15 +1,27 @@
-import JSZip from 'jszip'
-
 export const CONTEXT_FILE_TEXT_MAX = 12_000
 
-const IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png'])
-
-function extension(name: string): string {
-  const idx = name.lastIndexOf('.')
-  return idx >= 0 ? name.slice(idx).toLowerCase() : ''
+export interface ContextFileResult {
+  name: string
+  text?: string
+  note?: string
 }
 
-function stripXml(xml: string): string {
+export interface ContextExtractResponse {
+  text: string
+  truncated?: boolean
+}
+
+export interface ContextExtractErrorResponse {
+  error: string
+  message: string
+}
+
+async function extractDocxTextFallback(file: File): Promise<string> {
+  const JSZip = (await import('jszip')).default
+  const zip = await JSZip.loadAsync(await file.arrayBuffer())
+  const doc = zip.file('word/document.xml')
+  if (!doc) return ''
+  const xml = await doc.async('string')
   return xml
     .replace(/<w:tab\/>/g, '\t')
     .replace(/<w:br\/>/g, '\n')
@@ -23,50 +35,55 @@ function stripXml(xml: string): string {
     .trim()
 }
 
-async function extractDocxText(file: File): Promise<string> {
-  const zip = await JSZip.loadAsync(await file.arrayBuffer())
-  const doc = zip.file('word/document.xml')
-  if (!doc) return ''
-  const xml = await doc.async('string')
-  return stripXml(xml)
-}
-
-export interface ContextFileResult {
-  name: string
-  text: string
-  note?: string
-}
-
-/** Извлекает текст из приложенного файла для промптов ИИ. */
+/** Извлекает текст из приложенного файла для промптов ИИ (через серверный OCR). */
 export async function extractContextFile(file: File): Promise<ContextFileResult> {
-  const ext = extension(file.name)
+  const form = new FormData()
+  form.append('file', file)
 
-  if (IMAGE_EXT.has(ext)) {
-    return {
-      name: file.name,
-      text: '',
-      note: `Приложено изображение «${file.name}». Текст не извлечён; опирайся на название файла, тему и пожелания учителя.`,
+  let res: Response
+  try {
+    res = await fetch('/api/extract-context', {
+      method: 'POST',
+      body: form,
+    })
+  } catch {
+    throw new Error('Не удалось связаться с сервером распознавания')
+  }
+
+  if (res.status === 503) {
+    const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase()
+    if (ext === '.docx') {
+      const text = (await extractDocxTextFallback(file)).slice(0, CONTEXT_FILE_TEXT_MAX)
+      return {
+        name: file.name,
+        text,
+        note: text ? undefined : `DOCX «${file.name}» не содержит извлекаемого текста.`,
+      }
     }
   }
 
-  if (ext === '.docx') {
-    const text = await extractDocxText(file)
-    return {
-      name: file.name,
-      text: text.slice(0, CONTEXT_FILE_TEXT_MAX),
-      note: text ? undefined : `DOCX «${file.name}» не содержит извлекаемого текста.`,
-    }
+  let payload: ContextExtractResponse | ContextExtractErrorResponse
+  try {
+    payload = (await res.json()) as ContextExtractResponse | ContextExtractErrorResponse
+  } catch {
+    throw new Error('Сервер вернул некорректный ответ')
   }
 
-  if (ext === '.pdf') {
-    return {
-      name: file.name,
-      text: '',
-      note: `Приложён PDF «${file.name}». Автоматическое извлечение текста недоступно; опирайся на тему, пожелания учителя и название файла.`,
-    }
+  if (!res.ok) {
+    const err = payload as ContextExtractErrorResponse
+    throw new Error(err.message || 'Не удалось обработать файл')
   }
 
-  return { name: file.name, text: '' }
+  const data = payload as ContextExtractResponse
+  const text = data.text?.trim() || ''
+
+  return {
+    name: file.name,
+    text: text || undefined,
+    note: text
+      ? undefined
+      : `Файл «${file.name}» приложён, но текст не извлечён.`,
+  }
 }
 
 export function referenceFilePayload(draft: {

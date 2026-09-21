@@ -17,12 +17,16 @@
   },
   "dependencies": {
     "@unified-latex/unified-latex-util-parse": "^1.8.4",
+    "busboy": "^1.6.0",
+    "canvas": "^3.2.3",
     "docx": "^9.7.1",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "html-to-image": "^1.11.13",
     "jszip": "^3.10.1",
     "katex": "^0.18.1",
+    "pdf-parse": "^2.4.5",
+    "pdf-to-img": "^7.0.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },

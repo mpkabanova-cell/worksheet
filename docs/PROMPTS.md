@@ -102,9 +102,10 @@ flowchart LR
 
 ### 5. Приложенный файл (reference_file)
 
-1. **UI:** учитель прикрепляет DOCX / PDF / изображение на create-форме.
-2. **Фронт:** `extractContextFile()` (`contextFile.ts`) извлекает текст из DOCX (до 12 000 символов) или формирует `note` для PDF/картинки.
-3. **Промпт:** поле попадает в user JSON как `reference_file` → модель учитывает по `CONTEXT_USAGE_RULES`.
+1. **UI:** учитель прикрепляет DOCX / PDF / изображение на create-форме (имя файла и «Обработка…»; распознанный текст не показывается).
+2. **Фронт:** `extractContextFile()` (`contextFile.ts`) отправляет файл на `POST /api/extract-context`, сохраняет `contextFileText` в черновике (до 12 000 символов).
+3. **Сервер:** OCR/извлечение текста (`server/extractContext.js`, vision — порт `ocr_to_doc_project-main`).
+4. **Промпт:** поле попадает в user JSON как `reference_file` → модель учитывает при генерации **плана** и **рабочего листа** по `CONTEXT_USAGE_RULES`.
 
 ---
 

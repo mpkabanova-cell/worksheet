@@ -325,7 +325,7 @@ export function Create({
                           type="button"
                           className="gen-plan"
                           onClick={generatePlan}
-                          disabled={planBusy}
+                          disabled={planBusy || fileBusy}
                         >
                           <FigmaIcon src={iconSparkle} size={20} />
                           {planBusy ? 'Генерация…' : 'Сгенерировать план'}
