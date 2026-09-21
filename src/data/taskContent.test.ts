@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
+  DEFAULT_ORDERING_QUESTION,
+  DEFAULT_SHORT_ANSWER_QUESTION,
+  getBlockQuestion,
   looksLikeTheory,
   normalizeAiTask,
   stripLeadingTheoryFromGaps,
   stripTheoryFromField,
 } from './taskContent'
+import type { WorksheetBlock } from './worksheet'
 
 describe('looksLikeTheory', () => {
   it('detects definition-style theory', () => {
@@ -60,5 +64,38 @@ describe('normalizeAiTask', () => {
     )
 
     expect(task.options?.[0]).toBe('$\\sqrt{2}$')
+  })
+
+  it('fills empty ordering question from plan expectation', () => {
+    const task = normalizeAiTask({ question: '' }, 'ordering', 'Упорядочить шаги решения')
+    expect(task.question).toBe('Упорядочьте шаги решения')
+  })
+})
+
+describe('getBlockQuestion', () => {
+  it('returns default when short_answer question is empty', () => {
+    const block = {
+      type: 'short_answer',
+      question: '',
+    } as WorksheetBlock
+    expect(getBlockQuestion(block)).toBe(DEFAULT_SHORT_ANSWER_QUESTION)
+  })
+
+  it('returns default when ordering question is placeholder', () => {
+    const block = {
+      type: 'ordering',
+      question: 'Введите текст',
+      orderItems: ['a', 'b'],
+    } as WorksheetBlock
+    expect(getBlockQuestion(block)).toBe(DEFAULT_ORDERING_QUESTION)
+  })
+
+  it('returns default when theory stripped question becomes empty', () => {
+    const block = {
+      type: 'short_answer',
+      question:
+        'Множество рациональных чисел обозначается буквой Q. Любое целое число можно представить в виде дроби со знаменателем 1.',
+    } as WorksheetBlock
+    expect(getBlockQuestion(block)).toBe(DEFAULT_SHORT_ANSWER_QUESTION)
   })
 })

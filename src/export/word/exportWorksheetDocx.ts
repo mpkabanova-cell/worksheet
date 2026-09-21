@@ -12,6 +12,11 @@ import {
   PageOrientation,
 } from 'docx'
 
+export type ExportWorksheetDocxResult = {
+  blob: Blob
+  fileName: string
+}
+
 function sanitizeFileName(name: string): string {
   return name.replace(/[\\/:*?"<>|]/g, '_').trim() || 'worksheet'
 }
@@ -25,7 +30,9 @@ function downloadBlob(blob: Blob, fileName: string): void {
   URL.revokeObjectURL(url)
 }
 
-export async function exportWorksheetDocx(draft: WorksheetDraft): Promise<void> {
+export async function exportWorksheetDocxBlob(
+  draft: WorksheetDraft,
+): Promise<ExportWorksheetDocxResult> {
   const normalizedDraft = normalizeWorksheetDraft(draft)
   const options: ExportOptions = {
     showAnswers: normalizedDraft.showAnswers,
@@ -37,7 +44,7 @@ export async function exportWorksheetDocx(draft: WorksheetDraft): Promise<void> 
   const ctx: ExportContext = {
     draft: normalizedDraft,
     options,
-    subject: draft.subject,
+    subject: normalizedDraft.subject,
     mathCache: new Map(),
     imageCache: new Map(),
     domImageCache: new Map(),
@@ -82,5 +89,11 @@ export async function exportWorksheetDocx(draft: WorksheetDraft): Promise<void> 
   })
 
   const blob = await Packer.toBlob(doc)
-  downloadBlob(blob, `${sanitizeFileName(worksheetDisplayName(draft))}.docx`)
+  const fileName = `${sanitizeFileName(worksheetDisplayName(normalizedDraft))}.docx`
+  return { blob, fileName }
+}
+
+export async function exportWorksheetDocx(draft: WorksheetDraft): Promise<void> {
+  const { blob, fileName } = await exportWorksheetDocxBlob(draft)
+  downloadBlob(blob, fileName)
 }

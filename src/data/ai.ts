@@ -113,13 +113,14 @@ function toBlock(
           task.answer_lines ?? defaultAnswerHeight(answerStyle),
         )
       : task.answer_lines
+  const question = sanitizeAiText(normalized.question)?.trim() ?? ''
   return sanitizeBlock({
     id: uid('task'),
     type,
     page: 0,
     title: `Задание ${index + 1}`,
     instruction: '',
-    question: sanitizeAiText(normalized.question),
+    question,
     body: task.body ? sanitizeAiText(task.body) : task.body,
     options: options.length ? options : undefined,
     correctOptionId:

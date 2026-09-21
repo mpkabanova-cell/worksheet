@@ -16,7 +16,7 @@ import {
   sanitizeGapsSourceText,
   splitMathSegments,
 } from '@/data/mathTextUtils'
-import { stripLeadingTheoryFromGaps, stripTheoryFromField } from '@/data/taskContent'
+import { getBlockQuestion, stripLeadingTheoryFromGaps, stripTheoryFromField } from '@/data/taskContent'
 
 export const CHOICE_QUESTION_MAX = 500
 export const CHOICE_OPTION_MAX = 300
@@ -331,6 +331,19 @@ function asText(value: unknown): string | undefined {
   return undefined
 }
 
+function resolveBlockQuestion(block: WorksheetBlock): WorksheetBlock {
+  if (block.type === 'page_break' || block.type === 'text' || block.type === 'answer_field') {
+    return block
+  }
+
+  const raw = block.question?.trim() ?? ''
+  if (raw && !isQuestionPlaceholder(raw)) {
+    return block
+  }
+
+  return { ...block, question: getBlockQuestion(block) }
+}
+
 /** Приводит блок к безопасному виду после ответа модели (защита от падения UI). */
 export function sanitizeBlock(block: WorksheetBlock): WorksheetBlock {
   const baseOptions = block.options?.map((option, index) => ({
@@ -419,18 +432,22 @@ export function sanitizeBlock(block: WorksheetBlock): WorksheetBlock {
     sanitized.gapsSourceText = source
     sanitized.gapsText = undefined
     sanitized.gapsAnswers = sanitizeGapAnswers(source, sanitized.gapsAnswers)
-    return rejectInvalidFillGapsBlock(sanitized)
+    return resolveBlockQuestion(rejectInvalidFillGapsBlock(sanitized))
   }
 
   if (sanitized.type === 'matching') {
-    return rejectInvalidMatchingBlock(normalizeMatchingBlock(sanitized))
+    return resolveBlockQuestion(rejectInvalidMatchingBlock(normalizeMatchingBlock(sanitized)))
   }
 
   if (sanitized.type === 'grouping' || sanitized.type === 'table') {
-    return normalizeGroupingBlock(sanitized)
+    return resolveBlockQuestion(normalizeGroupingBlock(sanitized))
   }
 
-  return sanitized
+  if (sanitized.type === 'ordering') {
+    return resolveBlockQuestion(resizeOrderItems(sanitized))
+  }
+
+  return resolveBlockQuestion(sanitized)
 }
 
 function rejectInvalidFillGapsBlock(block: WorksheetBlock): WorksheetBlock {

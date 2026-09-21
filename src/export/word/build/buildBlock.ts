@@ -9,8 +9,6 @@ import {
   markGapAnswersInText,
   isChoiceBlock,
   isOptionCorrect,
-  isQuestionPlaceholder,
-  questionPlaceholderForBlock,
   qrCodeUrl,
 } from '@/data/blockUtils'
 import { getBlockQuestion } from '@/data/taskContent'
@@ -393,10 +391,7 @@ export async function buildBlockContent(
     return result
   }
 
-  const question = getBlockQuestion(block)
-  const questionText = block.question?.trim() ?? question.trim()
-  const showsPlaceholder = isQuestionPlaceholder(questionText)
-  const displayQuestion = showsPlaceholder ? questionPlaceholderForBlock(block) : (block.question ?? question)
+  const displayQuestion = getBlockQuestion(block)
   const isAnswerBlock = block.type === 'short_answer' || block.type === 'extended_answer'
   const choiceFormat = block.choiceOptionFormat ?? 'text'
   let headOptions: TaskHeadTableOptions = {}

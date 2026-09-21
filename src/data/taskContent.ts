@@ -92,17 +92,53 @@ export function stripLeadingTheoryFromGaps(text: string): string {
   return paragraphs.slice(start).join('\n\n').trim()
 }
 
-const DEFAULT_FILL_GAPS_QUESTION = 'Заполните пропуски в тексте.'
-const DEFAULT_MATCHING_QUESTION =
+export const DEFAULT_FILL_GAPS_QUESTION = 'Заполните пропуски в тексте.'
+export const DEFAULT_MATCHING_QUESTION =
   'Сопоставьте элементы левого столбца с элементами правого.'
+export const DEFAULT_GROUPING_QUESTION = 'Распределите элементы по группам.'
+export const DEFAULT_ORDERING_QUESTION = 'Упорядочьте элементы в правильной последовательности.'
+export const DEFAULT_SHORT_ANSWER_QUESTION = 'Запишите ответ.'
+export const DEFAULT_EXTENDED_ANSWER_QUESTION = 'Дайте развёрнутый ответ.'
+export const DEFAULT_CHOICE_QUESTION = 'Выберите верный ответ.'
 
-function defaultQuestionForType(type: TaskType, expectation?: string): string {
+const QUESTION_EDITOR_PLACEHOLDERS = new Set([
+  'Введите текст',
+  'Введите текст…',
+  'Введите условие…',
+  'Введите условие...',
+  'Введите вопрос…',
+  'Введите вопрос...',
+])
+
+export function isMissingTaskQuestion(text: string | undefined): boolean {
+  const value = text?.trim() ?? ''
+  return !value || QUESTION_EDITOR_PLACEHOLDERS.has(value)
+}
+
+export function defaultQuestionForTaskType(type: TaskType, expectation?: string): string {
   const fromExpectation = expectationToQuestion(expectation)
   if (fromExpectation) return fromExpectation
 
-  if (type === 'fill_gaps') return DEFAULT_FILL_GAPS_QUESTION
-  if (type === 'matching') return DEFAULT_MATCHING_QUESTION
-  return ''
+  switch (type) {
+    case 'fill_gaps':
+      return DEFAULT_FILL_GAPS_QUESTION
+    case 'matching':
+      return DEFAULT_MATCHING_QUESTION
+    case 'grouping':
+    case 'table':
+      return DEFAULT_GROUPING_QUESTION
+    case 'ordering':
+      return DEFAULT_ORDERING_QUESTION
+    case 'short_answer':
+      return DEFAULT_SHORT_ANSWER_QUESTION
+    case 'extended_answer':
+      return DEFAULT_EXTENDED_ANSWER_QUESTION
+    case 'single_choice':
+    case 'multiple_choice':
+      return DEFAULT_CHOICE_QUESTION
+    default:
+      return ''
+  }
 }
 
 function sanitizeTaskTextFields<T extends AiTaskFields>(task: T): T {
@@ -129,7 +165,7 @@ function normalizeFillGapsTask<T extends AiTaskFields>(
 ): T {
   let question = (task.question ?? '').trim()
   const gapsText = (task.gaps_text ?? '').trim()
-  const defaultQuestion = defaultQuestionForType('fill_gaps', expectation)
+  const defaultQuestion = defaultQuestionForTaskType('fill_gaps', expectation)
 
   if (!question) {
     question = defaultQuestion
@@ -154,7 +190,19 @@ function normalizeFillGapsTask<T extends AiTaskFields>(
 function normalizeMatchingTask<T extends AiTaskFields>(task: T, expectation?: string): T {
   let question = (task.question ?? '').trim()
   if (!question) {
-    question = defaultQuestionForType('matching', expectation)
+    question = defaultQuestionForTaskType('matching', expectation)
+  }
+  return { ...task, question }
+}
+
+function normalizeQuestionTask<T extends AiTaskFields>(
+  task: T,
+  type: TaskType,
+  expectation?: string,
+): T {
+  let question = (task.question ?? '').trim()
+  if (isMissingTaskQuestion(question)) {
+    question = defaultQuestionForTaskType(type, expectation)
   }
   return { ...task, question }
 }
@@ -171,6 +219,13 @@ export function normalizeAiTask<T extends AiTaskFields>(
       return normalizeFillGapsTask(sanitized, expectation)
     case 'matching':
       return normalizeMatchingTask(sanitized, expectation)
+    case 'grouping':
+    case 'ordering':
+    case 'short_answer':
+    case 'extended_answer':
+    case 'single_choice':
+    case 'multiple_choice':
+      return normalizeQuestionTask(sanitized, type, expectation)
     default:
       return sanitized
   }
@@ -199,15 +254,48 @@ export function getBlockQuestion(block: WorksheetBlock): string {
 
   if (block.type === 'grouping') {
     const question = block.question?.trim()
-    if (!question || question === 'Введите текст') {
-      return 'Распределите элементы по группам.'
+    if (isMissingTaskQuestion(question)) {
+      return DEFAULT_GROUPING_QUESTION
     }
-    return stripTheoryFromField(question)
+    return stripTheoryFromField(question) || DEFAULT_GROUPING_QUESTION
+  }
+
+  if (block.type === 'ordering') {
+    const question = stripTheoryFromField(block.question?.trim() ?? '')
+    if (isMissingTaskQuestion(question)) {
+      return DEFAULT_ORDERING_QUESTION
+    }
+    return question
+  }
+
+  if (block.type === 'short_answer') {
+    const question = stripTheoryFromField(block.question?.trim() ?? '')
+    if (isMissingTaskQuestion(question)) {
+      return DEFAULT_SHORT_ANSWER_QUESTION
+    }
+    return question
+  }
+
+  if (block.type === 'extended_answer') {
+    const question = stripTheoryFromField(block.question?.trim() ?? '')
+    if (isMissingTaskQuestion(question)) {
+      return DEFAULT_EXTENDED_ANSWER_QUESTION
+    }
+    return question
+  }
+
+  if (block.type === 'single_choice' || block.type === 'multiple_choice') {
+    const question = stripTheoryFromField(block.question?.trim() ?? '')
+    if (isMissingTaskQuestion(question)) {
+      return DEFAULT_CHOICE_QUESTION
+    }
+    return question
   }
 
   if (block.type === 'text') {
     return block.body ?? ''
   }
 
-  return stripTheoryFromField(block.question ?? block.body ?? '')
+  const question = stripTheoryFromField(block.question ?? block.body ?? '')
+  return question
 }

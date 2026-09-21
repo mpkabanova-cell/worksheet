@@ -320,8 +320,8 @@ export function BlockCard({
                     )}
                   </p>
                 ) : (
-                  <p className={`ws-task-text ${showsQuestionPlaceholder ? 'is-placeholder' : ''}`}>
-                    {showsQuestionPlaceholder ? questionPlaceholder : <MathText text={question} />}
+                  <p className="ws-task-text">
+                    <MathText text={question} />
                   </p>
                 )}
               </div>
