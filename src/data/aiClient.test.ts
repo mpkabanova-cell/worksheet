@@ -50,6 +50,19 @@ describe('extractJson', () => {
     expect(parsed.tasks[0].question).toBe('$\\frac{2}{3}$')
   })
 
+  it('parses first balanced object when extra braces follow', () => {
+    const content =
+      'Ответ:\n{"tasks":[{"question":"У Кроша 5 яблок"}]}\n\nДополнительно: {"ignored": true}'
+    const parsed = extractJson(content) as { tasks: { question: string }[] }
+    expect(parsed.tasks[0].question).toContain('Крош')
+  })
+
+  it('repairs trailing commas before closing brackets', () => {
+    const content = '{"tasks":[{"question":"$\\frac{1}{2}$",},],}'
+    const parsed = extractJson(content) as { tasks: { question: string }[] }
+    expect(parsed.tasks[0].question).toBe('$\\frac{1}{2}$')
+  })
+
   it('throws AiError instead of raw SyntaxError for broken JSON', () => {
     expect(() => extractJson('not json at all')).toThrow(AiError)
     expect(() => extractJson('not json at all')).toThrow('Модель вернула невалидный JSON')

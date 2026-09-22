@@ -71,7 +71,7 @@ app.post('/api/chat', async (req, res) => {
 
   if (response_format) {
     body.response_format = response_format
-  } else if (!OPENAI_MODEL.includes('gemini')) {
+  } else {
     body.response_format = { type: 'json_object' }
   }
 
