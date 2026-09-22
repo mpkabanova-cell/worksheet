@@ -120,8 +120,10 @@ flowchart LR
 
 1. **UI:** учитель прикрепляет DOCX / PDF / изображение на create-форме (имя файла и «Обработка…»; распознанный текст не показывается).
 2. **Фронт:** `extractContextFile()` (`contextFile.ts`) отправляет файл на `POST /api/extract-context`, сохраняет `contextFileText` в черновике (до 12 000 символов).
-3. **Сервер:** OCR/извлечение текста (`server/extractContext.js`, vision — `server/visionOcr.js`, модель `CONTEXT_OCR_MODEL=qwen/qwen3-vl-235b-a22b-instruct`).
-4. **Промпт:** поле попадает в user JSON как `reference_file` → модель учитывает при генерации **плана**, **листа** и **одного задания** по `CONTEXT_USAGE_RULES`.
+3. **Сервер:** Qwen-VL vision для всех форматов (`extractContext.js`, `docxVision.js`, `pdfExtract.js`, `visionOcr.js`). Картинки → `[описания в скобках]`.
+4. **Промпт:** `reference_file.content` → модель учитывает при **плане**, **листе** и **одном задании** по `CONTEXT_USAGE_RULES` и `IMAGE_DESCRIPTION_RULES`.
+
+**IMAGE_DESCRIPTION_RULES:** модель сама решает, можно ли задание выполнить без иллюстрации. Если нет и описание в `[скобках]` громоздкое — заменяет другим заданием по теме (ровно `task_count`, не меньше).
 
 ---
 
@@ -306,8 +308,15 @@ extended_answer — Развёрнутый ответ (Объяснение и �
 [Контекст учителя и сложность]
 - Если teacher_wishes не null — обязательно учитывай акценты, ограничения и пожелания из этого поля.
 - Поле difficulty у каждого задания выставляй строго по difficulty_guidance из user JSON.
-- Если reference_file не null и content не пустой — используй его как опорный материал (конспект, учебник, образец). Не копируй дословно большие фрагменты; адаптируй под класс и тему.
-- Если reference_file.content null, но reference_file.note не null — учитывай note (например, приложено изображение или PDF без текста).
+- Если reference_file.content не пустой — опорный материал; фрагменты в [скобках] — описания иллюстраций (не показывать ученику).
+- Если reference_file.content null, но reference_file.note не null — учитывай note только когда content недоступен.
+
+### IMAGE_DESCRIPTION_RULES — иллюстрации и отбор заданий
+
+- [Скобки] в reference_file — замена картинок из файла.
+- Если задание можно сформулировать без визуала — включай.
+- Если нужен график/схема и [описание] громоздкое или недостаточное — замени другим заданием по теме.
+- В плане и листе — ровно task_count элементов (замена, не пропуск).
 
 ### contextPayload — базовый user JSON (контекст черновика листа)
 

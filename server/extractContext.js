@@ -2,7 +2,7 @@
  * Маршрутизация извлечения контекста по типу файла.
  */
 
-import { extractTextFromDocx } from './docxText.js'
+import { extractTextFromDocxWithVision } from './docxVision.js'
 import { extractTextFromPdf } from './pdfExtract.js'
 import { callVisionOcr, getVisionConfig, guessImageMime } from './visionOcr.js'
 import { truncateContextText } from './markdownClean.js'
@@ -28,7 +28,10 @@ export async function extractContextFromFile(buffer, filename, contentType) {
   let text = ''
 
   if (ext === '.docx') {
-    text = await extractTextFromDocx(buffer)
+    if (!visionConfig.apiKey) {
+      throw new ContextExtractError('NO_API_KEY', 'OPENAI_API_KEY не задан на сервере', 503)
+    }
+    text = await extractTextFromDocxWithVision(buffer, visionConfig)
   } else if (ext === '.pdf') {
     if (!visionConfig.apiKey) {
       throw new ContextExtractError('NO_API_KEY', 'OPENAI_API_KEY не задан на сервере', 503)

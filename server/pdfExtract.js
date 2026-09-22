@@ -1,14 +1,16 @@
 /**
- * Извлечение текста из PDF: текстовый слой или vision OCR по страницам (сканы).
+ * Извлечение текста из PDF: vision OCR по страницам + опционально текстовый слой pdf-parse.
  */
 
 import { callVisionOcr } from './visionOcr.js'
 
-const MIN_TEXT_CHARS = 200
-
 function getMaxPages(env = process.env) {
   const n = Number(env.CONTEXT_PDF_MAX_PAGES)
   return Number.isFinite(n) && n > 0 ? Math.min(n, 10) : 3
+}
+
+function useTextLayer(env = process.env) {
+  return env.PDF_EXTRACT_TEXT_LAYER !== '0'
 }
 
 /**
@@ -52,28 +54,33 @@ async function renderPagesToPng(data, maxPages) {
  */
 export async function extractTextFromPdf(data, visionConfig) {
   const maxPages = getMaxPages()
+  const parts = []
 
-  try {
-    const textLayer = await extractTextLayer(data)
-    if (textLayer.length >= MIN_TEXT_CHARS) {
-      return textLayer
+  if (useTextLayer()) {
+    try {
+      const textLayer = await extractTextLayer(data)
+      if (textLayer) parts.push(textLayer)
+    } catch {
+      /* vision still runs */
     }
-  } catch {
-    /* fall through to vision */
   }
 
   const pages = await renderPagesToPng(data, maxPages)
-  if (!pages.length) {
+  if (!pages.length && !parts.length) {
     return ''
   }
 
-  const chunks = []
+  const visionChunks = []
   for (let i = 0; i < pages.length; i += 1) {
     const pageText = await callVisionOcr(pages[i], 'image/png', visionConfig)
     if (pageText.trim()) {
-      chunks.push(pageText.trim())
+      visionChunks.push(pageText.trim())
     }
   }
 
-  return chunks.join('\n\n---\n\n')
+  if (visionChunks.length) {
+    parts.push(visionChunks.join('\n\n---\n\n'))
+  }
+
+  return parts.join('\n\n').trim()
 }

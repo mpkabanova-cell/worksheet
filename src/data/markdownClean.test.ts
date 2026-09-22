@@ -10,6 +10,13 @@ describe('stripMarkdownImages', () => {
   it('collapses extra blank lines', () => {
     expect(stripMarkdownImages('a\n\n\n\nb')).toBe('a\n\nb')
   })
+
+  it('preserves square-bracket image descriptions', () => {
+    const input = 'Текст\n\n[график функции y=x^2, оси OX и OY]\n\n![alt](x.png)'
+    expect(stripMarkdownImages(input)).toBe(
+      'Текст\n\n[график функции y=x^2, оси OX и OY]',
+    )
+  })
 })
 
 describe('truncateContextText', () => {

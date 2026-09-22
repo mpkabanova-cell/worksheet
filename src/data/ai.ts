@@ -48,6 +48,32 @@ interface AiPlanPayload {
 
 const ALLOWED_PLAN_TYPES = new Set(PLAN_TASK_TYPES.map((t) => t.type))
 
+function fallbackPlanExpectation(draft: WorksheetDraft, index: number): string {
+  const topic = draft.topic.trim() || 'тема'
+  const variants = [
+    `Закрепить ключевое понятие по теме «${topic}»`,
+    `Применить правило по теме «${topic}»`,
+    `Решить типовую задачу по теме «${topic}»`,
+    `Сопоставить понятия по теме «${topic}»`,
+    `Выбрать верный ответ по теме «${topic}»`,
+  ]
+  return variants[index % variants.length]
+}
+
+function padPlanToCount(plan: PlanTask[], draft: WorksheetDraft): PlanTask[] {
+  const types = plan.map((p) => p.taskType)
+  const padded = [...plan]
+  while (padded.length < draft.taskCount) {
+    const i = padded.length
+    padded.push({
+      id: `plan-${Date.now()}-${i}`,
+      taskType: types[i % Math.max(types.length, 1)] ?? 'short_answer',
+      userExpectation: fallbackPlanExpectation(draft, i),
+    })
+  }
+  return padded
+}
+
 function stars(i: number, total: number, mode: WorksheetDraft['difficulty']): 1 | 2 | 3 {
   if (mode === 'starter') return 1
   if (mode === 'basic') return 2
@@ -160,11 +186,12 @@ function ensurePlan(draft: WorksheetDraft): PlanTask[] {
   const types = draft.plan.map((p) => p.taskType)
   const padded: PlanTask[] = [...draft.plan]
   while (padded.length < count) {
-    const type = types[padded.length % Math.max(types.length, 1)] ?? 'short_answer'
+    const i = padded.length
+    const type = types[i % Math.max(types.length, 1)] ?? 'short_answer'
     padded.push({
-      id: `plan-${Date.now()}-${padded.length}`,
+      id: `plan-${Date.now()}-${i}`,
       taskType: type,
-      userExpectation: '',
+      userExpectation: fallbackPlanExpectation(draft, i),
     })
   }
   return padded
@@ -184,15 +211,7 @@ export async function generatePlanAI(draft: WorksheetDraft): Promise<PlanTask[]>
       userExpectation: (row.expectation || '').slice(0, 200),
     }))
 
-    while (plan.length < draft.taskCount) {
-      plan.push({
-        id: `plan-${Date.now()}-${plan.length}`,
-        taskType: 'short_answer',
-        userExpectation: '',
-      })
-    }
-
-    return plan
+    return padPlanToCount(plan, draft)
   } catch (err) {
     if (isAiUnavailable(err)) return createPlan(draft.taskCount)
     throw err
@@ -225,7 +244,10 @@ export async function generateWorksheetAI(
       aligned.push({
         type: plan[i]?.taskType ?? 'short_answer',
         instruction: '',
-        question: plan[i]?.userExpectation || `Задание по теме «${draft.topic}»`,
+        question:
+          plan[i]?.userExpectation ||
+          fallbackPlanExpectation(prepared, i) ||
+          `Задание по теме «${draft.topic}»`,
         difficulty: stars(i, prepared.taskCount, draft.difficulty),
       })
     }
