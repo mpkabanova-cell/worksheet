@@ -1,3 +1,11 @@
+export type PdfVisionMode = 'sparse' | 'all' | 'off'
+
+export function pageNeedsVision(
+  text: string,
+  mode: PdfVisionMode,
+  minChars: number,
+): boolean
+
 export function extractTextFromPdf(
   data: Buffer,
   visionConfig?: {
