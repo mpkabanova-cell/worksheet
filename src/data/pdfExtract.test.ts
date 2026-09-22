@@ -5,7 +5,7 @@ const getText = vi.fn(async () => ({ text: 'a'.repeat(250) }))
 const destroy = vi.fn(async () => {})
 
 vi.mock('../../server/visionOcr.js', () => ({
-  callVisionOcr: (...args: unknown[]) => callVisionOcr(...args),
+  callVisionOcr,
 }))
 
 vi.mock('pdf-parse', () => ({
