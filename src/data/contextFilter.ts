@@ -140,15 +140,48 @@ export function listContextBlockTitles(text: string): string[] {
     .filter((title) => title.length >= 3)
 }
 
+/** Ищет заголовок блока, упомянутый в пожеланиях учителя. */
+export function inferBlockFromWishes(wishes: string, text: string): string | null {
+  const query = wishes.trim()
+  if (!query) return null
+
+  const titles = listContextBlockTitles(text)
+  const lower = query.toLowerCase()
+
+  const exact = titles.find((title) => lower.includes(title.toLowerCase()))
+  if (exact) return exact
+
+  const partial = titles.find(
+    (title) =>
+      title.length >= 4 &&
+      (lower.includes(title.toLowerCase()) || title.toLowerCase().includes(lower.slice(0, 24))),
+  )
+  if (partial) return partial
+
+  const gradeMatch = lower.match(/\d+\s*[-–—]\s*\d+\s*класс/)
+  if (gradeMatch) {
+    const byGrade = titles.find((title) => title.toLowerCase().includes(gradeMatch[0]))
+    if (byGrade) return byGrade
+  }
+
+  return null
+}
+
 export function prepareReferenceContent(
   text: string,
-  options?: { block?: string | null },
+  options?: { block?: string | null; wishes?: string | null },
 ): string {
   let content = text.trim()
   if (!content) return ''
 
-  if (options?.block?.trim()) {
-    content = selectContextBlock(content, options.block)
+  const blockFromWishes =
+    !options?.block?.trim() && options?.wishes?.trim()
+      ? inferBlockFromWishes(options.wishes, content)
+      : null
+
+  const block = options?.block?.trim() || blockFromWishes
+  if (block) {
+    content = selectContextBlock(content, block)
   }
 
   return stripIrrelevantSections(content)

@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url'
 import type { WorksheetDraft } from '../src/data/worksheet'
 import { generatePlanAI, generateWorksheetAI } from '../src/data/ai'
 import { extractJson } from '../src/data/aiClient'
+import { formatProbePlan, formatProbeWorksheet } from '../src/data/technicalProbe'
 import { labelForType } from '../src/data/worksheet'
 import { prepareReferenceContent } from '../src/data/contextFilter'
 import { referenceFilePayload } from '../src/data/contextFile'
@@ -106,12 +107,7 @@ function countBrackets(text: string): number {
 }
 
 function formatPlan(plan: WorksheetDraft['plan']): string {
-  return plan
-    .map(
-      (p, i) =>
-        `${i + 1}. ${p.taskType} (${labelForType(p.taskType)}) — ${p.userExpectation || '—'}`,
-    )
-    .join('\n')
+  return formatProbePlan(plan)
 }
 
 function optionLabel(o: { text?: string } | string, i: number): string {

@@ -93,8 +93,8 @@ flowchart LR
 Центральный объект — `WorksheetDraft`:
 
 - контекст: `subject`, `grade`, `topic`, `wishes`, `taskCount`;
-- настройки: `difficulty` (`starter` / `basic` / `advanced` / `differentiated`), `showDifficulty`, `showAnswers`, `addIntro`;
-- `plan[]` — план (`taskType` + `userExpectation`);
+- настройки: `difficulty` (`basic` / `medium` / `advanced` / `differentiated`), `showDifficulty`, `showAnswers`, `addIntro`;
+- `plan[]` — план (`taskType`, `userExpectation`, `description`, `planDifficulty`);
 - `blocks[]` — блоки листа (`WorksheetBlock`);
 - `intro`, `title`, `print`, `pages`.
 
@@ -333,10 +333,10 @@ flowchart LR
 
 | difficulty_mode | difficulty_guidance |
 |-----------------|---------------------|
-| starter | Все задания сложности 1 (стартовый уровень). |
-| basic | Все задания сложности 2 (базовый уровень). |
-| advanced | Все задания сложности 3 (повышенный уровень). |
-| differentiated | Дифференцированная сложность: от 1 к 3 по ходу листа. |
+| basic | Все задания сложности basic (уровень 1). |
+| medium | Все задания сложности medium (уровень 2). |
+| advanced | Все задания сложности advanced (уровень 3). |
+| differentiated | Дифференцированная: basic → medium → advanced по task_plan. |
 
 ---
 

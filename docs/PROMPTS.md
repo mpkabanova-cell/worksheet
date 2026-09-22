@@ -80,14 +80,14 @@ flowchart LR
 
 ## Логика фронта и бэка — поток генерации
 
-### 1. promptsForPlan — план заданий
+### 1. promptsForPlan — агент планирования
 
 1. **UI:** на экране create учитель нажимает «Сгенерировать план».
-2. **Фронт:** `generatePlanAI(draft)` → `promptsForPlan(draft)` собирает system + user JSON.
-3. **Фронт:** `chatJson` отправляет `{ messages: [{ role: 'system' }, { role: 'user' }], temperature: 0.55 }` на `/api/chat`.
-4. **Бэкенд:** Express проксирует запрос в OpenRouter (`OPENAI_API_KEY`, `OPENAI_MODEL`), возвращает сырой JSON ответа модели.
-5. **Фронт:** `extractJson` парсит `{ tasks: [{ type, expectation }] }` → массив `PlanTask[]` в `draft.plan`.
-6. **Fallback:** при `503` / отсутствии ключа — `createPlan()` из `worksheet.ts` без ИИ.
+2. **Фронт:** `generatePlanAI(draft)` → `promptsForPlan(draft)` (system: [`planAgentPrompt.ts`](../src/data/planAgentPrompt.ts)).
+3. **User JSON:** `subject`, `grade`, `topic`, `plan_difficulty`, `additional_wishes`, `source_content`, `task_plan`.
+4. **Фронт:** `chatJson` → `/api/chat`, temperature **0.55**.
+5. **Фронт:** парсит `{ task_plan: [{ type, user_description, description, difficulty }] }` → `PlanTask[]`.
+6. **Fallback:** при `503` / отсутствии ключа — `createPlan()` без ИИ.
 
 ### 2. promptsForWorksheet — весь лист (create / regenerate)
 
@@ -157,7 +157,7 @@ flowchart LR
 
 | Функция | UI / триггер | Ожидаемый JSON от модели |
 |---------|--------------|--------------------------|
-| `promptsForPlan` | «Сгенерировать план» | `{ tasks: [{ type, expectation }] }` |
+| `promptsForPlan` | «Сгенерировать план» | `{ task_plan: [{ type, user_description, description, difficulty }] }` |
 | `promptsForWorksheet` | Создание / перегенерация листа | `{ title, intro, tasks: [...] }` |
 | `promptsForSingleTask` | «Сгенерировать задание» | `{ task: { ... } }` |
 
@@ -336,10 +336,10 @@ extended_answer — Развёрнутый ответ (Объяснение и �
 
 | difficulty_mode | difficulty_guidance |
 |-----------------|---------------------|
-| starter | Все задания сложности 1 (стартовый уровень). |
-| basic | Все задания сложности 2 (базовый уровень). |
-| advanced | Все задания сложности 3 (повышенный уровень). |
-| differentiated | Дифференцированная сложность: от 1 к 3 по ходу листа. |
+| basic | Все задания сложности basic (уровень 1). |
+| medium | Все задания сложности medium (уровень 2). |
+| advanced | Все задания сложности advanced (уровень 3). |
+| differentiated | Дифференцированная: basic → medium → advanced по task_plan. |
 
 **`reference_file`:**
 

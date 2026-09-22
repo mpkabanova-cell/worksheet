@@ -60,7 +60,10 @@ export type TaskType =
   | 'table'
   | 'page_break'
 
-export type DifficultyMode = 'starter' | 'basic' | 'advanced' | 'differentiated'
+export type DifficultyMode = 'basic' | 'medium' | 'advanced' | 'differentiated'
+
+/** Уровень сложности одного элемента плана (spec: basic | medium | advanced). */
+export type PlanItemDifficulty = 'basic' | 'medium' | 'advanced'
 
 export type AnswerAreaStyle = 'lines' | 'cells' | 'block' | 'axes' | 'number_line' | 'ray'
 
@@ -143,7 +146,12 @@ export interface WorksheetBlock {
 export interface PlanTask {
   id: string
   taskType: TaskType
+  /** user_description — краткий замысел (учитель или агент планирования). */
   userExpectation: string
+  /** Нормализованное описание для агента генерации (заполняет агент планирования). */
+  description?: string | null
+  /** Индивидуальная сложность элемента плана. */
+  planDifficulty?: PlanItemDifficulty | null
 }
 
 export interface PrintSettings {
@@ -260,8 +268,8 @@ export const PLAN_TASK_TYPES = TASK_TYPE_META.filter((t) => t.category === 'task
 
 export const DIFFICULTY_OPTIONS: { value: DifficultyMode; label: string }[] = [
   { value: 'differentiated', label: 'Дифференцированная' },
-  { value: 'starter', label: 'Стартовая' },
   { value: 'basic', label: 'Базовая' },
+  { value: 'medium', label: 'Средняя' },
   { value: 'advanced', label: 'Повышенная' },
 ]
 

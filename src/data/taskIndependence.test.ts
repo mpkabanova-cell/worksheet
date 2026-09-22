@@ -50,7 +50,7 @@ describe('validateTaskIndependence', () => {
       },
     ]
     const issues = validateTaskIndependence(tasks, [expectation])
-    expect(issues.some((i) => i.includes('teacher_expectation') || i.includes('инструкция'))).toBe(
+    expect(issues.some((i) => i.includes('description') || i.includes('инструкция'))).toBe(
       true,
     )
   })

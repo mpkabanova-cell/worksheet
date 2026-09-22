@@ -5,11 +5,14 @@ import { promptsForPlan, promptsForSingleTask, promptsForWorksheet } from './aiP
 describe('IMAGE_DESCRIPTION_RULES in prompts', () => {
   const draft = filledCreateDraft()
 
-  it('includes image rules and task_count in plan prompt', () => {
-    const { system } = promptsForPlan(draft)
-    expect(system).toContain('описания в [квадратных скобках]')
-    expect(system).toContain('ровно task_count заданий')
-    expect(system).toContain(`Ровно ${draft.taskCount} элементов`)
+  it('plan prompt uses planning agent spec without CONTENT_RULES', () => {
+    const { system, user } = promptsForPlan(draft)
+    expect(system).toContain('НЕ создаёшь конкретные задания')
+    expect(system).toContain('task_plan')
+    expect(system).not.toContain('[Поле question]')
+    expect(user).toContain('task_plan')
+    expect(user).toContain('plan_difficulty')
+    expect(user).toContain('additional_wishes')
   })
 
   it('includes image rules in worksheet prompt', () => {
@@ -22,6 +25,12 @@ describe('IMAGE_DESCRIPTION_RULES in prompts', () => {
     const { system } = promptsForPlan(draft)
     expect(system).toContain('План — независимые задания')
     expect(system).toContain('не этап многошагового решения')
+  })
+
+  it('worksheet prompt uses description from task_plan', () => {
+    const { system } = promptsForWorksheet(draft, 'create')
+    expect(system).toContain('description')
+    expect(system).toContain('user_description')
   })
 
   it('includes reference material rules in worksheet prompt', () => {

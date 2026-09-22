@@ -3,6 +3,7 @@ import { annotateExtractRelevance, prepareReferenceContent } from './contextFilt
 import { referenceFilePayload } from './contextFile'
 import { getGapsSourceText } from './blockUtils'
 import { labelForType, type WorksheetDraft } from './worksheet'
+import { planItemDifficultyLabel } from './planMechanics'
 
 export interface TechnicalProbeProgress {
   stage: 'extract' | 'plan' | 'worksheet' | 'done' | 'error'
@@ -33,10 +34,15 @@ function itemLabel(o: { text?: string } | string): string {
 
 export function formatProbePlan(plan: WorksheetDraft['plan']): string {
   return plan
-    .map(
-      (p, i) =>
-        `${i + 1}. ${p.taskType} (${labelForType(p.taskType)}) — ${p.userExpectation || '—'}`,
-    )
+    .map((p, i) => {
+      const parts = [
+        `${i + 1}. ${p.taskType} (${labelForType(p.taskType)})`,
+        p.userExpectation ? `user: ${p.userExpectation}` : null,
+        p.description ? `desc: ${p.description}` : null,
+        p.planDifficulty ? `diff: ${planItemDifficultyLabel(p.planDifficulty)}` : null,
+      ].filter(Boolean)
+      return parts.join(' — ')
+    })
     .join('\n')
 }
 

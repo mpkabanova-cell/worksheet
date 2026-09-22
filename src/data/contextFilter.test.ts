@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  inferBlockFromWishes,
   listContextBlockTitles,
   prepareReferenceContent,
   stripIrrelevantSections,
@@ -49,6 +50,15 @@ describe('contextFilter', () => {
     expect(titles).toContain('7-8 классы')
     expect(titles.some((t) => /решение/i.test(t))).toBe(false)
     expect(titles.some((t) => /минут\s*=/.test(t))).toBe(false)
+  })
+
+  it('infers block from additional_wishes text', () => {
+    expect(inferBlockFromWishes('Использовать блок 7-8 классы', CAVE_SAMPLE)).toBe('7-8 классы')
+    const filtered = prepareReferenceContent(CAVE_SAMPLE, {
+      wishes: 'Задания только из раздела 5-6 классы',
+    })
+    expect(filtered).toContain('преодоления пещеры')
+    expect(filtered).not.toContain('7-8 классы')
   })
 
   it('annotates relevant and irrelevant lines', () => {

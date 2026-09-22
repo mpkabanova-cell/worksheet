@@ -75,13 +75,13 @@ export function taskQuestionIssues(
   }
 
   if (planExpectation && questionMatchesExpectation(question, planExpectation)) {
-    issues.push('question повторяет teacher_expectation — нужно полное условие задачи')
+    issues.push('question повторяет description — нужно полное условие задачи')
   }
 
   if (planExpectation && planExpectsStoryContext(planExpectation)) {
     const combined = `${question}\n${choiceOptionsText(task)}`
     if (!hasCaveData(combined) && question.length < 100) {
-      issues.push('question не содержит данных из reference_file (персонажи, время, условия)')
+      issues.push('question не содержит данных из source_content (персонажи, время, условия)')
     }
   }
 
@@ -89,7 +89,7 @@ export function taskQuestionIssues(
     issues.push('question — только инструкция, без данных задачи')
   }
 
-  if (/reference_file|teacher_expectation|не копируй teacher/i.test(question)) {
+  if (/reference_file|source_content|teacher_expectation|description|не копируй/i.test(question)) {
     issues.push('question содержит служебные инструкции вместо условия задачи')
   }
 
@@ -182,7 +182,7 @@ export function validateTaskIndependence(
 
   if (countStoryOverlap(allTexts) >= 3) {
     issues.push(
-      'Несколько заданий дробят одну задачу — сделай каждое задание отдельной полной задачей по своему фрагменту reference_file',
+      'Несколько заданий дробят одну задачу — сделай каждое задание отдельной полной задачей по своему фрагменту source_content',
     )
   }
 
@@ -196,13 +196,13 @@ export function validateTaskIndependence(
   return [...new Set(issues)]
 }
 
-export function repairTaskExpectation(baseExpectation: string): string {
+export function repairTaskExpectation(baseDescription: string): string {
   return [
-    'Исправь задание: в question — полное условие из reference_file (сюжет, все персонажи, числа, ограничения) и только потом вопрос.',
-    'Альтернатива должна быть сюжетно близка к anchor_tasks и reference_file, но самостоятельной.',
-    'Не копируй teacher_expectation и не пиши только «Определите…» / «Выберите…».',
-    'Не включай в question служебные фразы про reference_file, teacher_expectation или эту инструкцию.',
-    baseExpectation.trim() ? `Исходная установка: ${baseExpectation.trim()}` : '',
+    'Исправь задание: в question — полное условие из source_content (сюжет, все персонажи, числа, ограничения) и только потом вопрос.',
+    'Альтернатива должна быть сюжетно близка к anchor_tasks и source_content, но самостоятельной.',
+    'Не копируй description и не пиши только «Определите…» / «Выберите…».',
+    'Не включай в question служебные фразы про source_content, description или эту инструкцию.',
+    baseDescription.trim() ? `Исходная установка (description): ${baseDescription.trim()}` : '',
   ]
     .filter(Boolean)
     .join(' ')
@@ -215,8 +215,8 @@ export function independenceRetryNote(issues: string[]): string {
     ...issues.map((issue) => `- ${issue}`),
     '',
     'Каждое question — готовое условие для ученика: сюжет + все данные + вопрос в одном поле.',
-    'teacher_expectation — только для автора; в question его нельзя копировать.',
-    'Разные задания — разные фрагменты reference_file; ответ одного не нужен для другого.',
-    'Не дроби одну задачу из reference_file на несколько заданий листа.',
+    'description — только для автора; в question его нельзя копировать.',
+    'Разные задания — разные фрагменты source_content; ответ одного не нужен для другого.',
+    'Не дроби одну задачу из source_content на несколько заданий листа.',
   ].join('\n')
 }

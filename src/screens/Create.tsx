@@ -9,6 +9,7 @@ import { MarkdownPreview } from '@/components/MarkdownPreview'
 import { generatePlanAI } from '@/data/ai'
 import { extractContextFile } from '@/data/contextFile'
 import { runTechnicalProbe } from '@/data/technicalProbe'
+import { planItemDifficultyLabel, normalizeDifficultyMode } from '@/data/planMechanics'
 import { createPlan } from '@/data/worksheet'
 import type { DifficultyMode, TaskType, WorksheetDraft } from '@/data/worksheet'
 import {
@@ -420,46 +421,55 @@ export function Create({
 
                       <div className="plan-rows">
                         {draft.plan.map((row, index) => (
-                          <div
-                            key={row.id}
-                            className={`plan-row ${dragPlanIdx === index ? 'dragging' : ''}`}
-                            onDragOver={(e) => e.preventDefault()}
-                            onDrop={() => {
-                              if (dragPlanIdx !== null) reorderPlan(dragPlanIdx, index)
-                              setDragPlanIdx(null)
-                            }}
-                          >
-                            <span className="plan-index">{index + 1}.</span>
-                            <Select
-                              className="plan-type"
-                              options={PLAN_TASK_TYPES.map((t) => t.label)}
-                              value={
-                                PLAN_TASK_TYPES.find((t) => t.type === row.taskType)?.label ??
-                                row.taskType
-                              }
-                              onChange={(e) => {
-                                const found = PLAN_TASK_TYPES.find((t) => t.label === e.target.value)
-                                if (found) updatePlan(index, { taskType: found.type as TaskType })
+                          <div key={row.id} className="plan-row-wrap">
+                            <div
+                              className={`plan-row ${dragPlanIdx === index ? 'dragging' : ''}`}
+                              onDragOver={(e) => e.preventDefault()}
+                              onDrop={() => {
+                                if (dragPlanIdx !== null) reorderPlan(dragPlanIdx, index)
+                                setDragPlanIdx(null)
                               }}
-                            />
-                            <Input
-                              className="plan-hint"
-                              placeholder="Например, записать общую формулу квадратного уравнения"
-                              maxLength={200}
-                              value={row.userExpectation}
-                              onChange={(e) =>
-                                updatePlan(index, { userExpectation: e.target.value })
-                              }
-                            />
-                            <span
-                              className="drag-handle"
-                              draggable
-                              onDragStart={() => setDragPlanIdx(index)}
-                              onDragEnd={() => setDragPlanIdx(null)}
-                              aria-hidden
                             >
-                              <FigmaIcon src={iconDrag} size={20} />
-                            </span>
+                              <span className="plan-index">{index + 1}.</span>
+                              <Select
+                                className="plan-type"
+                                options={PLAN_TASK_TYPES.map((t) => t.label)}
+                                value={
+                                  PLAN_TASK_TYPES.find((t) => t.type === row.taskType)?.label ??
+                                  row.taskType
+                                }
+                                onChange={(e) => {
+                                  const found = PLAN_TASK_TYPES.find((t) => t.label === e.target.value)
+                                  if (found) updatePlan(index, { taskType: found.type as TaskType })
+                                }}
+                              />
+                              <Input
+                                className="plan-hint"
+                                placeholder="Например, записать общую формулу квадратного уравнения"
+                                maxLength={200}
+                                value={row.userExpectation}
+                                onChange={(e) =>
+                                  updatePlan(index, { userExpectation: e.target.value })
+                                }
+                              />
+                              {row.planDifficulty && draft.showDifficulty ? (
+                                <span className="plan-difficulty-badge">
+                                  {planItemDifficultyLabel(row.planDifficulty)}
+                                </span>
+                              ) : null}
+                              <span
+                                className="drag-handle"
+                                draggable
+                                onDragStart={() => setDragPlanIdx(index)}
+                                onDragEnd={() => setDragPlanIdx(null)}
+                                aria-hidden
+                              >
+                                <FigmaIcon src={iconDrag} size={20} />
+                              </span>
+                            </div>
+                            {row.description ? (
+                              <p className="plan-description">{row.description}</p>
+                            ) : null}
                           </div>
                         ))}
                       </div>
@@ -469,8 +479,9 @@ export function Create({
                       <Select
                         options={DIFFICULTY_OPTIONS.map((d) => d.label)}
                         value={
-                          DIFFICULTY_OPTIONS.find((d) => d.value === draft.difficulty)?.label ??
-                          'Дифференцированная'
+                          DIFFICULTY_OPTIONS.find(
+                            (d) => d.value === normalizeDifficultyMode(draft.difficulty),
+                          )?.label ?? 'Дифференцированная'
                         }
                         onChange={(e) => {
                           const found = DIFFICULTY_OPTIONS.find((d) => d.label === e.target.value)

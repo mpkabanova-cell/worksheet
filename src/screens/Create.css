@@ -306,6 +306,29 @@
   min-width: 0;
 }
 
+.plan-row-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.plan-description {
+  margin: 0 0 0 calc(1.5ch + 8px);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-secondary, #6b7280);
+}
+
+.plan-difficulty-badge {
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 16px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--surface-secondary, #f3f4f6);
+  color: var(--text-default);
+}
+
 .drag-handle {
   width: 20px;
   height: 20px;

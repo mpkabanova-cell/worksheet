@@ -2,15 +2,10 @@ import type { DifficultyMode, PlanTask, TaskType, WorksheetBlock, WorksheetDraft
 import { createPlan, labelForType, uid } from './worksheet'
 import { createDefaultGroupingTableFields, defaultAnswerHeight, defaultAnswerStyle, groupsToTableFields } from './blockUtils'
 import { expectationToQuestion } from './taskContent'
+import { normalizeDifficultyMode, planDifficultyToStars } from './planMechanics'
 
 function starsForIndex(i: number, mode: DifficultyMode, total: number): 1 | 2 | 3 {
-  if (mode === 'starter') return 1
-  if (mode === 'basic') return 2
-  if (mode === 'advanced') return 3
-  const t = Math.max(total - 1, 1)
-  if (i / t < 0.34) return 1
-  if (i / t < 0.67) return 2
-  return 3
+  return planDifficultyToStars(null, normalizeDifficultyMode(mode), i, total)
 }
 
 function makeOptions(texts: string[]): { id: string; text: string }[] {

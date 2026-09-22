@@ -92,6 +92,7 @@ export function referenceFilePayload(draft: {
   contextFileName?: string
   contextFileText?: string
   contextFileNote?: string
+  wishes?: string
 }) {
   if (!draft.contextFileName?.trim()) return null
   const raw = draft.contextFileText?.trim()
@@ -100,14 +101,26 @@ export function referenceFilePayload(draft: {
   if (!raw && !note) return null
 
   const prepared = raw
-    ? prepareReferenceContent(raw).slice(0, CONTEXT_FILE_TEXT_MAX)
+    ? prepareReferenceContent(raw, { wishes: draft.wishes ?? null }).slice(0, CONTEXT_FILE_TEXT_MAX)
     : null
 
   return {
     name: draft.contextFileName,
     content: prepared || null,
     relevance_note:
-      'В content только условия и учебный материал для заданий. Решения, ответы, ключи, разборы и иллюстрации из них исключены автоматически. Какой раздел файла использовать — см. teacher_wishes.',
+      'В content только условия и учебный материал для заданий. Решения, ответы, ключи, разборы и иллюстрации из них исключены автоматически. Какой раздел файла использовать — см. additional_wishes.',
     note: note || null,
   }
+}
+
+/** source_content для агента планирования (spec). */
+export function sourceContentForDraft(draft: {
+  contextFileText?: string
+  contextFileName?: string
+  wishes?: string
+}): string | null {
+  const raw = draft.contextFileText?.trim()
+  if (!raw) return null
+  const filtered = prepareReferenceContent(raw, { wishes: draft.wishes ?? null })
+  return filtered ? filtered.slice(0, CONTEXT_FILE_TEXT_MAX) : null
 }

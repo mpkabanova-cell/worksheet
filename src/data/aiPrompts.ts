@@ -1,14 +1,18 @@
 import type { DifficultyMode, TaskType, WorksheetBlock, WorksheetDraft } from './worksheet'
-import { PLAN_TASK_TYPES, WISHES_MAX_LENGTH, labelForType } from './worksheet'
+import { WISHES_MAX_LENGTH, labelForType } from './worksheet'
 import { getGapsSourceText } from './blockUtils'
-import { referenceFilePayload } from './contextFile'
+import { referenceFilePayload, sourceContentForDraft } from './contextFile'
 import {
   buildAlternativeTaskGuidance,
   collectAnchorTasks,
   type AnchorTask,
 } from './referenceThemes'
-
-const TASK_TYPES_LIST = PLAN_TASK_TYPES.map((t) => `${t.type} — ${t.label} (${t.hint})`).join('\n')
+import { PLAN_AGENT_MECHANICS_LIST, PLAN_AGENT_SYSTEM } from './planAgentPrompt'
+import {
+  normalizeDifficultyMode,
+  planItemDifficultyLabel,
+  toSpecMechanic,
+} from './planMechanics'
 
 const TASK_JSON_FIELDS = `Поля задания (используй только нужные для type):
 {
@@ -105,32 +109,6 @@ const CONTENT_RULES = `
 - Сложность: 1 — базовое узнавание, 2 — применение, 3 — анализ/перенос.
 `.trim()
 
-/**
- * Правила поля expectation / userExpectation в плане
- * (пример: «Заполнить пропуски в определении квадратного уравнения»).
- */
-const EXPECTATION_FIELD_RULES = `
-[Формулировка поля expectation — ожидание к заданию]
-Это короткая методическая установка «что сделать в задании», а не текст вопроса ученику и не название типа.
-
-Формат:
-- Одна фраза, обычно 5–12 слов (до 120 символов).
-- Начинай с глагола в инфинитиве: Заполнить / Записать / Сопоставить / Решить / Вычислить / Выбрать / Объяснить / Найти…
-- Дальше — конкретный объект по теме (определение, формула, коэффициенты, вид уравнения, число решений…).
-- Привязывай формулировку к теме и предмету; без общих слов вроде «закрепить материал», «проверить знания».
-- Не пиши номер задания, не дублируй название типа («Краткий ответ: …»), не обращайся к ученику на «ты» в этом поле.
-- Не ставь точку в конце, если фраза короткая и однострочная.
-- Каждое expectation в плане уникально: разные акценты темы, без повторов.
-
-Примеры (тема «Квадратные уравнения», алгебра, 8 класс):
-- fill_gaps → «Заполнить пропуски в определении квадратного уравнения»
-- short_answer → «Записать общую формулу квадратного уравнения»
-- matching → «Сопоставить уравнение и значения коэффициентов»
-- matching → «Сопоставить квадратное уравнение с его видом»
-- matching → «Сопоставить уравнение и количество решений»
-- short_answer → «Решить квадратное уравнение»
-`.trim()
-
 const OUTPUT_FORMAT = `Формат ответа:
 - Верни ТОЛЬКО валидный JSON-объект (без текста вокруг, без markdown-обёртки всего ответа).
 - Правила языка, Markdown и LaTeX применяются к содержимому строковых полей JSON, а не к оболочке ответа.
@@ -138,12 +116,12 @@ const OUTPUT_FORMAT = `Формат ответа:
 
 const CONTEXT_USAGE_RULES = `
 [Контекст учителя и сложность]
-- Если teacher_wishes не null — обязательно учитывай акценты, ограничения и пожелания из этого поля.
-- Поле difficulty у каждого задания выставляй строго по difficulty_guidance из user JSON.
-- Если reference_file не null и content не пустой — используй его как основной опорный материал (конспект, учебник, образец). Не копируй дословно большие фрагменты; адаптируй под класс и тему.
+- Если additional_wishes / teacher_wishes не null — обязательно учитывай акценты, ограничения и пожелания из этого поля.
+- Поле difficulty у каждого задания выставляй строго по difficulty_guidance или по difficulty элемента task_plan.
+- Если reference_file / source_content не null и content не пустой — используй его как основной опорный материал. Не копируй дословно большие фрагменты; адаптируй под класс и тему.
 - Фрагменты в [квадратных скобках] в reference_file.content — описания иллюстраций из файла. Используй их смысл при планировании и генерации, но не показывай [скобки] ученику в question/options.
 - Если reference_file.content null, но reference_file.note не null — учитывай note только когда content недоступен.
-- Поле reference_file.relevance_note: из content уже убраны решения, ответы, ключи и иллюстрации из решений — не восстанавливай их и не ссылайся на них. Если в teacher_wishes указан раздел или блок файла — используй только его.`
+- Из content уже убраны решения, ответы, ключи — не восстанавливай их. Если в additional_wishes указан раздел или блок файла — используй только его.`
 
 const REFERENCE_MATERIAL_RULES = `
 [Опора на reference_file — обязательно, если content не пустой]
@@ -207,33 +185,61 @@ const PLAN_STANDALONE_RULES = `
 - Разнообразь expectation: разные сюжеты из content; ответ одного задания не должен быть входом для другого.`.trim()
 
 function difficultyHint(mode: DifficultyMode): string {
-  switch (mode) {
-    case 'starter':
-      return 'Все задания сложности 1 (стартовый уровень).'
+  switch (normalizeDifficultyMode(mode)) {
     case 'basic':
-      return 'Все задания сложности 2 (базовый уровень).'
+      return 'Все задания сложности basic (уровень 1).'
+    case 'medium':
+      return 'Все задания сложности medium (уровень 2).'
     case 'advanced':
-      return 'Все задания сложности 3 (повышенный уровень).'
+      return 'Все задания сложности advanced (уровень 3).'
     default:
-      return 'Дифференцированная сложность: от 1 к 3 по ходу листа.'
+      return 'Дифференцированная сложность: basic → medium → advanced по ходу листа.'
   }
 }
 
 function contextPayload(draft: WorksheetDraft) {
   const ref = referenceFilePayload(draft)
+  const sourceContent = sourceContentForDraft(draft)
   return {
     subject: draft.subject,
     grade: `${draft.grade} класс`,
     topic: draft.topic,
     teacher_wishes: draft.wishes?.trim().slice(0, WISHES_MAX_LENGTH) || null,
+    additional_wishes: draft.wishes?.trim().slice(0, WISHES_MAX_LENGTH) || null,
     task_count: draft.taskCount,
-    difficulty_mode: draft.difficulty,
+    difficulty_mode: normalizeDifficultyMode(draft.difficulty),
+    plan_difficulty: normalizeDifficultyMode(draft.difficulty),
     difficulty_guidance: difficultyHint(draft.difficulty),
     add_intro: draft.addIntro,
     reference_file: ref,
-    reference_usage_hint: ref?.content
-      ? 'reference_file.content — основной источник задач. Бери разные фрагменты/блоки файла; каждое задание — самостоятельное с полным условием в question. Решения из файла не используй.'
+    source_content: sourceContent,
+    reference_usage_hint: sourceContent
+      ? 'source_content / reference_file.content — основной источник задач. Бери разные фрагменты/блоки файла; каждое задание — самостоятельное с полным условием в question. Решения из файла не используй.'
       : null,
+  }
+}
+
+function specTaskPlanInput(draft: WorksheetDraft) {
+  return draft.plan.map((p) => {
+    const specType = toSpecMechanic(p.taskType) ?? p.taskType
+    return {
+      type: p.taskType ? specType : null,
+      user_description: p.userExpectation?.trim() || null,
+      description: p.description?.trim() || null,
+      difficulty: p.planDifficulty ?? null,
+    }
+  })
+}
+
+function planAgentPayload(draft: WorksheetDraft) {
+  return {
+    subject: draft.subject,
+    grade: `${draft.grade} класс`,
+    topic: draft.topic,
+    plan_difficulty: normalizeDifficultyMode(draft.difficulty),
+    additional_wishes: draft.wishes?.trim().slice(0, WISHES_MAX_LENGTH) || null,
+    source_content: sourceContentForDraft(draft),
+    task_plan: specTaskPlanInput(draft),
   }
 }
 
@@ -242,7 +248,10 @@ function planPayload(draft: WorksheetDraft) {
     index: i + 1,
     type: p.taskType,
     type_label: labelForType(p.taskType),
-    teacher_expectation: p.userExpectation?.trim() || null,
+    user_description: p.userExpectation?.trim() || null,
+    description: p.description?.trim() || null,
+    difficulty: p.planDifficulty ?? null,
+    difficulty_label: p.planDifficulty ? planItemDifficultyLabel(p.planDifficulty) : null,
   }))
 }
 
@@ -264,44 +273,22 @@ function existingTasksBrief(blocks: WorksheetBlock[]) {
 }
 
 export function promptsForPlan(draft: WorksheetDraft) {
-  const system = `Ты — методист школьного образования. Составь план рабочего листа: последовательность типов заданий и краткие ожидания учителя к каждому.
+  const system = `${PLAN_AGENT_SYSTEM}
 
-Доступные типы:
-${TASK_TYPES_LIST}
+${PLAN_AGENT_MECHANICS_LIST}
 
 ${OUTPUT_FORMAT}
 
-Верни JSON:
-{
-  "tasks": [
-    { "type": "<код типа>", "expectation": "что именно отработать в этом задании (до 120 символов)" }
-  ]
-}
-
-Требования к плану:
-- Ровно ${draft.taskCount} элементов в tasks.
-- Чередуй типы, не ставь подряд больше двух одинаковых.
-- Логика: от простого к сложному / от узнавания к применению.
-- Учитывай предмет, класс, тему и пожелания учителя.
-- Если фрагмент reference_file опирается на непригодную иллюстрацию — замени expectation другим из reference_file, близким по сюжету к другим пунктам плана; count не уменьшай.
-
-${ALTERNATIVE_TASK_RULES}
-
 ${PLAN_STANDALONE_RULES}
-
-${REFERENCE_MATERIAL_RULES}
-
-${REFERENCE_RELEVANCE_RULES}
 
 ${IMAGE_DESCRIPTION_RULES}
 
-${CONTEXT_USAGE_RULES}
+Дополнительно:
+- Ровно ${draft.taskCount} элементов в task_plan (не уменьшай количество).
+- Если фрагмент source_content опирается на непригодную иллюстрацию — замени description другим из source_content, близким по сюжету к другим пунктам; count не уменьшай.
+- Не включай CONTENT_RULES для question — ты не генерируешь конкретные задания.`
 
-${EXPECTATION_FIELD_RULES}
-
-${CONTENT_RULES}`
-
-  const user = JSON.stringify(contextPayload(draft), null, 2)
+  const user = JSON.stringify(planAgentPayload(draft), null, 2)
   return { system, user }
 }
 
@@ -335,7 +322,9 @@ ${CONTENT_RULES}
 Дополнительно по структуре листа:
 - Строго соблюдай type из плана для каждого задания.
 - Поле instruction у каждого задания — всегда "".
-- Если в плане есть teacher_expectation — это методическая установка (инфинитив: «Сопоставить…», «Решить…»). Разверни её в формулировку question без служебных преамбул («Выбери правильный ответ…») и без местоимений; не копируй expectation дословно.
+- Если в task_plan есть description — это основная методическая установка для генерации. Разверни её в question с конкретными числами и данными; не копируй description дословно.
+- user_description — краткий замысел для учителя; не копируй его в question.
+- Если description отсутствует, но есть user_description — используй user_description как установку, но всё равно дай полное условие в question.
 - Если add_intro=false — верни intro как "".
 - question и options с дробями/выражениями — только LaTeX ($\\frac{a}{b}$, $\\cdot$). Не давай заданий вида «Вспомни правило… и запиши».
 - order_items: дай перемешанный порядок; correct_answers — правильная последовательность.
@@ -361,7 +350,7 @@ ${CONTEXT_USAGE_RULES}`
 
   const regenerateAnchors =
     mode === 'regenerate'
-      ? collectAnchorTasks(draft.blocks, draft.plan?.map((item) => item.userExpectation))
+      ? collectAnchorTasks(draft.blocks, draft.plan?.map((item) => item.description || item.userExpectation))
       : []
   const alternativeGuidance =
     mode === 'regenerate'
@@ -392,15 +381,16 @@ export function promptsForSingleTask(
   expectation: string,
   repairNote?: string,
   anchorTasks?: AnchorTask[],
+  planDescription?: string | null,
 ) {
   const anchors = anchorTasks ?? collectAnchorTasks(
     draft.blocks,
-    draft.plan?.map((item) => item.userExpectation),
+    draft.plan?.map((item) => item.description || item.userExpectation),
   )
   const alternativeGuidance = buildAlternativeTaskGuidance(
     anchors,
     referenceFilePayload(draft)?.content ?? undefined,
-    expectation,
+    planDescription || expectation,
   )
   const system = `Ты — методист. Сгенерируй ОДНО школьное задание для рабочего листа.
 
@@ -417,7 +407,8 @@ ${CONTENT_RULES}
 
 - Не повторяй формулировки из existing_tasks.
 - Поле instruction — всегда "".
-- Если есть teacher_expectation — это установка вида «Решить квадратное уравнение» / «Сопоставить…». Разверни в question без служебных преамбул и без местоимений; не копируй expectation дословно.
+- Если есть description — разверни его в question с полным условием; не копируй description дословно.
+- user_description / teacher_expectation — краткий замысел; не копируй в question.
 - repair_note — служебная подсказка для исправления; не включай её текст в question.
 - fill_gaps: question — короткое задание; gaps_text — только строки с пропусками ___, без теории и определений. Пропуски только в обычном тексте, не внутри формул ($...$). Запрещено: «(a+b)^2 = a^2 + ___ + b^2» с gaps_answers: ["2ab"].
 - matching: question обязателен и понятен ученику. Биекция 1:1: каждый left_item → свой right_item. Запрещены matching с числовыми множествами N/Z/Q и формулировкой «наименьшее множество».
@@ -438,6 +429,8 @@ ${CONTEXT_USAGE_RULES}`
     {
       ...contextPayload(draft),
       requested_type: taskType,
+      description: planDescription?.trim() || expectation.trim() || null,
+      user_description: expectation.trim() || null,
       teacher_expectation: expectation.trim() || null,
       repair_note: repairNote?.trim() || null,
       anchor_tasks: anchors.length ? anchors : undefined,
