@@ -8,11 +8,6 @@ import JSZip from 'jszip'
 import { callVisionOcr, guessImageMime } from './visionOcr.js'
 
 const OCR_MEDIA_EXT = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.tif', '.tiff'])
-
-function getMinOcrBytes(env = process.env) {
-  const n = Number(env.CONTEXT_OCR_MIN_IMAGE_BYTES)
-  return Number.isFinite(n) && n > 0 ? n : 400_000
-}
 const EMBED_RE = /r:embed="(rId[^"]+)"/g
 const LINK_RE = /r:link="(rId[^"]+)"/g
 const REL_RE = /Relationship Id="([^"]+)"[^>]*Target="([^"]+)"/g
@@ -172,14 +167,19 @@ async function ocrRelationshipImage(embedId, relMap, zip, visionConfig, cache) {
     return ''
   }
 
-  if (buf.length < getMinOcrBytes()) {
-    cache.set(mediaPath, '')
-    return ''
-  }
-
-  const description = (await callVisionOcr(buf, guessImageMime(mediaPath), visionConfig)).trim()
+  const raw = (await callVisionOcr(buf, guessImageMime(mediaPath), visionConfig)).trim()
+  const description = normalizeVisionDescription(raw)
   cache.set(mediaPath, description)
   return description
+}
+
+/** Каждая картинка → [описание]; если модель вернула текст без скобок — оборачиваем. */
+function normalizeVisionDescription(raw) {
+  const text = raw.trim()
+  if (!text) return ''
+  if (/\[[^\]]+\]/.test(text)) return text
+  const inner = text.replace(/^\[+|\]+$/g, '').trim()
+  return `[${inner}]`
 }
 
 /**
@@ -187,7 +187,10 @@ async function ocrRelationshipImage(embedId, relMap, zip, visionConfig, cache) {
  */
 async function processDrawingBlock(blockXml, relMap, zip, visionConfig, cache) {
   const chunks = []
+  const seenInBlock = new Set()
   for (const embedId of findEmbedIds(blockXml)) {
+    if (seenInBlock.has(embedId)) continue
+    seenInBlock.add(embedId)
     const desc = await ocrRelationshipImage(embedId, relMap, zip, visionConfig, cache)
     if (desc) chunks.push(desc)
   }
@@ -205,7 +208,7 @@ function normalizeTimelineLine(line) {
   return s.replace(/\s+([.,;:!?])/g, '$1').trim()
 }
 
-/** Склеивает фрагменты текста в строку; [описания] — отдельными блоками, без дублей подряд. */
+/** Склеивает текст; каждое [описание картинки] — на своём месте в потоке. */
 function mergeParagraphParts(parts) {
   const out = []
   let textBuf = []
@@ -222,7 +225,7 @@ function mergeParagraphParts(parts) {
     if (!p) continue
     if (p.startsWith('[')) {
       flushText()
-      if (out[out.length - 1] !== p) out.push(p)
+      out.push(p)
     } else {
       textBuf.push(p.replace(/\s+/g, ' ').trim())
     }
