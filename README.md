@@ -2,16 +2,23 @@
 
 Интерактивный прототип по макетам Figma и спецификации «Функциональность „Рабочие листы“».
 
-Подробное описание архитектуры и полный текст всех промптов — в файле `docs/SERVICE.md`.
+Подробное описание архитектуры — `docs/SERVICE.md`, распознавание файлов — `docs/CONTEXT_FILE.md`.
 
 ## Запуск
 
 ```bash
 npm install
+cp .env.example .env   # OPENAI_API_KEY и при необходимости APP_URL
 npm run dev
 ```
 
 http://localhost:5173/
+
+**Модели (сервер, `.env`):**
+- `OPENAI_MODEL=google/gemini-2.5-flash` — генерация плана и листа
+- `CONTEXT_OCR_MODEL=qwen/qwen3-vl-235b-a22b-instruct` — распознавание прикреплённых PDF-сканов и изображений
+
+Проверка: `GET http://localhost:3001/health` → `{ model, ocrModel, hasKey }`.
 
 ## Что работает
 

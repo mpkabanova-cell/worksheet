@@ -22,7 +22,21 @@
 
 Опционально на фронте: `VITE_OPENAI_MODEL` — подсказка для `aiClient.ts`, нужна ли принудительная JSON-обёртка в теле запроса (см. `src/data/aiClient.ts`). Реальная модель всегда берётся с сервера.
 
-Проверить конфигурацию на деплое: `GET /health` → `{ ok, hasKey, model }`.
+Проверить конфигурацию на деплое: `GET /health` → `{ ok, hasKey, model, ocrModel }`.
+
+### Vision-модель — распознавание прикреплённых файлов
+
+| Параметр | Значение |
+|----------|----------|
+| Модель по умолчанию | **`qwen/qwen3-vl-235b-a22b-instruct`** |
+| Провайдер | OpenRouter (тот же `OPENAI_API_KEY`) |
+| Где задаётся | `CONTEXT_OCR_MODEL` (`server/visionOcr.js`, `render.yaml`, `.env.example`) |
+| API | `POST /chat/completions` с `image_url` + промпт `USER_PROMPT_VISION` |
+| Эндпоинт сервиса | `POST /api/extract-context` (не `/api/chat`) |
+
+От `OPENAI_MODEL` (Gemini) **не зависит** — только `CONTEXT_OCR_MODEL` или дефолт в коде.
+
+Подробности: [`CONTEXT_FILE.md`](./CONTEXT_FILE.md).
 
 ### Агенты — отдельные автonomous-роли
 
@@ -106,7 +120,7 @@ flowchart LR
 
 1. **UI:** учитель прикрепляет DOCX / PDF / изображение на create-форме (имя файла и «Обработка…»; распознанный текст не показывается).
 2. **Фронт:** `extractContextFile()` (`contextFile.ts`) отправляет файл на `POST /api/extract-context`, сохраняет `contextFileText` в черновике (до 12 000 символов).
-3. **Сервер:** OCR/извлечение текста (`server/extractContext.js`, vision — `server/visionOcr.js`).
+3. **Сервер:** OCR/извлечение текста (`server/extractContext.js`, vision — `server/visionOcr.js`, модель `CONTEXT_OCR_MODEL=qwen/qwen3-vl-235b-a22b-instruct`).
 4. **Промпт:** поле попадает в user JSON как `reference_file` → модель учитывает при генерации **плана**, **листа** и **одного задания** по `CONTEXT_USAGE_RULES`.
 
 ---

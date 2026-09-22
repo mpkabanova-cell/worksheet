@@ -70,21 +70,21 @@ flowchart LR
 | `OPENAI_API_KEY` | ключ OpenRouter / совместимого API | — |
 | `OPENAI_BASE_URL` | base URL chat API | `https://openrouter.ai/api/v1` |
 | `OPENAI_MODEL` | модель генерации plan/worksheet | `google/gemini-2.5-flash` |
-| `CONTEXT_OCR_MODEL` | vision-модель для OCR прикреплённых файлов | `qwen/qwen3-vl-235b-a22b-instruct` |
+| `CONTEXT_OCR_MODEL` | vision-модель для OCR прикреплённых файлов (отдельно от генерации) | `qwen/qwen3-vl-235b-a22b-instruct` |
 | `CONTEXT_EXTRACT_TIMEOUT_MS` | таймаут OCR-запроса | `300000` |
 | `CONTEXT_PDF_MAX_PAGES` | макс. страниц PDF для vision fallback | `3` |
 | `APP_URL` | Referer для OpenRouter | — |
 | `PORT` | порт | `3001` |
 
-Эндпоинты: `GET /health`, `POST /api/chat`, `POST /api/extract-context`.
+Эндпоинты: `GET /health` (`model` — генерация, `ocrModel` — распознавание файлов), `POST /api/chat`, `POST /api/extract-context`.
 
 #### POST /api/extract-context
 
 Принимает `multipart/form-data` с полем `file` (docx, pdf, jpg, png; до 10 Мб). Возвращает `{ text, truncated? }` — распознанный текст для промптов. Текст пользователю в UI не показывается.
 
 - **DOCX** — извлечение текста и таблиц на сервере (`server/docxText.js`).
-- **PDF** — текстовый слой; для сканов — vision OCR первых N страниц.
-- **Изображения** — vision OCR через OpenRouter (промпт из `ocr_to_doc_project-main`).
+- **PDF** — текстовый слой; для сканов — vision OCR (`qwen/qwen3-vl-235b-a22b-instruct`) первых N страниц.
+- **Изображения** — vision OCR через OpenRouter (`server/visionOcr.js`, промпт `USER_PROMPT_VISION`).
 
 ---
 
@@ -968,7 +968,9 @@ extended_answer — Развёрнутый ответ (Объяснение и �
 
 ```bash
 npm install
+cp .env.example .env
 # .env: OPENAI_API_KEY=...
+# CONTEXT_OCR_MODEL=qwen/qwen3-vl-235b-a22b-instruct  (уже в .env.example)
 npm run dev          # API + Vite
 npm run build && npm start   # прод-режим
 ```
