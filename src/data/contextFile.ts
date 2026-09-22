@@ -1,7 +1,6 @@
-import { listContextBlockTitles, prepareReferenceContent } from './contextFilter'
+import { prepareReferenceContent } from './contextFilter'
 
 export const CONTEXT_FILE_TEXT_MAX = 12_000
-export const CONTEXT_FILE_BLOCK_MAX = 120
 
 export interface ContextFileResult {
   name: string
@@ -93,26 +92,22 @@ export function referenceFilePayload(draft: {
   contextFileName?: string
   contextFileText?: string
   contextFileNote?: string
-  contextFileBlock?: string
 }) {
   if (!draft.contextFileName?.trim()) return null
   const raw = draft.contextFileText?.trim()
   const note = draft.contextFileNote?.trim()
-  const block = draft.contextFileBlock?.trim().slice(0, CONTEXT_FILE_BLOCK_MAX) || null
 
   if (!raw && !note) return null
 
   const prepared = raw
-    ? prepareReferenceContent(raw, { block }).slice(0, CONTEXT_FILE_TEXT_MAX)
+    ? prepareReferenceContent(raw).slice(0, CONTEXT_FILE_TEXT_MAX)
     : null
 
   return {
     name: draft.contextFileName,
     content: prepared || null,
-    block,
-    available_blocks: raw ? listContextBlockTitles(raw).slice(0, 20) : null,
     relevance_note:
-      'В content только условия и учебный материал для заданий. Решения, ответы, ключи, разборы и иллюстрации из них исключены автоматически.',
+      'В content только условия и учебный материал для заданий. Решения, ответы, ключи, разборы и иллюстрации из них исключены автоматически. Какой раздел файла использовать — см. teacher_wishes.',
     note: note || null,
   }
 }

@@ -90,10 +90,10 @@ export function buildTechnicalProbeMarkdown(
   const raw = draft.contextFileText?.trim() ?? ''
   const fileLabel = draft.contextFileName?.trim() || 'без файла'
   const brackets = raw ? countBrackets(raw) : 0
-  const filtered = raw
-    ? prepareReferenceContent(raw, { block: draft.contextFileBlock })
+  const filtered = raw ? prepareReferenceContent(raw) : ''
+  const blockNote = draft.wishes.trim()
+    ? `, пожелания: «${draft.wishes.trim().slice(0, 80)}${draft.wishes.length > 80 ? '…' : ''}»`
     : ''
-  const blockNote = draft.contextFileBlock?.trim() ? `, блок «${draft.contextFileBlock.trim()}»` : ''
 
   const metaParts = [
     meta.fileSizeMb ? `${meta.fileSizeMb} МБ` : null,
@@ -117,7 +117,7 @@ export function buildTechnicalProbeMarkdown(
       '<p class="ctx-legend"><span class="ctx-relevant">релевантно</span> · <span class="ctx-irrelevant">нерелевантно</span></p>',
       '',
       '<div class="ctx-annotated">',
-      annotateExtractRelevance(raw, { block: draft.contextFileBlock }),
+      annotateExtractRelevance(raw),
       '</div>',
       '',
       `## Отфильтрованный reference_file (${filtered.length.toLocaleString('ru-RU')} симв.)`,

@@ -68,12 +68,10 @@ describe('referenceFilePayload', () => {
     const payload = referenceFilePayload({
       contextFileName: 'doc.docx',
       contextFileText: `5-6 классы\n\nУсловие задачи.\n\nРешение:\n\n18 минут.\n\n${long}`,
-      contextFileBlock: '5-6 классы',
     })
     expect(payload?.content?.length).toBeLessThanOrEqual(CONTEXT_FILE_TEXT_MAX)
     expect(payload?.content).toContain('Условие задачи')
     expect(payload?.content).not.toContain('Решение:')
     expect(payload?.content).not.toContain('18 минут')
-    expect(payload?.block).toBe('5-6 классы')
   })
 })
