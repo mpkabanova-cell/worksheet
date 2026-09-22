@@ -12,12 +12,10 @@ export function stripMarkdownImages(text) {
   return s.trim()
 }
 
-export const CONTEXT_FILE_TEXT_MAX = 12_000
+/** Историческое имя; обрезка отключена — возвращаем полный текст. */
+export const CONTEXT_FILE_TEXT_MAX = Number.POSITIVE_INFINITY
 
 export function truncateContextText(text) {
   const trimmed = text.trim()
-  if (trimmed.length <= CONTEXT_FILE_TEXT_MAX) {
-    return { text: trimmed, truncated: false }
-  }
-  return { text: trimmed.slice(0, CONTEXT_FILE_TEXT_MAX), truncated: true }
+  return { text: trimmed, truncated: false }
 }

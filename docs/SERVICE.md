@@ -72,7 +72,11 @@ flowchart LR
 | `OPENAI_MODEL` | модель генерации plan/worksheet | `google/gemini-2.5-flash` |
 | `CONTEXT_OCR_MODEL` | vision-модель для OCR прикреплённых файлов (отдельно от генерации) | `qwen/qwen3-vl-235b-a22b-instruct` |
 | `CONTEXT_EXTRACT_TIMEOUT_MS` | таймаут OCR-запроса | `300000` |
-| `CONTEXT_PDF_MAX_PAGES` | макс. страниц PDF для vision fallback | `3` |
+| `CONTEXT_PDF_MAX_PAGES` | макс. страниц PDF (`0` = все) | `0` |
+| `PDF_VISION_MODE` | OCR на PDF: `sparse` / `all` / `off` | `sparse` |
+| `PDF_PAGE_TEXT_MIN` | порог «разреженной» страницы | `120` |
+| `PDF_VISION_CONCURRENCY` | параллельные OCR по страницам | `3` |
+| `PDF_SCREENSHOT_SCALE` | масштаб рендера страницы | `1.25` |
 | `APP_URL` | Referer для OpenRouter | — |
 | `PORT` | порт | `3001` |
 
@@ -83,7 +87,7 @@ flowchart LR
 Принимает `multipart/form-data` с полем `file` (docx, pdf, jpg, png; до 10 Мб). Возвращает `{ text, truncated? }` — распознанный текст для промптов. Текст пользователю в UI не показывается.
 
 - **DOCX** — извлечение текста и таблиц на сервере (`server/docxText.js`).
-- **PDF** — текстовый слой; для сканов — vision OCR (`qwen/qwen3-vl-235b-a22b-instruct`) первых N страниц.
+- **PDF** — текстовый слой pdf-parse; vision OCR только на «разреженных» страницах (`PDF_VISION_MODE=sparse`, по умолчанию). Для сканов без текста — `all` или fallback.
 - **Изображения** — vision OCR через OpenRouter (`server/visionOcr.js`, промпт `USER_PROMPT_VISION`).
 
 ---

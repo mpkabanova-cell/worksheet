@@ -1,6 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import {
-  CONTEXT_FILE_TEXT_MAX,
   extractContextFile,
   referenceFilePayload,
 } from './contextFile'
@@ -63,13 +62,13 @@ describe('referenceFilePayload', () => {
     expect(referenceFilePayload({})).toBeNull()
   })
 
-  it('includes content capped at max length and filters solutions', () => {
-    const long = 'a'.repeat(CONTEXT_FILE_TEXT_MAX + 50)
+  it('includes full filtered content without length cap', () => {
+    const long = 'a'.repeat(20_000)
     const payload = referenceFilePayload({
       contextFileName: 'doc.docx',
       contextFileText: `5-6 классы\n\nУсловие задачи.\n\nРешение:\n\n18 минут.\n\n${long}`,
     })
-    expect(payload?.content?.length).toBeLessThanOrEqual(CONTEXT_FILE_TEXT_MAX)
+    expect(payload?.content?.length).toBeGreaterThan(19_000)
     expect(payload?.content).toContain('Условие задачи')
     expect(payload?.content).not.toContain('Решение:')
     expect(payload?.content).not.toContain('18 минут')

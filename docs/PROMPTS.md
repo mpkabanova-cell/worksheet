@@ -119,7 +119,7 @@ flowchart LR
 Подробное описание технологии извлечения текста (DOCX-парсинг, PDF, vision OCR): [`CONTEXT_FILE.md`](./CONTEXT_FILE.md).
 
 1. **UI:** учитель прикрепляет DOCX / PDF / изображение на create-форме (имя файла и «Обработка…»; распознанный текст не показывается).
-2. **Фронт:** `extractContextFile()` (`contextFile.ts`) отправляет файл на `POST /api/extract-context`, сохраняет `contextFileText` в черновике (до 12 000 символов).
+2. **Фронт:** `extractContextFile()` (`contextFile.ts`) отправляет файл на `POST /api/extract-context`, сохраняет полный `contextFileText` в черновике.
 3. **Сервер:** Qwen-VL vision для всех форматов (`extractContext.js`, `docxVision.js`, `pdfExtract.js`, `visionOcr.js`). Картинки → `[описания в скобках]`.
 4. **Промпт:** `reference_file.content` → модель учитывает при **плане**, **листе** и **одном задании** по `CONTEXT_USAGE_RULES` и `IMAGE_DESCRIPTION_RULES`.
 
@@ -345,7 +345,7 @@ extended_answer — Развёрнутый ответ (Объяснение и �
 
 {
   "name": "конспект.docx",
-  "content": "текст до 12000 символов",
+  "content": "полный отфильтрованный текст",
   "note": null
 }
 

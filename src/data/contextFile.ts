@@ -1,7 +1,5 @@
 import { prepareReferenceContent } from './contextFilter'
 
-export const CONTEXT_FILE_TEXT_MAX = 12_000
-
 export interface ContextFileResult {
   name: string
   text?: string
@@ -55,7 +53,7 @@ export async function extractContextFile(file: File): Promise<ContextFileResult>
   if (res.status === 503) {
     const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase()
     if (ext === '.docx') {
-      const text = (await extractDocxTextFallback(file)).slice(0, CONTEXT_FILE_TEXT_MAX)
+      const text = await extractDocxTextFallback(file)
       return {
         name: file.name,
         text,
@@ -100,9 +98,7 @@ export function referenceFilePayload(draft: {
 
   if (!raw && !note) return null
 
-  const prepared = raw
-    ? prepareReferenceContent(raw, { wishes: draft.wishes ?? null }).slice(0, CONTEXT_FILE_TEXT_MAX)
-    : null
+  const prepared = raw ? prepareReferenceContent(raw, { wishes: draft.wishes ?? null }) : null
 
   return {
     name: draft.contextFileName,
@@ -122,5 +118,5 @@ export function sourceContentForDraft(draft: {
   const raw = draft.contextFileText?.trim()
   if (!raw) return null
   const filtered = prepareReferenceContent(raw, { wishes: draft.wishes ?? null })
-  return filtered ? filtered.slice(0, CONTEXT_FILE_TEXT_MAX) : null
+  return filtered || null
 }

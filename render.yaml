@@ -22,7 +22,9 @@ services:
       - key: CONTEXT_OCR_MODEL
         value: qwen/qwen3-vl-235b-a22b-instruct
       - key: CONTEXT_PDF_MAX_PAGES
-        value: "3"
+        value: "0"
+      - key: PDF_VISION_MODE
+        value: sparse
       - key: CONTEXT_EXTRACT_TIMEOUT_MS
         value: "300000"
       - key: APP_URL

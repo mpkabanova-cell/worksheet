@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { stripMarkdownImages, truncateContextText, CONTEXT_FILE_TEXT_MAX } from '../../server/markdownClean.js'
+import { stripMarkdownImages, truncateContextText } from '../../server/markdownClean.js'
 
 describe('stripMarkdownImages', () => {
   it('removes markdown and html images', () => {
@@ -20,14 +20,9 @@ describe('stripMarkdownImages', () => {
 })
 
 describe('truncateContextText', () => {
-  it('returns full text when under limit', () => {
+  it('returns full text without truncation', () => {
+    const long = 'x'.repeat(20_000)
     expect(truncateContextText('hello')).toEqual({ text: 'hello', truncated: false })
-  })
-
-  it('truncates long text', () => {
-    const long = 'x'.repeat(CONTEXT_FILE_TEXT_MAX + 10)
-    const result = truncateContextText(long)
-    expect(result.text.length).toBe(CONTEXT_FILE_TEXT_MAX)
-    expect(result.truncated).toBe(true)
+    expect(truncateContextText(long)).toEqual({ text: long, truncated: false })
   })
 })
