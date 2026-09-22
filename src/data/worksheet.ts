@@ -174,6 +174,8 @@ export interface WorksheetDraft {
   contextFileName?: string
   contextFileText?: string
   contextFileNote?: string
+  /** Название блока из файла — только этот фрагмент идёт в генерацию. */
+  contextFileBlock?: string
   savedAt?: string
 }
 

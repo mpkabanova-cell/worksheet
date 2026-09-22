@@ -18,8 +18,26 @@ describe('IMAGE_DESCRIPTION_RULES in prompts', () => {
     expect(system).toContain('не показывай [скобки]')
   })
 
-  it('includes image rules in single task prompt', () => {
+  it('includes standalone task rules in plan prompt', () => {
+    const { system } = promptsForPlan(draft)
+    expect(system).toContain('План — независимые задания')
+    expect(system).toContain('не этап многошагового решения')
+  })
+
+  it('includes relevance rules in worksheet prompt', () => {
+    const { system } = promptsForWorksheet(draft, 'create')
+    expect(system).toContain('Релевантность reference_file.content')
+    expect(system).toContain('готовые решения')
+  })
+
+  it('includes standalone task rules in worksheet prompt', () => {
+    const { system } = promptsForWorksheet(draft, 'create')
+    expect(system).toContain('полное условие')
+    expect(system).toContain('ответ к заданию 1 не используется')
+  })
+
+  it('includes standalone task rules in single task prompt', () => {
     const { system } = promptsForSingleTask(draft, 'short_answer', 'Решить пример')
-    expect(system).toContain('замени другим заданием')
+    expect(system).toContain('Самостоятельность заданий')
   })
 })

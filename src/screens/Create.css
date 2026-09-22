@@ -155,6 +155,13 @@
   color: var(--text-secondary);
 }
 
+.field-hint {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-secondary);
+}
+
 .file-pick-btn {
   min-height: 40px;
   padding: 10px 14px;

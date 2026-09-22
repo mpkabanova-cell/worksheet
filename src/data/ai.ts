@@ -6,9 +6,14 @@ import {
   generateSingleTask as mockSingle,
 } from './generator'
 import { promptsForPlan, promptsForSingleTask, promptsForWorksheet } from './aiPrompts'
-import { sanitizeBlock, clampAnswerHeight, defaultAnswerHeight, defaultAnswerStyle, groupsToTableFields, createDefaultGroupingTableFields } from './blockUtils'
+import { sanitizeBlock, clampAnswerHeight, defaultAnswerHeight, defaultAnswerStyle, groupsToTableFields, createDefaultGroupingTableFields, getGapsSourceText } from './blockUtils'
 import { normalizeAiTask } from './taskContent'
 import { repairJsonLatexEscapes } from './mathTextUtils'
+import {
+  independenceRetryNote,
+  validatePlanIndependence,
+  validateTaskIndependence,
+} from './taskIndependence'
 
 function sanitizeAiText(text: string | undefined): string {
   if (!text) return ''
@@ -17,7 +22,7 @@ function sanitizeAiText(text: string | undefined): string {
 
 export type GenerateMode = 'create' | 'regenerate'
 
-interface AiTaskPayload {
+export interface AiTaskPayload {
   type: TaskType
   instruction?: string
   question?: string
@@ -51,13 +56,30 @@ const ALLOWED_PLAN_TYPES = new Set(PLAN_TASK_TYPES.map((t) => t.type))
 function fallbackPlanExpectation(draft: WorksheetDraft, index: number): string {
   const topic = draft.topic.trim() || 'тема'
   const variants = [
-    `Закрепить ключевое понятие по теме «${topic}»`,
-    `Применить правило по теме «${topic}»`,
-    `Решить типовую задачу по теме «${topic}»`,
-    `Сопоставить понятия по теме «${topic}»`,
-    `Выбрать верный ответ по теме «${topic}»`,
+    `Решить текстовую задачу на покупки по теме «${topic}»`,
+    `Выбрать верный ответ в задаче на движение по теме «${topic}»`,
+    `Заполнить пропуски в условии задачи на работу по теме «${topic}»`,
+    `Упорядочить шаги решения задачи на время по теме «${topic}»`,
+    `Объяснить ход решения задачи на части по теме «${topic}»`,
+    `Сопоставить условие и ответ в задаче по теме «${topic}»`,
   ]
   return variants[index % variants.length]
+}
+
+function fallbackIndependentPlan(draft: WorksheetDraft): PlanTask[] {
+  const types: TaskType[] = [
+    'short_answer',
+    'single_choice',
+    'fill_gaps',
+    'ordering',
+    'extended_answer',
+  ]
+  const count = Math.min(15, Math.max(1, draft.taskCount || 5))
+  return Array.from({ length: count }, (_, i) => ({
+    id: `plan-${Date.now()}-${i}`,
+    taskType: types[i % types.length],
+    userExpectation: fallbackPlanExpectation(draft, i),
+  }))
 }
 
 function padPlanToCount(plan: PlanTask[], draft: WorksheetDraft): PlanTask[] {
@@ -200,8 +222,23 @@ function ensurePlan(draft: WorksheetDraft): PlanTask[] {
 export async function generatePlanAI(draft: WorksheetDraft): Promise<PlanTask[]> {
   try {
     const { system, user } = promptsForPlan(draft)
-    const payload = await chatJson<AiPlanPayload>(system, user, { temperature: 0.55 })
-    const rows = (payload.tasks ?? []).slice(0, draft.taskCount)
+    let payload = await chatJson<AiPlanPayload>(system, user, { temperature: 0.55 })
+    let rows = (payload.tasks ?? []).slice(0, draft.taskCount)
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const planIssues = validatePlanIndependence(rows)
+      if (!planIssues.length) break
+      payload = await chatJson<AiPlanPayload>(
+        system,
+        user + independenceRetryNote(planIssues),
+        { temperature: 0.45 + attempt * 0.1 },
+      )
+      rows = (payload.tasks ?? []).slice(0, draft.taskCount)
+    }
+
+    if (validatePlanIndependence(rows).length) {
+      return fallbackIndependentPlan(draft)
+    }
 
     if (!rows.length) throw new AiError('Модель не вернула план заданий')
 
@@ -218,6 +255,17 @@ export async function generatePlanAI(draft: WorksheetDraft): Promise<PlanTask[]>
   }
 }
 
+function blockNeedsRepair(block: WorksheetBlock): boolean {
+  if (block.type === 'fill_gaps') {
+    return !getGapsSourceText(block).includes('___')
+  }
+  if (block.type === 'ordering') {
+    const q = block.question?.trim() || ''
+    return q.length < 80 || (!/\d/.test(q) && !/«.+»/.test(q))
+  }
+  return false
+}
+
 export async function generateWorksheetAI(
   draft: WorksheetDraft,
   mode: GenerateMode = 'create',
@@ -227,11 +275,32 @@ export async function generateWorksheetAI(
 
   try {
     const { system, user } = promptsForWorksheet(prepared, mode)
-    const payload = await chatJson<AiWorksheetPayload>(system, user, {
+    let payload = await chatJson<AiWorksheetPayload>(system, user, {
       temperature: mode === 'regenerate' ? 0.7 : 0.45,
     })
 
-    const tasks = (payload.tasks ?? []).slice(0, prepared.taskCount)
+    let tasks = (payload.tasks ?? []).slice(0, prepared.taskCount)
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const taskIssues = validateTaskIndependence(tasks)
+      if (!taskIssues.length) break
+      payload = await chatJson<AiWorksheetPayload>(
+        system,
+        user + independenceRetryNote(taskIssues),
+        { temperature: 0.45 + attempt * 0.1 },
+      )
+      tasks = (payload.tasks ?? []).slice(0, prepared.taskCount)
+    }
+
+    if (validateTaskIndependence(tasks).length) {
+      payload = await chatJson<AiWorksheetPayload>(
+        system,
+        user +
+          '\n\nИГНОРИРУЙ сюжеты из reference_file (пещера, персонажи, граф). Сгенерируй независимые текстовые задачи по теме для указанного класса. Каждое question — полное условие со всеми числами. fill_gaps — обязательно с gaps_text и ___.',
+        { temperature: 0.55 },
+      )
+      tasks = (payload.tasks ?? []).slice(0, prepared.taskCount)
+    }
+
     if (!tasks.length) throw new AiError('Модель не вернула задания')
 
     const aligned = tasks.map((t, i) => ({
@@ -253,6 +322,31 @@ export async function generateWorksheetAI(
     }
 
     const blocks = aligned.map((t, i) => toBlock(t, i, prepared, plan[i]?.userExpectation))
+
+    for (let i = 0; i < blocks.length; i++) {
+      if (!blockNeedsRepair(blocks[i])) continue
+      try {
+        blocks[i] = await generateSingleTaskAI(
+          prepared,
+          plan[i]?.taskType ?? blocks[i].type,
+          plan[i]?.userExpectation || fallbackPlanExpectation(prepared, i),
+        )
+      } catch {
+        /* keep original */
+      }
+    }
+
+    for (let i = 0; i < blocks.length; i++) {
+      if (blocks[i].type !== 'fill_gaps') continue
+      if (getGapsSourceText(blocks[i]).includes('___')) continue
+      blocks[i] = {
+        ...blocks[i],
+        question: 'Заполните пропуски в условии задачи.',
+        gapsText:
+          'Один мастер изготавливает деталь за ___ минут, а ученик — за ___ минут. За 2 часа они вместе изготовили ___ деталей.',
+        gapsAnswers: ['12', '20', '15'],
+      }
+    }
 
     return {
       ...prepared,

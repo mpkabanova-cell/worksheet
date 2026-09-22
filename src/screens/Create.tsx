@@ -7,6 +7,7 @@ import iconClear from '@/assets/create/clear.svg'
 import { Button, Field, FigmaIcon, Input, Select, Textarea } from '@/components/ui'
 import { generatePlanAI } from '@/data/ai'
 import { extractContextFile } from '@/data/contextFile'
+import { listContextBlockTitles } from '@/data/contextFilter'
 import { createPlan } from '@/data/worksheet'
 import type { DifficultyMode, TaskType, WorksheetDraft } from '@/data/worksheet'
 import {
@@ -56,6 +57,11 @@ export function Create({
   const canSubmit = useMemo(
     () => Boolean(draft.subject && draft.grade && draft.topic.trim()),
     [draft],
+  )
+
+  const contextBlockHints = useMemo(
+    () => (draft.contextFileText ? listContextBlockTitles(draft.contextFileText) : []),
+    [draft.contextFileText],
   )
 
   const syncTaskCount = (countStr: string) => {
@@ -146,6 +152,7 @@ export function Create({
       contextFileName: undefined,
       contextFileText: undefined,
       contextFileNote: undefined,
+      contextFileBlock: undefined,
     })
   }
 
@@ -301,6 +308,31 @@ export function Create({
                       </button>
                     ) : null}
                   </div>
+
+                  {attachedFile || draft.contextFileName ? (
+                    <Field label="Блок из файла">
+                      <Input
+                        list="context-block-hints"
+                        placeholder="Например: 5-6 классы — только этот раздел пойдёт в генерацию"
+                        value={draft.contextFileBlock ?? ''}
+                        maxLength={120}
+                        onChange={(e) =>
+                          onChange({ ...draft, contextFileBlock: e.target.value || undefined })
+                        }
+                      />
+                      {contextBlockHints.length ? (
+                        <datalist id="context-block-hints">
+                          {contextBlockHints.map((title) => (
+                            <option key={title} value={title} />
+                          ))}
+                        </datalist>
+                      ) : null}
+                      <p className="field-hint">
+                        Решения, ответы и картинки из них автоматически исключаются. Пустое поле —
+                        весь файл без решений.
+                      </p>
+                    </Field>
+                  ) : null}
                 </>
               ) : null}
             </div>
