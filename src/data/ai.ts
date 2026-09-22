@@ -1,5 +1,5 @@
 import type { PlanTask, TaskType, WorksheetBlock, WorksheetDraft } from './worksheet'
-import { PLAN_TASK_TYPES, createPlan, uid } from './worksheet'
+import { createPlan, uid } from './worksheet'
 import { chatJson, AiError, isAiUnavailable } from './aiClient'
 import {
   generateWorksheet as mockGenerate,
@@ -75,8 +75,6 @@ interface AiPlanPayload {
   task_plan?: AiPlanTaskRow[]
   tasks?: { type: string; expectation?: string }[]
 }
-
-const ALLOWED_PLAN_TYPES = new Set(PLAN_TASK_TYPES.map((t) => t.type))
 
 function fallbackPlanExpectation(draft: WorksheetDraft, index: number, blockHint?: string): string {
   if (blockHint) {
