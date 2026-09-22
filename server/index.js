@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import dotenv from 'dotenv'
 import { extractContextFromFile, ContextExtractError, MAX_UPLOAD_BYTES } from './extractContext.js'
 import { parseSingleFileUpload, UploadError } from './upload.js'
+import { getVisionConfig } from './visionOcr.js'
 
 dotenv.config()
 
@@ -19,6 +20,7 @@ const OPENAI_BASE_URL = (
   'https://openrouter.ai/api/v1'
 ).replace(/\/$/, '')
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'google/gemini-2.5-flash'
+const visionConfig = getVisionConfig()
 
 const app = express()
 app.disable('x-powered-by')
@@ -29,6 +31,7 @@ app.get('/health', (_req, res) => {
     ok: true,
     hasKey: Boolean(OPENAI_API_KEY),
     model: OPENAI_MODEL,
+    ocrModel: visionConfig.model,
   })
 })
 
@@ -150,5 +153,5 @@ if (fs.existsSync(dist)) {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Worksheet server on http://0.0.0.0:${PORT}`)
-  console.log(`Model: ${OPENAI_MODEL}; key: ${OPENAI_API_KEY ? 'set' : 'MISSING'}`)
+  console.log(`Chat model: ${OPENAI_MODEL}; OCR model: ${visionConfig.model}; key: ${OPENAI_API_KEY ? 'set' : 'MISSING'}`)
 })

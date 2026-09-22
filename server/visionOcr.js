@@ -4,6 +4,8 @@
 
 import { stripMarkdownImages } from './markdownClean.js'
 
+export const DEFAULT_CONTEXT_OCR_MODEL = 'qwen/qwen3-vl-235b-a22b-instruct'
+
 export const USER_PROMPT_VISION = `Распознай текст на изображении максимально точно.
 Верни только результат без комментариев.
 Сохрани структуру документа (абзацы, списки, таблицы).
@@ -60,10 +62,7 @@ function openrouterErrorMessage(statusCode, body) {
 export function getVisionConfig(env = process.env) {
   const apiKey = (env.OPENAI_API_KEY || '').trim()
   const baseUrl = (env.OPENAI_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '')
-  const model =
-    (env.CONTEXT_OCR_MODEL || '').trim() ||
-    (env.OPENAI_MODEL || '').trim() ||
-    'qwen/qwen3-vl-235b-a22b-instruct'
+  const model = (env.CONTEXT_OCR_MODEL || '').trim() || DEFAULT_CONTEXT_OCR_MODEL
   const timeoutMs = Number(env.CONTEXT_EXTRACT_TIMEOUT_MS) || 300_000
   const referer = (env.APP_URL || 'https://worksheet.onrender.com').trim()
   return { apiKey, baseUrl, model, timeoutMs, referer }
