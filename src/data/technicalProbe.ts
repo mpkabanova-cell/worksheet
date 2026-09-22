@@ -1,4 +1,4 @@
-import { ensurePlan, generatePlanAIWithMeta, generateWorksheetAI, type PlanGenerationMeta } from './ai'
+import { ensurePlan, generatePlanAIWithMeta, generateWorksheetAI, countWorksheetTaskBlocks, type PlanGenerationMeta } from './ai'
 import { annotateExtractRelevance, listContextBlockTitles } from './contextFilter'
 import { buildContextReference, contextFilterOptions, sourceContentForDraft } from './contextFile'
 import { getGapsSourceText } from './blockUtils'
@@ -219,6 +219,14 @@ export function buildTechnicalProbeMarkdown(
     `План (${meta.planSec?.toFixed(1) ?? '—'} с, ${planSourceLabel(meta.planSource)}):`,
     '',
   )
+
+  const sheetTaskCount = countWorksheetTaskBlocks(sheet.blocks)
+  if (sheetTaskCount !== plan.length) {
+    sections.push(
+      `> ⚠ **В листе ${sheetTaskCount} заданий при плане ${plan.length}** — один из блоков мог быть отброшен при санитизации.`,
+      '',
+    )
+  }
 
   if (meta.planValidationIssues?.length) {
     sections.push(

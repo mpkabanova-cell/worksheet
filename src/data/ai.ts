@@ -6,8 +6,8 @@ import {
   generateSingleTask as mockSingle,
 } from './generator'
 import { promptsForPlan, promptsForSingleTask, promptsForWorksheet } from './aiPrompts'
-import { sanitizeBlock, clampAnswerHeight, defaultAnswerHeight, defaultAnswerStyle, groupsToTableFields, createDefaultGroupingTableFields, getGapsSourceText } from './blockUtils'
-import { normalizeAiTask } from './taskContent'
+import { sanitizeBlock, clampAnswerHeight, defaultAnswerHeight, defaultAnswerStyle, groupsToTableFields, createDefaultGroupingTableFields, getGapsSourceText, isValidFillGapsBlock } from './blockUtils'
+import { expectationToQuestion, normalizeAiTask } from './taskContent'
 import { repairJsonLatexEscapes } from './mathTextUtils'
 import {
   blockQuestionIssues,
@@ -197,6 +197,99 @@ function normalizeType(raw: string, fallback: TaskType = 'short_answer'): TaskTy
 function resolvePlanTaskType(row: AiPlanTaskRow, existing?: PlanTask): TaskType {
   if (existing?.taskType && !row.type) return existing.taskType
   return fromSpecMechanic(row.type || existing?.taskType || 'short_answer', row.description)
+}
+
+const NON_TASK_BLOCK_TYPES = new Set<WorksheetBlock['type']>([
+  'page_break',
+  'text',
+  'answer_field',
+  'table',
+])
+
+/** @internal Exported for tests. */
+export function isWorksheetTaskBlock(block: WorksheetBlock): boolean {
+  return !NON_TASK_BLOCK_TYPES.has(block.type)
+}
+
+/** @internal Exported for tests. */
+export function countWorksheetTaskBlocks(blocks: WorksheetBlock[]): number {
+  return blocks.filter(isWorksheetTaskBlock).length
+}
+
+function mockBlockForPlanIndex(
+  draft: WorksheetDraft,
+  blocksSoFar: WorksheetBlock[],
+  planItem: PlanTask,
+  brief: string,
+): WorksheetBlock {
+  return mockSingle(
+    { ...draft, blocks: blocksSoFar, taskCount: draft.taskCount },
+    planItem.taskType,
+    planItem.userExpectation || brief,
+  )
+}
+
+/** Гарантирует ровно plan.length учебных блоков; восстанавливает fill_gaps, превращённые в text. */
+export function ensureWorksheetTaskBlocks(
+  blocks: WorksheetBlock[],
+  plan: PlanTask[],
+  draft: WorksheetDraft,
+  refContent: string | null | undefined,
+  planBriefs: string[],
+): WorksheetBlock[] {
+  const result: WorksheetBlock[] = []
+
+  for (let i = 0; i < plan.length; i++) {
+    const planItem = plan[i]
+    const brief = planBriefs[i] ?? ''
+    const sourceBlock = blocks[i]
+    let block = sourceBlock
+
+    if (!block || !isWorksheetTaskBlock(block)) {
+      block = mockBlockForPlanIndex(draft, result, planItem, brief)
+    } else if (planItem.taskType === 'fill_gaps' && block.type !== 'fill_gaps') {
+      const recovered: WorksheetBlock = {
+        ...block,
+        type: 'fill_gaps',
+        question:
+          block.question?.trim() ||
+          (block.type === 'text' ? block.body?.trim() : '') ||
+          expectationToQuestion(brief) ||
+          'Заполните пропуски.',
+        body: undefined,
+      }
+      if (refContent) {
+        block = buildFillGapsFallbackBlock(
+          recovered,
+          refContent,
+          brief,
+          collectAnchorTasks([...result, ...blocks.slice(i + 1)], planBriefs, { skipBlockIndex: i }),
+        )
+      } else if (!isValidFillGapsBlock(recovered)) {
+        block = mockBlockForPlanIndex(draft, result, planItem, brief)
+      } else {
+        block = recovered
+      }
+    }
+
+    let sanitized = sanitizeBlock({
+      ...block,
+      id: sourceBlock?.id ?? block.id,
+      title: sourceBlock?.title ?? block.title ?? `Задание ${i + 1}`,
+    })
+
+    if (planItem.taskType === 'fill_gaps' && sanitized.type !== 'fill_gaps') {
+      sanitized = sanitizeBlock({
+        ...mockBlockForPlanIndex(draft, result, planItem, brief),
+        id: sourceBlock?.id ?? block.id,
+        title: sourceBlock?.title ?? `Задание ${i + 1}`,
+      })
+    }
+
+    result.push(sanitized)
+  }
+
+  return result
 }
 
 function toBlock(
@@ -500,7 +593,7 @@ export async function generateWorksheetAI(
       })
     }
 
-    const blocks = aligned.map((t, i) => toBlock(t, i, prepared, plan[i]))
+    let blocks = aligned.map((t, i) => toBlock(t, i, prepared, plan[i]))
 
     if (!options?.skipTaskRepairs) {
       for (let i = 0; i < blocks.length; i++) {
@@ -575,6 +668,8 @@ export async function generateWorksheetAI(
         )
       }
     }
+
+    blocks = ensureWorksheetTaskBlocks(blocks, plan, prepared, refContent, planBriefs)
 
     return {
       ...prepared,
