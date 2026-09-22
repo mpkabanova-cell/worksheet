@@ -177,10 +177,13 @@ export function Create({
           : createPlan(draft.taskCount, draft.plan.map((p) => p.taskType)),
     }
 
+    let extractTruncated: boolean | undefined
+
     try {
       if (attachedFile && !workingDraft.contextFileText) {
         setProbeStatus('Extract…')
         const extracted = await extractContextFile(attachedFile)
+        extractTruncated = extracted.truncated
         workingDraft = {
           ...workingDraft,
           contextFileName: extracted.name,
@@ -199,7 +202,7 @@ export function Create({
         (progress) => {
           setProbeStatus(progress.message)
         },
-        { fileSizeMb },
+        { fileSizeMb, truncated: extractTruncated },
       )
 
       setProbeMarkdown(markdown)

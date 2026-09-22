@@ -327,6 +327,101 @@ export function stripIrrelevantSections(text: string): string {
   return joinRelevantSegments(segmentContextText(text))
 }
 
+function blockToText(block: ContextBlock): string {
+  const title = block.title.trim()
+  const body = block.body.trim()
+  if (title && body) return `${title}\n${body}`
+  if (body) return body
+  if (title) return title
+  return ''
+}
+
+/** Строки условия до первого «Решение:» — запасной путь, если классификатор вырезал всё. */
+export function extractConditionBeforeSolution(text: string): string {
+  const lines = normalizeLines(text)
+  const kept: string[] = []
+  for (const line of lines) {
+    if (isSolutionMarkerLine(line)) break
+    const trimmed = line.trim()
+    if (!trimmed || isNoiseLine(line)) continue
+    if (isTimeArithmeticLine(trimmed)) continue
+    kept.push(line)
+  }
+  return kept.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+}
+
+export interface PrepareReferenceResult {
+  content: string
+  selectedBlock: string | null
+  usedFallback: boolean
+  fallbackReason?: string
+}
+
+/** Готовит reference для промптов: блок → без решений → запасные пути, если фильтр опустошил текст. */
+export function prepareReferenceContentDetailed(
+  text: string,
+  options?: ContextFilterOptions,
+): PrepareReferenceResult {
+  const raw = text.replace(/\r\n/g, '\n').trim()
+  if (!raw) {
+    return { content: '', selectedBlock: null, usedFallback: false }
+  }
+
+  const selectedBlock = resolveSelectedContextBlock(raw, options)
+  const scoped = resolveContextSource(raw, options)
+  let content = scoped ? stripIrrelevantSections(scoped) : ''
+
+  if (content) {
+    return { content, selectedBlock, usedFallback: false }
+  }
+
+  if (scoped) {
+    content = extractConditionBeforeSolution(scoped)
+    if (content) {
+      return {
+        content,
+        selectedBlock,
+        usedFallback: true,
+        fallbackReason:
+          'Классификатор не оставил строк — взяты условия до «Решение:» в выбранном блоке.',
+      }
+    }
+  }
+
+  if (selectedBlock) {
+    content = stripIrrelevantSections(raw)
+    if (content) {
+      return {
+        content,
+        selectedBlock,
+        usedFallback: true,
+        fallbackReason: `Блок «${selectedBlock}» после фильтра пуст — использован весь файл без обрезки по классу.`,
+      }
+    }
+    content = extractConditionBeforeSolution(raw)
+    if (content) {
+      return {
+        content,
+        selectedBlock,
+        usedFallback: true,
+        fallbackReason: `Блок «${selectedBlock}» пуст — взяты условия до «Решение:» из всего файла.`,
+      }
+    }
+  }
+
+  content = extractConditionBeforeSolution(raw)
+  if (content) {
+    return {
+      content,
+      selectedBlock,
+      usedFallback: true,
+      fallbackReason: 'После фильтрации не осталось строк — взяты условия до «Решение:» из всего extract.',
+    }
+  }
+
+  return { content: '', selectedBlock, usedFallback: true, fallbackReason: 'Не удалось выделить условия задач из extract.' }
+}
+
 /** Выбирает один блок по названию (подстрока, без учёта регистра). */
 export function selectContextBlock(text: string, blockName: string): string {
   const query = blockName.trim().toLowerCase()
@@ -334,14 +429,20 @@ export function selectContextBlock(text: string, blockName: string): string {
 
   const blocks = splitContextBlocks(text)
   const exact = blocks.find((b) => b.title.toLowerCase() === query)
-  if (exact) return exact.body
+  if (exact) {
+    const picked = blockToText(exact)
+    if (picked) return picked
+  }
 
   const partial = blocks.find(
     (b) =>
       b.title.toLowerCase().includes(query) ||
       query.includes(b.title.toLowerCase()),
   )
-  if (partial) return partial.body
+  if (partial) {
+    const picked = blockToText(partial)
+    if (picked) return picked
+  }
 
   const lines = normalizeLines(text)
   const lineIdx = lines.findIndex((line) => line.trim().toLowerCase().includes(query))
@@ -462,9 +563,7 @@ export function prepareReferenceContent(
   text: string,
   options?: ContextFilterOptions,
 ): string {
-  const content = resolveContextSource(text, options)
-  if (!content) return ''
-  return stripIrrelevantSections(content)
+  return prepareReferenceContentDetailed(text, options).content
 }
 
 function escapeHtml(text: string): string {

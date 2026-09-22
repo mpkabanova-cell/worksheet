@@ -4,6 +4,7 @@ import {
   inferBlockFromGrade,
   listContextBlockTitles,
   prepareReferenceContent,
+  prepareReferenceContentDetailed,
   segmentContextText,
   splitContextBlocks,
   stripIrrelevantSections,
@@ -164,6 +165,31 @@ describe('contextFilter', () => {
     const scoped = annotateExtractRelevance(CAVE_SAMPLE, { grade: '6' })
     expect(full).toContain('магазин')
     expect(scoped).not.toContain('магазин')
+  })
+
+  it('falls back when block body is only solution tails', () => {
+    const sample = `5-6 классы
+
+Решение:
+
+[картинка]
+
+18 минут.
+
+1 минута = 2 минуты
+
+7-8 классы
+
+Задача про магазин.`
+    const result = prepareReferenceContentDetailed(sample, { grade: '6' })
+    expect(result.content).toContain('5-6 классы')
+    expect(result.content).not.toContain('18 минут')
+  })
+
+  it('selectContextBlock includes block title in filtered reference', () => {
+    const picked = prepareReferenceContent(CAVE_SAMPLE, { block: '5-6 классы' })
+    expect(picked).toContain('5-6 классы')
+    expect(picked).toContain('пещер')
   })
 
   it('classifies roles via segmentContextText', () => {

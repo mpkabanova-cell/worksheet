@@ -1,6 +1,6 @@
-import { generatePlanAI, generateWorksheetAI } from './ai'
-import { annotateExtractRelevance, listContextBlockTitles, prepareReferenceContent, resolveSelectedContextBlock } from './contextFilter'
-import { referenceFilePayload } from './contextFile'
+import { ensurePlan, generateWorksheetAI } from './ai'
+import { annotateExtractRelevance, listContextBlockTitles } from './contextFilter'
+import { buildContextReference, contextFilterOptions } from './contextFile'
 import { getGapsSourceText } from './blockUtils'
 import { labelForType, type WorksheetDraft } from './worksheet'
 import { planItemDifficultyLabel } from './planMechanics'
@@ -96,13 +96,11 @@ export function buildTechnicalProbeMarkdown(
   const raw = draft.contextFileText?.trim() ?? ''
   const fileLabel = draft.contextFileName?.trim() || 'без файла'
   const brackets = raw ? countBrackets(raw) : 0
-  const contextOptions = {
-    wishes: draft.wishes.trim() || null,
-    grade: draft.grade.trim() || null,
-  }
-  const filtered = raw ? prepareReferenceContent(raw, contextOptions) : ''
+  const contextOptions = contextFilterOptions(draft)
+  const reference = raw ? buildContextReference(raw, contextOptions) : null
+  const filtered = reference?.content ?? ''
   const blockTitles = raw ? listContextBlockTitles(raw) : []
-  const selectedBlock = raw ? resolveSelectedContextBlock(raw, contextOptions) : null
+  const selectedBlock = reference?.selectedBlock ?? null
   const blockNote = selectedBlock
     ? `, блок «${selectedBlock}»${draft.wishes.trim() ? ` (пожелания: «${draft.wishes.trim().slice(0, 60)}${draft.wishes.length > 60 ? '…' : ''}»)` : ` (по ${draft.grade} классу)`}`
     : draft.wishes.trim()
@@ -121,6 +119,8 @@ export function buildTechnicalProbeMarkdown(
     `# ${fileLabel} — технический прогон`,
     '',
     `Прогон ${today}. ${metaParts.join(', ')}.`,
+    '',
+    '_Пайплайн: `extractContextFile` → `buildContextReference` (`src/data/contextFile.ts`) → `generateWorksheetAI` (`src/data/ai.ts`)._',
     '',
   ]
 
@@ -150,11 +150,20 @@ export function buildTechnicalProbeMarkdown(
       '',
       `## Отфильтрованный reference_file (${filtered.length.toLocaleString('ru-RU')} симв.)`,
       '',
-      '```',
-      filtered,
-      '```',
-      '',
     )
+
+    if (reference?.usedFallback && reference.fallbackReason) {
+      sections.push(`> ⚠ ${reference.fallbackReason}`, '')
+    }
+
+    if (!filtered) {
+      sections.push(
+        '> ⚠ **reference пуст** — plan/worksheet не получат `source_content`. Проверьте extract и класс/пожелания.',
+        '',
+      )
+    }
+
+    sections.push('```', filtered || '(пусто)', '```', '')
   } else if (draft.contextFileName) {
     sections.push(
       '## Файл',
@@ -178,18 +187,13 @@ export function buildTechnicalProbeMarkdown(
     sections.push(`Пожелания: ${draft.wishes.trim()}`, '')
   }
 
-  const ref = referenceFilePayload(draft)
-  if (ref?.content) {
+  if (filtered) {
     sections.push(
       '**reference_file.content (preview):**',
       '',
       '```',
-      ref.content.slice(0, 600) + (ref.content.length > 600 ? '…' : ''),
+      filtered.slice(0, 600) + (filtered.length > 600 ? '…' : ''),
       '```',
-      '',
-      filtered === ref.content
-        ? '_reference_file.content совпадает с отфильтрованным блоком выше._'
-        : `_reference_file.content: ${ref.content.length.toLocaleString('ru-RU')} симв._`,
       '',
     )
   }
@@ -223,22 +227,35 @@ export async function runTechnicalProbe(
     ...metaOverrides,
   }
 
-  onProgress?.({ stage: 'plan', message: 'Генерация плана…' })
+  const raw = draft.contextFileText?.trim() ?? ''
+  const reference = raw ? buildContextReference(raw, contextFilterOptions(draft)) : null
+
+  if (raw && !reference?.content) {
+    throw new Error(
+      `Текст файла извлечён (${reference?.rawLength ?? raw.length} симв.), но reference для генерации пуст. ${reference?.fallbackReason ?? 'Проверьте OCR и параллель.'}`,
+    )
+  }
+
+  const workingDraft = {
+    ...draft,
+    title: draft.topic.trim() || draft.title,
+    plan:
+      draft.plan.length >= draft.taskCount
+        ? draft.plan
+        : ensurePlan({ ...draft, taskCount: draft.taskCount }),
+  }
+
+  onProgress?.({ stage: 'worksheet', message: 'Генерация плана и листа…' })
   const t0 = Date.now()
-  const plan = await generatePlanAI({ ...draft, plan: draft.plan.length ? draft.plan : [] })
-  meta.planSec = (Date.now() - t0) / 1000
-
-  const withPlan = { ...draft, plan, taskCount: plan.length }
-
-  onProgress?.({ stage: 'worksheet', message: 'Генерация рабочего листа…' })
-  const t1 = Date.now()
-  const sheet = await generateWorksheetAI(withPlan, 'create')
-  meta.sheetSec = (Date.now() - t1) / 1000
+  const sheet = await generateWorksheetAI(workingDraft, 'create')
+  const elapsed = (Date.now() - t0) / 1000
+  meta.planSec = elapsed
+  meta.sheetSec = elapsed
 
   onProgress?.({ stage: 'done', message: 'Готово' })
 
   return {
-    markdown: buildTechnicalProbeMarkdown(withPlan, plan, sheet, meta),
+    markdown: buildTechnicalProbeMarkdown(workingDraft, sheet.plan, sheet, meta),
     meta,
   }
 }

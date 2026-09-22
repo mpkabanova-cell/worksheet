@@ -19,7 +19,7 @@ import {
   validateTaskIndependence,
 } from './taskIndependence'
 import { listContextBlockTitles } from './contextFilter'
-import { referenceFilePayload } from './contextFile'
+import { referenceFilePayload, sourceContentForDraft } from './contextFile'
 import { enrichBlockFromReference, trimReferenceDumpFromBlock } from './referenceEnrich'
 import {
   buildFillGapsFallbackBlock,
@@ -265,7 +265,7 @@ function toBlock(
   })
 }
 
-function ensurePlan(draft: WorksheetDraft): PlanTask[] {
+export function ensurePlan(draft: WorksheetDraft): PlanTask[] {
   const count = Math.min(15, Math.max(1, draft.taskCount || draft.plan.length || 5))
   if (draft.plan.length === count) return draft.plan
   if (draft.plan.length > count) return draft.plan.slice(0, count)
@@ -352,12 +352,22 @@ function blockNeedsRepair(block: WorksheetBlock, planBrief?: string): boolean {
   ).length > 0
 }
 
+function planNeedsAiGeneration(draft: WorksheetDraft): boolean {
+  if (!sourceContentForDraft(draft)) return false
+  return draft.plan.every((item) => !item.description?.trim() && !item.userExpectation?.trim())
+}
+
 export async function generateWorksheetAI(
   draft: WorksheetDraft,
   mode: GenerateMode = 'create',
 ): Promise<WorksheetDraft> {
-  const plan = ensurePlan(draft)
-  const prepared = { ...draft, plan, taskCount: plan.length }
+  let plan = ensurePlan(draft)
+  let prepared = { ...draft, plan, taskCount: plan.length }
+
+  if (mode === 'create' && planNeedsAiGeneration(prepared)) {
+    plan = await generatePlanAI(prepared)
+    prepared = { ...prepared, plan, taskCount: plan.length }
+  }
 
   try {
     const { system, user } = promptsForWorksheet(prepared, mode)

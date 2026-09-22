@@ -1,9 +1,14 @@
-import { prepareReferenceContent } from './contextFilter'
+import {
+  prepareReferenceContentDetailed,
+  type ContextFilterOptions,
+  type PrepareReferenceResult,
+} from './contextFilter'
 
 export interface ContextFileResult {
   name: string
   text?: string
   note?: string
+  truncated?: boolean
 }
 
 export interface ContextExtractResponse {
@@ -14,6 +19,53 @@ export interface ContextExtractResponse {
 export interface ContextExtractErrorResponse {
   error: string
   message: string
+}
+
+export interface ContextReferenceOptions {
+  wishes?: string | null
+  grade?: string | null
+  block?: string | null
+}
+
+/** Единая точка: extract → блок по классу/пожеланиям → reference для plan/worksheet. */
+export interface ContextReferenceResult extends PrepareReferenceResult {
+  rawLength: number
+}
+
+export function contextFilterOptions(draft: {
+  wishes?: string
+  grade?: string
+}): ContextFilterOptions {
+  return {
+    wishes: draft.wishes?.trim() || null,
+    grade: draft.grade?.trim() || null,
+  }
+}
+
+export function buildContextReference(
+  rawText: string | undefined,
+  options?: ContextReferenceOptions,
+): ContextReferenceResult {
+  const raw = rawText?.trim() ?? ''
+  if (!raw) {
+    return {
+      content: '',
+      selectedBlock: null,
+      usedFallback: false,
+      rawLength: 0,
+    }
+  }
+
+  const filterOpts: ContextFilterOptions = {
+    wishes: options?.wishes ?? null,
+    grade: options?.grade ?? null,
+    block: options?.block ?? null,
+  }
+
+  return {
+    rawLength: raw.length,
+    ...prepareReferenceContentDetailed(raw, filterOpts),
+  }
 }
 
 async function extractDocxTextFallback(file: File): Promise<string> {
@@ -80,6 +132,7 @@ export async function extractContextFile(file: File): Promise<ContextFileResult>
   return {
     name: file.name,
     text: text || undefined,
+    truncated: data.truncated,
     note: text
       ? undefined
       : `Файл «${file.name}» приложён, но текст не извлечён.`,
@@ -99,18 +152,15 @@ export function referenceFilePayload(draft: {
 
   if (!raw && !note) return null
 
-  const prepared = raw
-    ? prepareReferenceContent(raw, {
-        wishes: draft.wishes ?? null,
-        grade: draft.grade ?? null,
-      })
-    : null
+  const prepared = raw ? buildContextReference(raw, contextFilterOptions(draft)) : null
 
   return {
     name: draft.contextFileName,
-    content: prepared || null,
+    content: prepared?.content || null,
     relevance_note:
       'В content только условия и учебный материал для заданий. Решения, ответы, ключи, разборы и иллюстрации из них исключены автоматически. Блок файла выбирается по пожеланиям или параллели формы.',
+    filter_note: prepared?.fallbackReason ?? null,
+    selected_block: prepared?.selectedBlock ?? null,
     note: note || null,
   }
 }
@@ -124,9 +174,6 @@ export function sourceContentForDraft(draft: {
 }): string | null {
   const raw = draft.contextFileText?.trim()
   if (!raw) return null
-  const filtered = prepareReferenceContent(raw, {
-    wishes: draft.wishes ?? null,
-    grade: draft.grade ?? null,
-  })
-  return filtered || null
+  const { content } = buildContextReference(raw, contextFilterOptions(draft))
+  return content || null
 }

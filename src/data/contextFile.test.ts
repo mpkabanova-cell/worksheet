@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import {
+  buildContextReference,
   extractContextFile,
   referenceFilePayload,
 } from './contextFile'
@@ -91,5 +92,18 @@ describe('referenceFilePayload', () => {
     })
     expect(payload?.content).toContain('пещер')
     expect(payload?.content).not.toContain('магазин')
+  })
+
+  it('buildContextReference never returns empty for cave sample with grade', () => {
+    const raw = `5-6 классы
+
+Бараш и Крош в пещере. Совунья пересекла пещеру за 3 минуты.
+
+Решение:
+
+18 минут.`
+    const ref = buildContextReference(raw, { grade: '6', wishes: null })
+    expect(ref.content.length).toBeGreaterThan(20)
+    expect(ref.selectedBlock).toBe('5-6 классы')
   })
 })

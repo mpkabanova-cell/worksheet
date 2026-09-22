@@ -131,6 +131,8 @@
 
 **Выбор блока:** `additional_wishes` → `inferBlockFromWishes`; если пожелания не указали блок — `inferBlockFromGrade` по параллели формы (например, 6 класс → «5-6 классы»). Блок применяется к **`reference_file.content` / `source_content`**, но **не** к разметке в техническом прогоне: там размечается **весь** `contextFileText` (`fullExtract: true`), как в `docs/ZADACHI_PROBY_EXTRACT.md`, только с цветными span вместо plain code block.
 
+**Единая точка входа для генерации:** `src/data/contextFile.ts` → `buildContextReference()` (extract → блок → без решений → запасные пути). Его используют `referenceFilePayload`, `sourceContentForDraft`, технический прогон и `generateWorksheetAI`.
+
 **Пример «Задачи пробы»:**
 - задача про пещеру: условие сохраняется; после `Решение:` убираются `[скобки]`, `18 минут`, `N минут = M минут`;
 - логическая задача 7-8: условие и вопрос сохраняются; разбор и `Ответ:` убираются;
