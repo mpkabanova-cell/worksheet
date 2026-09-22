@@ -36,7 +36,16 @@ export async function extractContextFromFile(buffer, filename, contentType) {
     if (!visionConfig.apiKey) {
       throw new ContextExtractError('NO_API_KEY', 'OPENAI_API_KEY не задан на сервере', 503)
     }
-    text = await extractTextFromPdf(buffer, visionConfig)
+    try {
+      text = await extractTextFromPdf(buffer, visionConfig)
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : 'Не удалось обработать PDF'
+      throw new ContextExtractError(
+        'PDF_EXTRACT_ERROR',
+        `Не удалось извлечь текст из PDF: ${detail}`,
+        502,
+      )
+    }
   } else if (IMAGE_EXT.has(ext)) {
     if (!visionConfig.apiKey) {
       throw new ContextExtractError('NO_API_KEY', 'OPENAI_API_KEY не задан на сервере', 503)

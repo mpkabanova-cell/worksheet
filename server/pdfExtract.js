@@ -13,39 +13,15 @@ function useTextLayer(env = process.env) {
   return env.PDF_EXTRACT_TEXT_LAYER !== '0'
 }
 
-/**
- * @param {Buffer} data
- */
-async function extractTextLayer(data) {
-  const { PDFParse } = await import('pdf-parse')
-  const parser = new PDFParse({ data })
-  try {
-    const result = await parser.getText()
-    return (result.text || '').trim()
-  } finally {
-    await parser.destroy()
-  }
+async function loadPdfParse() {
+  await import('pdf-parse/worker')
+  return import('pdf-parse')
 }
 
-/**
- * @param {Buffer} data
- * @param {number} maxPages
- */
-async function renderPagesToPng(data, maxPages) {
-  const { pdf } = await import('pdf-to-img')
-  const document = await pdf(data, { scale: 2 })
-  const pages = []
-  let i = 0
-  try {
-    for await (const image of document) {
-      if (i >= maxPages) break
-      pages.push(Buffer.from(image))
-      i += 1
-    }
-  } finally {
-    await document.destroy()
-  }
-  return pages
+function pageImageBuffer(page) {
+  const raw = page?.imageBuffer ?? page?.data
+  if (!raw) return null
+  return Buffer.isBuffer(raw) ? raw : Buffer.from(raw)
 }
 
 /**
@@ -54,32 +30,50 @@ async function renderPagesToPng(data, maxPages) {
  */
 export async function extractTextFromPdf(data, visionConfig) {
   const maxPages = getMaxPages()
+  const { PDFParse } = await loadPdfParse()
+  const parser = new PDFParse({ data })
   const parts = []
+  let screenshotError = null
 
-  if (useTextLayer()) {
+  try {
+    if (useTextLayer()) {
+      try {
+        const result = await parser.getText({ first: maxPages })
+        const textLayer = (result.text || '').trim()
+        if (textLayer) parts.push(textLayer)
+      } catch {
+        /* vision still runs */
+      }
+    }
+
     try {
-      const textLayer = await extractTextLayer(data)
-      if (textLayer) parts.push(textLayer)
-    } catch {
-      /* vision still runs */
+      const screenshot = await parser.getScreenshot({ scale: 2, first: maxPages })
+      const visionChunks = []
+      for (const page of screenshot.pages ?? []) {
+        const pngBuffer = pageImageBuffer(page)
+        if (!pngBuffer) continue
+        const pageText = await callVisionOcr(pngBuffer, 'image/png', visionConfig)
+        if (pageText.trim()) {
+          visionChunks.push(pageText.trim())
+        }
+      }
+      if (visionChunks.length) {
+        parts.push(visionChunks.join('\n\n---\n\n'))
+      }
+    } catch (err) {
+      screenshotError = err
+      if (!parts.length) throw err
     }
+  } finally {
+    await parser.destroy()
   }
 
-  const pages = await renderPagesToPng(data, maxPages)
-  if (!pages.length && !parts.length) {
-    return ''
-  }
-
-  const visionChunks = []
-  for (let i = 0; i < pages.length; i += 1) {
-    const pageText = await callVisionOcr(pages[i], 'image/png', visionConfig)
-    if (pageText.trim()) {
-      visionChunks.push(pageText.trim())
-    }
-  }
-
-  if (visionChunks.length) {
-    parts.push(visionChunks.join('\n\n---\n\n'))
+  if (!parts.length && screenshotError) {
+    const message =
+      screenshotError instanceof Error
+        ? screenshotError.message
+        : 'Не удалось распознать страницы PDF'
+    throw new Error(message)
   }
 
   return parts.join('\n\n').trim()

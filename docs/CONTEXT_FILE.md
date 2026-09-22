@@ -79,7 +79,7 @@
 | Файл | Как извлекается | Модель |
 |------|-----------------|--------|
 | `.docx` | Обход `document.xml` по порядку: текст параграфов + **Qwen-VL на каждый `r:embed`** на месте рисунка | **Qwen-VL** |
-| `.pdf` | pdf-parse (дополнение) + **vision по каждой странице** | **Qwen-VL** |
+| `.pdf` | **pdf-parse**: текстовый слой + `getScreenshot` → vision OCR по страницам | **Qwen-VL** |
 | `.jpg`/`.png` | Vision OCR на изображении | **Qwen-VL** |
 
 Для PDF/DOCX→PDF: до N страниц (`CONTEXT_PDF_MAX_PAGES`, по умолчанию 3), тексты страниц склеиваются через `\n\n---\n\n`. Текстовый слой pdf-parse добавляется **перед** vision-блоком (отключить: `PDF_EXTRACT_TEXT_LAYER=0`).

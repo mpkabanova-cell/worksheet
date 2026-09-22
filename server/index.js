@@ -155,3 +155,15 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`Worksheet server on http://0.0.0.0:${PORT}`)
   console.log(`Chat model: ${OPENAI_MODEL}; OCR model: ${visionConfig.model}; key: ${OPENAI_API_KEY ? 'set' : 'MISSING'}`)
 })
+
+import('pdf-parse/worker')
+  .then(() => import('pdf-parse'))
+  .then(() => {
+    console.log('PDF extract: pdf-parse ready')
+  })
+  .catch((err) => {
+    console.warn(
+      '[startup] pdf-parse недоступен — загрузка PDF не будет работать. Выполните npm install.',
+      err instanceof Error ? err.message : err,
+    )
+  })

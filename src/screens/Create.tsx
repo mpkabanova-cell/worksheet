@@ -139,8 +139,8 @@ export function Create({
         contextFileText: extracted.text || undefined,
         contextFileNote: extracted.note,
       })
-    } catch {
-      onSoon?.('Не удалось обработать файл')
+    } catch (err) {
+      onSoon?.(err instanceof Error ? err.message : 'Не удалось обработать файл')
       onChange({
         ...draft,
         contextFileName: file.name,
