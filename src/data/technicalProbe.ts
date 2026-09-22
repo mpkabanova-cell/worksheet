@@ -1,5 +1,5 @@
 import { generatePlanAI, generateWorksheetAI } from './ai'
-import { annotateExtractRelevance, prepareReferenceContent } from './contextFilter'
+import { annotateExtractRelevance, inferBlockFromWishes, listContextBlockTitles, prepareReferenceContent } from './contextFilter'
 import { referenceFilePayload } from './contextFile'
 import { getGapsSourceText } from './blockUtils'
 import { labelForType, type WorksheetDraft } from './worksheet'
@@ -96,7 +96,13 @@ export function buildTechnicalProbeMarkdown(
   const raw = draft.contextFileText?.trim() ?? ''
   const fileLabel = draft.contextFileName?.trim() || 'без файла'
   const brackets = raw ? countBrackets(raw) : 0
-  const filtered = raw ? prepareReferenceContent(raw) : ''
+  const contextOptions = { wishes: draft.wishes.trim() || null }
+  const filtered = raw ? prepareReferenceContent(raw, contextOptions) : ''
+  const blockTitles = raw ? listContextBlockTitles(raw) : []
+  const selectedBlock =
+    contextOptions.wishes && raw
+      ? inferBlockFromWishes(draft.wishes, raw)
+      : null
   const blockNote = draft.wishes.trim()
     ? `, пожелания: «${draft.wishes.trim().slice(0, 80)}${draft.wishes.length > 80 ? '…' : ''}»`
     : ''
@@ -117,13 +123,23 @@ export function buildTechnicalProbeMarkdown(
   ]
 
   if (raw) {
+    if (blockTitles.length) {
+      sections.push(
+        '## Блоки в файле',
+        '',
+        blockTitles.map((title) => `- ${title}`).join('\n'),
+        selectedBlock ? `\nВыбран по пожеланиям: **${selectedBlock}**` : '',
+        '',
+      )
+    }
+
     sections.push(
       '## Исходный текст с разметкой релевантности',
       '',
       '<p class="ctx-legend"><span class="ctx-relevant">релевантно</span> · <span class="ctx-irrelevant">нерелевантно</span></p>',
       '',
       '<div class="ctx-annotated">',
-      annotateExtractRelevance(raw),
+      annotateExtractRelevance(raw, contextOptions),
       '</div>',
       '',
       `## Отфильтрованный reference_file (${filtered.length.toLocaleString('ru-RU')} симв.)`,
@@ -164,6 +180,10 @@ export function buildTechnicalProbeMarkdown(
       '```',
       ref.content.slice(0, 600) + (ref.content.length > 600 ? '…' : ''),
       '```',
+      '',
+      filtered === ref.content
+        ? '_reference_file.content совпадает с отфильтрованным блоком выше._'
+        : `_reference_file.content: ${ref.content.length.toLocaleString('ru-RU')} симв._`,
       '',
     )
   }

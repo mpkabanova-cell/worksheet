@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
+  annotateExtractRelevance,
   inferBlockFromWishes,
   listContextBlockTitles,
   prepareReferenceContent,
+  segmentContextText,
+  splitContextBlocks,
   stripIrrelevantSections,
-  annotateExtractRelevance,
 } from './contextFilter'
+import { referenceFilePayload } from './contextFile'
 
 const CAVE_SAMPLE = `5-6 классы
 
@@ -21,10 +24,33 @@ const CAVE_SAMPLE = `5-6 классы
 18 минут.
 
 1 минута = 2 минуты
++1 минута = 12 минут
 
 7-8 классы
 
 Другая задача про магазин. Сколько стоят 2 кг яблок?`
+
+const LOGIC_MILK_SAMPLE = `7-8 классы
+
+В городе Правдинске жители всегда говорят правду, а жители города Лжеграда всегда лгут. Однажды в Правдинске произошло дерзкое ограбление ювелирного магазина. Полиция задержала двух подозреваемых – Джона и Лео. Кто ограбил магазин? Жителем какого города был грабитель?
+
+Решение:
+
+Судья как житель Правдинска всегда говорит правду. Значит импликация прокурора была ложна.
+
+Ответ: Джон, Правдинск
+
+Менеджер молочного комбината начинает работать в 8.00 утра. Он получает задание развезти молочную продукцию по торговым точкам. Имеется карта расположения торговых точек и время, затрачиваемое на проезд. Как ему объехать все торговые точки за минимальное время? Когда закончится рабочий день менеджера, если время разгрузки товара составляет 20 минут?
+
+Молочный комбинат – «Продуктовая лавка» - 10 минут
+
+Молочный комбинат – ТЦ «Рим» - 20 минут
+
+Решение:
+
+Создаем нагруженный граф с цифровой нумерацией вершин.
+
+Программа "Графоанализатор" 1.3`
 
 describe('contextFilter', () => {
   it('removes solution sections and tails', () => {
@@ -33,6 +59,7 @@ describe('contextFilter', () => {
     expect(filtered).not.toContain('Решение:')
     expect(filtered).not.toContain('18 минут')
     expect(filtered).not.toContain('[картинка пингвина]')
+    expect(filtered).not.toContain('1 минута = 2 минуты')
     expect(filtered).toContain('Другая задача про магазин')
   })
 
@@ -68,5 +95,58 @@ describe('contextFilter', () => {
     expect(annotated).toContain('Совунья пересекла пещеру')
     expect(annotated).toContain('18 минут')
     expect(annotated).toContain('ctx-irrelevant">Решение:')
+  })
+
+  it('keeps milk routing task after logic puzzle solution in the same grade block', () => {
+    const filtered = stripIrrelevantSections(LOGIC_MILK_SAMPLE)
+    expect(filtered).toContain('Кто ограбил магазин')
+    expect(filtered).toContain('Менеджер молочного комбината')
+    expect(filtered).toContain('Молочный комбинат – «Продуктовая лавка» - 10 минут')
+    expect(filtered).not.toContain('Судья как житель')
+    expect(filtered).not.toContain('Ответ: Джон')
+    expect(filtered).not.toContain('Графоанализатор')
+  })
+
+  it('marks milk task condition as relevant after logic answer', () => {
+    const annotated = annotateExtractRelevance(LOGIC_MILK_SAMPLE)
+    expect(annotated).toContain('ctx-relevant">Менеджер молочного комбината')
+    expect(annotated).toContain('ctx-relevant">Молочный комбинат – «Продуктовая лавка» - 10 минут')
+    expect(annotated).toContain('ctx-irrelevant">Ответ: Джон, Правдинск')
+  })
+
+  it('does not split route lines into separate blocks', () => {
+    const blocks = splitContextBlocks(LOGIC_MILK_SAMPLE)
+    const routeTitles = blocks.map((b) => b.title).filter((t) => /молочный комбинат/i.test(t))
+    expect(routeTitles).toHaveLength(0)
+  })
+
+  it('uses the same filter for reference_file payload and prepareReferenceContent', () => {
+    const raw = LOGIC_MILK_SAMPLE
+    const filtered = prepareReferenceContent(raw, { wishes: '7-8 классы' })
+    const payload = referenceFilePayload({
+      contextFileName: 'proba.pdf',
+      contextFileText: raw,
+      wishes: '7-8 классы',
+    })
+    expect(payload?.content).toBe(filtered)
+  })
+
+  it('respects wishes in annotateExtractRelevance scope', () => {
+    const full = annotateExtractRelevance(CAVE_SAMPLE)
+    const scoped = annotateExtractRelevance(CAVE_SAMPLE, { wishes: '5-6 классы' })
+    expect(full).toContain('магазин')
+    expect(scoped).not.toContain('магазин')
+    expect(scoped).toContain('преодоления пещеры')
+  })
+
+  it('classifies roles via segmentContextText', () => {
+    const caveRoles = segmentContextText(CAVE_SAMPLE).map((line) => line.role)
+    expect(caveRoles).toContain('heading')
+    expect(caveRoles).toContain('condition')
+    expect(caveRoles).toContain('solution')
+    expect(caveRoles).toContain('answer_key')
+
+    const milkRoles = segmentContextText(LOGIC_MILK_SAMPLE).map((line) => line.role)
+    expect(milkRoles).toContain('data_table')
   })
 })
