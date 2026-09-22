@@ -37,6 +37,8 @@ const HEADING_LINE_RE = [
 
 const TASK_NUMBER_HEADING_RE = /^\d+\.\s+[A-ZА-ЯЁ]/
 
+const GRADE_BLOCK_RE = /^\d+\s*[-–—]\s*\d+\s*класс/i
+
 const TIME_ARITHMETIC_RE =
   /^(\+\s*)?\d+\s*минут?\s*=|^(\+\s*)?\d+\s*минут?\s*=\s*\d+\s*минут|^\d+\s*минут\s*=\s*\d+\s*минут/i
 
@@ -336,6 +338,50 @@ function blockToText(block: ContextBlock): string {
   return ''
 }
 
+function isBlockHeadingOnly(text: string, blockName: string): boolean {
+  const t = text.trim()
+  if (!t || t.length > 48) return false
+  const query = blockName.trim().toLowerCase()
+  const lower = t.toLowerCase()
+  if (lower === query) return true
+  return GRADE_BLOCK_RE.test(t) && t.length <= query.length + 4
+}
+
+function lineMatchesBlockTitle(line: string, blockName: string): boolean {
+  const t = line.trim().toLowerCase()
+  const query = blockName.trim().toLowerCase()
+  if (!t) return false
+  if (t === query) return true
+  if (!GRADE_BLOCK_RE.test(line.trim())) return false
+  return t.includes(query) || query.includes(t)
+}
+
+/** Секция класса: от предыдущего grade-заголовка (или начала файла) до следующего. Учитывает OCR, где заголовок идёт после текста задачи. */
+export function selectContextBlockByLines(text: string, blockName: string): string {
+  const lines = normalizeLines(text)
+  const titleIdx = lines.findIndex((line) => lineMatchesBlockTitle(line, blockName))
+  if (titleIdx === -1) return text
+
+  let start = 0
+  for (let i = titleIdx - 1; i >= 0; i--) {
+    const trimmed = lines[i].trim()
+    if (GRADE_BLOCK_RE.test(trimmed)) {
+      start = i + 1
+      break
+    }
+  }
+
+  let end = lines.length
+  for (let i = titleIdx + 1; i < lines.length; i++) {
+    if (GRADE_BLOCK_RE.test(lines[i].trim())) {
+      end = i
+      break
+    }
+  }
+
+  return lines.slice(start, end).join('\n').trim()
+}
+
 /** Строки условия до первого «Решение:» — запасной путь, если классификатор вырезал всё. */
 export function extractConditionBeforeSolution(text: string): string {
   const lines = normalizeLines(text)
@@ -371,7 +417,27 @@ export function prepareReferenceContentDetailed(
   const scoped = resolveContextSource(raw, options)
   let content = scoped ? stripIrrelevantSections(scoped) : ''
 
-  if (content) {
+  if (
+    content &&
+    selectedBlock &&
+    isBlockHeadingOnly(content, selectedBlock)
+  ) {
+    const lineScoped = selectContextBlockByLines(raw, selectedBlock)
+    content =
+      stripIrrelevantSections(lineScoped) ||
+      extractConditionBeforeSolution(lineScoped)
+    if (content && !isBlockHeadingOnly(content, selectedBlock)) {
+      return {
+        content,
+        selectedBlock,
+        usedFallback: true,
+        fallbackReason:
+          'Заголовок блока был без текста (OCR) — взята полная секция класса, включая условие до «Решение:».',
+      }
+    }
+  }
+
+  if (content && !isBlockHeadingOnly(content, selectedBlock ?? '')) {
     return { content, selectedBlock, usedFallback: false }
   }
 
@@ -427,11 +493,14 @@ export function selectContextBlock(text: string, blockName: string): string {
   const query = blockName.trim().toLowerCase()
   if (!query) return text
 
+  const lineScoped = selectContextBlockByLines(text, blockName)
+
   const blocks = splitContextBlocks(text)
   const exact = blocks.find((b) => b.title.toLowerCase() === query)
   if (exact) {
     const picked = blockToText(exact)
-    if (picked) return picked
+    if (picked && !isBlockHeadingOnly(picked, blockName)) return picked
+    return lineScoped
   }
 
   const partial = blocks.find(
@@ -441,20 +510,11 @@ export function selectContextBlock(text: string, blockName: string): string {
   )
   if (partial) {
     const picked = blockToText(partial)
-    if (picked) return picked
+    if (picked && !isBlockHeadingOnly(picked, blockName)) return picked
+    return lineScoped
   }
 
-  const lines = normalizeLines(text)
-  const lineIdx = lines.findIndex((line) => line.trim().toLowerCase().includes(query))
-  if (lineIdx === -1) return text
-
-  const title = lines[lineIdx].trim()
-  const chunk: string[] = []
-  for (let i = lineIdx + 1; i < lines.length; i++) {
-    if (isLikelyBlockHeading(lines[i].trim()) && chunk.length > 0) break
-    chunk.push(lines[i])
-  }
-  return [title, ...chunk].join('\n').trim()
+  return lineScoped
 }
 
 /** Заголовки блоков для подсказки пользователю (без секций-решений). */

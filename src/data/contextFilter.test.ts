@@ -5,6 +5,7 @@ import {
   listContextBlockTitles,
   prepareReferenceContent,
   prepareReferenceContentDetailed,
+  selectContextBlockByLines,
   segmentContextText,
   splitContextBlocks,
   stripIrrelevantSections,
@@ -190,6 +191,32 @@ describe('contextFilter', () => {
     const picked = prepareReferenceContent(CAVE_SAMPLE, { block: '5-6 классы' })
     expect(picked).toContain('5-6 классы')
     expect(picked).toContain('пещер')
+  })
+
+  it('recovers section when OCR puts grade heading after task text', () => {
+    const ocrOrder = `Бараш, Крош, Совунья отправились в поход. Какое наименьшее суммарное время затратили друзья для преодоления пещеры, если
+
+Совунья пересекла пещеру за 3 минуты,
+Пин затратил 1 минуту?
+
+5-6 классы
+
+Решение:
+
+18 минут.
+
+7-8 классы
+
+Задача про магазин.`
+    const scoped = selectContextBlockByLines(ocrOrder, '5-6 классы')
+    expect(scoped).toContain('Бараш')
+    expect(scoped).toContain('5-6 классы')
+
+    const result = prepareReferenceContentDetailed(ocrOrder, { grade: '6' })
+    expect(result.content).toContain('Совунья')
+    expect(result.content.length).toBeGreaterThan(50)
+    expect(result.content).not.toContain('магазин')
+    expect(result.content).not.toContain('18 минут')
   })
 
   it('classifies roles via segmentContextText', () => {
