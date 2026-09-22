@@ -102,10 +102,12 @@ flowchart LR
 
 ### 5. Приложенный файл (reference_file)
 
+Подробное описание технологии извлечения текста (DOCX-парсинг, PDF, vision OCR): [`CONTEXT_FILE.md`](./CONTEXT_FILE.md).
+
 1. **UI:** учитель прикрепляет DOCX / PDF / изображение на create-форме (имя файла и «Обработка…»; распознанный текст не показывается).
 2. **Фронт:** `extractContextFile()` (`contextFile.ts`) отправляет файл на `POST /api/extract-context`, сохраняет `contextFileText` в черновике (до 12 000 символов).
-3. **Сервер:** OCR/извлечение текста (`server/extractContext.js`, vision — порт `ocr_to_doc_project-main`).
-4. **Промпт:** поле попадает в user JSON как `reference_file` → модель учитывает при генерации **плана** и **рабочего листа** по `CONTEXT_USAGE_RULES`.
+3. **Сервер:** OCR/извлечение текста (`server/extractContext.js`, vision — `server/visionOcr.js`).
+4. **Промпт:** поле попадает в user JSON как `reference_file` → модель учитывает при генерации **плана**, **листа** и **одного задания** по `CONTEXT_USAGE_RULES`.
 
 ---
 

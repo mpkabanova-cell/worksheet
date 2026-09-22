@@ -27,6 +27,7 @@ worksheet/
 ├── docs/
 │   ├── SERVICE.md           ← архитектура сервиса
 │   ├── PROMPTS.md           ← промпты ИИ
+│   ├── CONTEXT_FILE.md      ← технология извлечения текста (DOCX/PDF/vision OCR)
 │   └── EXPORT.md            ← экспорт DOCX
 ├── server/index.js          ← API-прокси + раздача dist
 ├── src/
