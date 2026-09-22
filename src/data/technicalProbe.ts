@@ -1,6 +1,6 @@
-import { ensurePlan, generateWorksheetAI } from './ai'
+import { ensurePlan, generatePlanAI, generateWorksheetAI } from './ai'
 import { annotateExtractRelevance, listContextBlockTitles } from './contextFilter'
-import { buildContextReference, contextFilterOptions } from './contextFile'
+import { buildContextReference, contextFilterOptions, sourceContentForDraft } from './contextFile'
 import { getGapsSourceText } from './blockUtils'
 import { labelForType, type WorksheetDraft } from './worksheet'
 import { planItemDifficultyLabel } from './planMechanics'
@@ -245,17 +245,30 @@ export async function runTechnicalProbe(
         : ensurePlan({ ...draft, taskCount: draft.taskCount }),
   }
 
-  onProgress?.({ stage: 'worksheet', message: 'Генерация плана и листа…' })
+  const hasReference = Boolean(sourceContentForDraft(workingDraft))
+
+  onProgress?.({ stage: 'plan', message: 'Генерация плана…' })
   const t0 = Date.now()
-  const sheet = await generateWorksheetAI(workingDraft, 'create')
-  const elapsed = (Date.now() - t0) / 1000
-  meta.planSec = elapsed
-  meta.sheetSec = elapsed
+  const plan = hasReference
+    ? await generatePlanAI(workingDraft)
+    : workingDraft.plan
+  meta.planSec = (Date.now() - t0) / 1000
+
+  const withPlan = { ...workingDraft, plan, taskCount: plan.length }
+
+  onProgress?.({ stage: 'worksheet', message: 'Генерация рабочего листа…' })
+  const t1 = Date.now()
+  const sheet = await generateWorksheetAI(withPlan, 'create', {
+    skipTaskRepairs: true,
+    maxIndependenceRetries: 1,
+    skipExtraIndependencePass: true,
+  })
+  meta.sheetSec = (Date.now() - t1) / 1000
 
   onProgress?.({ stage: 'done', message: 'Готово' })
 
   return {
-    markdown: buildTechnicalProbeMarkdown(workingDraft, sheet.plan, sheet, meta),
+    markdown: buildTechnicalProbeMarkdown(withPlan, sheet.plan, sheet, meta),
     meta,
   }
 }

@@ -40,6 +40,15 @@ function sanitizeAiText(text: string | undefined): string {
 
 export type GenerateMode = 'create' | 'regenerate'
 
+export interface WorksheetGenerationOptions {
+  /** Без цикла generateSingleTaskAI по каждому блоку (для технического прогона). */
+  skipTaskRepairs?: boolean
+  /** Сколько повторов при validateTaskIndependence (по умолчанию 2). */
+  maxIndependenceRetries?: number
+  /** Не делать дополнительный chatJson после неудачной валидации. */
+  skipExtraIndependencePass?: boolean
+}
+
 export interface AiTaskPayload {
   type: TaskType
   instruction?: string
@@ -360,6 +369,7 @@ function planNeedsAiGeneration(draft: WorksheetDraft): boolean {
 export async function generateWorksheetAI(
   draft: WorksheetDraft,
   mode: GenerateMode = 'create',
+  options?: WorksheetGenerationOptions,
 ): Promise<WorksheetDraft> {
   let plan = ensurePlan(draft)
   let prepared = { ...draft, plan, taskCount: plan.length }
@@ -369,6 +379,8 @@ export async function generateWorksheetAI(
     prepared = { ...prepared, plan, taskCount: plan.length }
   }
 
+  const maxIndependenceRetries = options?.maxIndependenceRetries ?? 2
+
   try {
     const { system, user } = promptsForWorksheet(prepared, mode)
     let payload = await chatJson<AiWorksheetPayload>(system, user, {
@@ -377,7 +389,7 @@ export async function generateWorksheetAI(
 
     let tasks = (payload.tasks ?? []).slice(0, prepared.taskCount)
     const planBriefs = plan.map((p) => planGenerationBrief(p))
-    for (let attempt = 0; attempt < 2; attempt++) {
+    for (let attempt = 0; attempt < maxIndependenceRetries; attempt++) {
       const taskIssues = validateTaskIndependence(tasks, planBriefs)
       if (!taskIssues.length) break
       payload = await chatJson<AiWorksheetPayload>(
@@ -388,7 +400,11 @@ export async function generateWorksheetAI(
       tasks = (payload.tasks ?? []).slice(0, prepared.taskCount)
     }
 
-    if (validateTaskIndependence(tasks, planBriefs).length && referenceFilePayload(prepared)?.content) {
+    if (
+      !options?.skipExtraIndependencePass &&
+      validateTaskIndependence(tasks, planBriefs).length &&
+      referenceFilePayload(prepared)?.content
+    ) {
       payload = await chatJson<AiWorksheetPayload>(
         system,
         user +
@@ -421,26 +437,28 @@ export async function generateWorksheetAI(
 
     const blocks = aligned.map((t, i) => toBlock(t, i, prepared, plan[i]))
 
-    for (let i = 0; i < blocks.length; i++) {
-      const planBrief = planBriefs[i]
-      const anchorTasks = collectAnchorTasks(blocks, planBriefs, {
-        skipBlockIndex: i,
-      })
-      let attempts = 0
-      while (blockNeedsRepair(blocks[i], planBrief) && attempts < 3) {
-        try {
-          blocks[i] = await generateSingleTaskAI(
-            prepared,
-            plan[i]?.taskType ?? blocks[i].type,
-            plan[i]?.userExpectation ?? '',
-            repairTaskExpectation(planBrief),
-            anchorTasks,
-            plan[i]?.description,
-          )
-        } catch {
-          break
+    if (!options?.skipTaskRepairs) {
+      for (let i = 0; i < blocks.length; i++) {
+        const planBrief = planBriefs[i]
+        const anchorTasks = collectAnchorTasks(blocks, planBriefs, {
+          skipBlockIndex: i,
+        })
+        let attempts = 0
+        while (blockNeedsRepair(blocks[i], planBrief) && attempts < 3) {
+          try {
+            blocks[i] = await generateSingleTaskAI(
+              prepared,
+              plan[i]?.taskType ?? blocks[i].type,
+              plan[i]?.userExpectation ?? '',
+              repairTaskExpectation(planBrief),
+              anchorTasks,
+              plan[i]?.description,
+            )
+          } catch {
+            break
+          }
+          attempts += 1
         }
-        attempts += 1
       }
     }
 
