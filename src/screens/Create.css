@@ -439,6 +439,46 @@
   box-sizing: border-box;
 }
 
+.create-page--probe.create-page--overlay {
+  align-items: stretch;
+  padding-bottom: 24px;
+}
+
+.create-page--probe .create-inner {
+  width: min(1100px, 100%);
+}
+
+.create-page--probe .create-form-scroll {
+  overflow: auto;
+  max-height: calc(100vh - 180px);
+}
+
+.probe-output {
+  border-top: 1px solid var(--border-secondary);
+  padding-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.probe-output-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.probe-output-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.probe-status {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
 @media (max-width: 900px) {
   .create-page {
     padding: 40px 24px 24px;

@@ -3,6 +3,7 @@ import {
   listContextBlockTitles,
   prepareReferenceContent,
   stripIrrelevantSections,
+  annotateExtractRelevance,
 } from './contextFilter'
 
 const CAVE_SAMPLE = `5-6 классы
@@ -48,5 +49,14 @@ describe('contextFilter', () => {
     expect(titles).toContain('7-8 классы')
     expect(titles.some((t) => /решение/i.test(t))).toBe(false)
     expect(titles.some((t) => /минут\s*=/.test(t))).toBe(false)
+  })
+
+  it('annotates relevant and irrelevant lines', () => {
+    const annotated = annotateExtractRelevance(CAVE_SAMPLE)
+    expect(annotated).toContain('ctx-relevant')
+    expect(annotated).toContain('ctx-irrelevant')
+    expect(annotated).toContain('Совунья пересекла пещеру')
+    expect(annotated).toContain('18 минут')
+    expect(annotated).toContain('ctx-irrelevant">Решение:')
   })
 })

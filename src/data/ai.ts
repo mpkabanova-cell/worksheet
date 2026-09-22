@@ -19,6 +19,10 @@ import {
 import { listContextBlockTitles } from './contextFilter'
 import { referenceFilePayload } from './contextFile'
 import { enrichBlockFromReference } from './referenceEnrich'
+import {
+  buildFillGapsFallbackBlock,
+  collectAnchorTasks,
+} from './referenceThemes'
 
 function sanitizeAiText(text: string | undefined): string {
   if (!text) return ''
@@ -350,9 +354,15 @@ export async function generateWorksheetAI(
     }
 
     const blocks = aligned.map((t, i) => toBlock(t, i, prepared, plan[i]?.userExpectation))
+    const planExpectationsForBlocks = blocks.map(
+      (_, i) => plan[i]?.userExpectation || fallbackPlanExpectation(prepared, i),
+    )
 
     for (let i = 0; i < blocks.length; i++) {
-      const expectation = plan[i]?.userExpectation || fallbackPlanExpectation(prepared, i)
+      const expectation = planExpectationsForBlocks[i]
+      const anchorTasks = collectAnchorTasks(blocks, planExpectationsForBlocks, {
+        skipBlockIndex: i,
+      })
       let attempts = 0
       while (blockNeedsRepair(blocks[i], expectation) && attempts < 3) {
         try {
@@ -361,6 +371,7 @@ export async function generateWorksheetAI(
             plan[i]?.taskType ?? blocks[i].type,
             expectation,
             repairTaskExpectation(expectation),
+            anchorTasks,
           )
         } catch {
           break
@@ -375,7 +386,7 @@ export async function generateWorksheetAI(
         blocks[i] = enrichBlockFromReference(
           blocks[i],
           refContent,
-          plan[i]?.userExpectation || fallbackPlanExpectation(prepared, i),
+          planExpectationsForBlocks[i],
         )
       }
     }
@@ -383,6 +394,15 @@ export async function generateWorksheetAI(
     for (let i = 0; i < blocks.length; i++) {
       if (blocks[i].type !== 'fill_gaps') continue
       if (getGapsSourceText(blocks[i]).includes('___')) continue
+      if (refContent) {
+        blocks[i] = buildFillGapsFallbackBlock(
+          blocks[i],
+          refContent,
+          planExpectationsForBlocks[i],
+          collectAnchorTasks(blocks, planExpectationsForBlocks, { skipBlockIndex: i }),
+        )
+        continue
+      }
       blocks[i] = {
         ...blocks[i],
         question: 'Заполните пропуски в условии задачи.',
@@ -411,9 +431,16 @@ export async function generateSingleTaskAI(
   taskType: TaskType,
   expectation = '',
   repairNote?: string,
+  anchorTasks?: ReturnType<typeof collectAnchorTasks>,
 ): Promise<WorksheetBlock> {
   try {
-    const { system, user } = promptsForSingleTask(draft, taskType, expectation, repairNote)
+    const { system, user } = promptsForSingleTask(
+      draft,
+      taskType,
+      expectation,
+      repairNote,
+      anchorTasks,
+    )
     const payload = await chatJson<{ task: AiTaskPayload }>(system, user, { temperature: 0.55 })
 
     if (!payload.task) throw new AiError('Модель не вернула задание')

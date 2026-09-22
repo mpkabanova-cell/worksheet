@@ -2,6 +2,11 @@ import type { DifficultyMode, TaskType, WorksheetBlock, WorksheetDraft } from '.
 import { PLAN_TASK_TYPES, WISHES_MAX_LENGTH, labelForType } from './worksheet'
 import { getGapsSourceText } from './blockUtils'
 import { referenceFilePayload } from './contextFile'
+import {
+  buildAlternativeTaskGuidance,
+  collectAnchorTasks,
+  type AnchorTask,
+} from './referenceThemes'
 
 const TASK_TYPES_LIST = PLAN_TASK_TYPES.map((t) => `${t.type} — ${t.label} (${t.hint})`).join('\n')
 
@@ -162,7 +167,7 @@ const IMAGE_DESCRIPTION_RULES = `
 - Это не текст задания, а замена картинок из приложенного файла.
 - При планировании и генерации сам реши: можно ли сформулировать задание по теме/тексту БЕЗ опоры на иллюстрацию.
 - Если задание можно выполнить без визуала — включай его.
-- Если задание требует график, схему, «по рисунку» и описание в [скобках] слишком громоздкое или недостаточное — не используй этот фрагмент; замени другим заданием по теме и предмету.
+- Если задание требует график, схему, «по рисунку» и описание в [скобках] слишком громоздкое или недостаточное — не используй этот фрагмент; замени другим заданием из reference_file, сюжетно и логически близким к уже удачным заданиям листа (см. anchor_tasks / alternative_task_guidance).
 - Не копируй [описания картинок] в question, options, gaps_text и другие поля для ученика.
 - В плане и листе — ровно task_count заданий: замена непригодных элементов, не уменьшение количества.`.trim()
 
@@ -186,6 +191,14 @@ const STANDALONE_TASK_RULES = `
 Хорошо (каждое задание самостоятельно, из разных фрагментов файла):
 - З1 по блоку «5-6 классы»: полное условие про пещеру с временами всех персонажей и вопрос «Какое наименьшее суммарное время…?»
 - З2 по блоку «7-8 классы»: полное условие логической задачи про Правдинск/Лжеград с вопросом по сюжету`.trim()
+
+const ALTERNATIVE_TASK_RULES = `
+[Альтернативные и заменяющие задания]
+- Если фрагмент reference_file непригоден (иллюстрация, неполное условие, ошибка формулировки) — замени задание другим из того же reference_file.
+- Альтернатива должна быть сюжетно и по логике близка к заданиям, которые уже удалось взять из файла (anchor_tasks), но оставаться самостоятельной: полное условие в question, без отсылок к другим заданиям листа.
+- Сохраняй тип задания, сложность и педагогическую цель expectation; меняй только содержание и формулировку.
+- Не подставляй посторонние шаблоны (магазин, поезд, мастер и ученик), если их нет в reference_file и anchor_tasks.
+- Для задач про пещеру/персонажей, логику Правдинск/Лжеград, маршруты доставки — используй те же персонажи, числа и правила из reference_file, но другой вопрос или другой акцент (выбор, упорядочивание, краткий ответ и т.д.).`.trim()
 
 const PLAN_STANDALONE_RULES = `
 [План — независимые задания]
@@ -271,7 +284,9 @@ ${OUTPUT_FORMAT}
 - Чередуй типы, не ставь подряд больше двух одинаковых.
 - Логика: от простого к сложному / от узнавания к применению.
 - Учитывай предмет, класс, тему и пожелания учителя.
-- Если фрагмент reference_file опирается на непригодную иллюстрацию — замени expectation другим по теме; count не уменьшай.
+- Если фрагмент reference_file опирается на непригодную иллюстрацию — замени expectation другим из reference_file, близким по сюжету к другим пунктам плана; count не уменьшай.
+
+${ALTERNATIVE_TASK_RULES}
 
 ${PLAN_STANDALONE_RULES}
 
@@ -298,7 +313,8 @@ export function promptsForWorksheet(
   const modeBlock =
     mode === 'regenerate'
       ? `Режим: ПЕРЕГЕНЕРАЦИЯ. Создай НОВЫЕ задания по тому же плану и теме.
-Не копируй формулировки из previous_tasks. Сохрани типы и педагогическую цель, замени содержание.`
+Не копируй формулировки из previous_tasks. Сохрани типы и педагогическую цель, замени содержение.
+Альтернативы — сюжетно близки к previous_tasks и reference_file, но каждое question — самостоятельное полное условие.`
       : `Режим: ПЕРВИЧНАЯ ГЕНЕРАЦИЯ рабочего листа по плану.`
 
   const system = `Ты — опытный методист и автор школьных рабочих листов.
@@ -328,9 +344,13 @@ ${CONTENT_RULES}
 - fill_gaps: question — короткая формулировка задания (1 предложение: что сделать). gaps_text — только текст с пропусками ___; не дублируй question и gaps_text. Не помещай в gaps_text и question определения и теорию («Множество … обозначается…») — только строки с пропусками. Пропуски только в обычном тексте: не ставь ___ внутри формул ($...$), не используй \\text{___} и не делай gaps_answers из фрагментов формул. Формулы пиши целиком без пропусков; если нужно проверить знание формулы — вынеси пропуск в обычный текст рядом. Запрещено: gaps_text «(a+b)^2 = a^2 + ___ + b^2» с gaps_answers: ["2ab"] — вместо этого формула целиком, пропуск только в обычном тексте рядом.
 - matching: question обязателен — ясно укажи, что нужно сопоставить (например, «Сопоставьте слова с значениями приставок»). Не оставляй question пустым.
 - grouping: 2–6 групп в groups[].title (названия колонок таблицы); groups[].items — элементы для распределения по колонкам (каждый item — одна ячейка в своей группе). Не добавляй теорию в question. Элементы — короткие слова/числа/формулы без пояснений.
-- Если элемент плана опирается на непригодную иллюстрацию — сгенерируй другое задание того же type и сложности по теме.
+- Если элемент плана опирается на непригодную иллюстрацию — сгенерируй другое задание того же type и сложности из reference_file, близкое по сюжету к другим заданиям листа.
+
+${ALTERNATIVE_TASK_RULES}
 
 ${STANDALONE_TASK_RULES}
+
+${ALTERNATIVE_TASK_RULES}
 
 ${REFERENCE_MATERIAL_RULES}
 
@@ -340,11 +360,25 @@ ${IMAGE_DESCRIPTION_RULES}
 
 ${CONTEXT_USAGE_RULES}`
 
+  const regenerateAnchors =
+    mode === 'regenerate'
+      ? collectAnchorTasks(draft.blocks, draft.plan?.map((item) => item.userExpectation))
+      : []
+  const alternativeGuidance =
+    mode === 'regenerate'
+      ? buildAlternativeTaskGuidance(
+          regenerateAnchors,
+          referenceFilePayload(draft)?.content ?? undefined,
+        )
+      : null
+
   const user = JSON.stringify(
     {
       ...contextPayload(draft),
       task_plan: planPayload(draft),
       previous_tasks: mode === 'regenerate' ? existingTasksBrief(draft.blocks) : undefined,
+      anchor_tasks: regenerateAnchors.length ? regenerateAnchors : undefined,
+      alternative_task_guidance: alternativeGuidance || undefined,
     },
     null,
     2,
@@ -358,7 +392,17 @@ export function promptsForSingleTask(
   taskType: TaskType,
   expectation: string,
   repairNote?: string,
+  anchorTasks?: AnchorTask[],
 ) {
+  const anchors = anchorTasks ?? collectAnchorTasks(
+    draft.blocks,
+    draft.plan?.map((item) => item.userExpectation),
+  )
+  const alternativeGuidance = buildAlternativeTaskGuidance(
+    anchors,
+    referenceFilePayload(draft)?.content ?? undefined,
+    expectation,
+  )
   const system = `Ты — методист. Сгенерируй ОДНО школьное задание для рабочего листа.
 
 Тип: ${taskType} (${labelForType(taskType)}).
@@ -381,6 +425,8 @@ ${CONTENT_RULES}
 
 ${STANDALONE_TASK_RULES}
 
+${ALTERNATIVE_TASK_RULES}
+
 ${REFERENCE_MATERIAL_RULES}
 
 ${REFERENCE_RELEVANCE_RULES}
@@ -395,6 +441,8 @@ ${CONTEXT_USAGE_RULES}`
       requested_type: taskType,
       teacher_expectation: expectation.trim() || null,
       repair_note: repairNote?.trim() || null,
+      anchor_tasks: anchors.length ? anchors : undefined,
+      alternative_task_guidance: alternativeGuidance || undefined,
       existing_tasks: existingTasksBrief(draft.blocks),
     },
     null,

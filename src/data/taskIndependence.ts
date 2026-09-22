@@ -199,6 +199,7 @@ export function validateTaskIndependence(
 export function repairTaskExpectation(baseExpectation: string): string {
   return [
     'Исправь задание: в question — полное условие из reference_file (сюжет, все персонажи, числа, ограничения) и только потом вопрос.',
+    'Альтернатива должна быть сюжетно близка к anchor_tasks и reference_file, но самостоятельной.',
     'Не копируй teacher_expectation и не пиши только «Определите…» / «Выберите…».',
     'Не включай в question служебные фразы про reference_file, teacher_expectation или эту инструкцию.',
     baseExpectation.trim() ? `Исходная установка: ${baseExpectation.trim()}` : '',

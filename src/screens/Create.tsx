@@ -5,9 +5,11 @@ import iconDrag from '@/assets/create/drag.svg'
 import iconClose from '@/assets/create/close.svg'
 import iconClear from '@/assets/create/clear.svg'
 import { Button, Field, FigmaIcon, Input, Select, Textarea } from '@/components/ui'
+import { MarkdownPreview } from '@/components/MarkdownPreview'
 import { generatePlanAI } from '@/data/ai'
 import { extractContextFile } from '@/data/contextFile'
 import { listContextBlockTitles } from '@/data/contextFilter'
+import { runTechnicalProbe } from '@/data/technicalProbe'
 import { createPlan } from '@/data/worksheet'
 import type { DifficultyMode, TaskType, WorksheetDraft } from '@/data/worksheet'
 import {
@@ -20,13 +22,13 @@ import {
 } from '@/data/worksheet'
 import './Create.css'
 
-type CreateMode = 'generate' | 'manual'
+type CreateMode = 'generate' | 'manual' | 'probe'
 
 interface CreateProps {
   draft: WorksheetDraft
   onChange: (draft: WorksheetDraft) => void
   onClose: () => void
-  onSubmit: (mode: CreateMode) => void
+  onSubmit: (mode: 'generate' | 'manual') => void
   advancedOpen?: boolean
   overlay?: boolean
   onSoon?: (message: string) => void
@@ -48,7 +50,13 @@ export function Create({
   const [dragPlanIdx, setDragPlanIdx] = useState<number | null>(null)
   const [attachedFile, setAttachedFile] = useState<File | null>(null)
   const [fileBusy, setFileBusy] = useState(false)
+  const [probeBusy, setProbeBusy] = useState(false)
+  const [probeError, setProbeError] = useState('')
+  const [probeStatus, setProbeStatus] = useState('')
+  const [probeMarkdown, setProbeMarkdown] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const isGenerateLike = mode === 'generate' || mode === 'probe'
 
   useEffect(() => {
     setAdvanced(advancedOpen)
@@ -156,9 +164,71 @@ export function Create({
     })
   }
 
+  const runProbe = async () => {
+    if (!draft.subject || !draft.grade || !draft.topic.trim()) {
+      setProbeError('Сначала заполните предмет, параллель и тему')
+      return
+    }
+    setProbeBusy(true)
+    setProbeError('')
+    setProbeStatus('Подготовка…')
+    setProbeMarkdown('')
+
+    let workingDraft = {
+      ...draft,
+      title: draft.topic.trim() || draft.title,
+      plan:
+        draft.plan.length >= draft.taskCount
+          ? draft.plan
+          : createPlan(draft.taskCount, draft.plan.map((p) => p.taskType)),
+    }
+
+    try {
+      if (attachedFile && !workingDraft.contextFileText) {
+        setProbeStatus('Extract…')
+        const extracted = await extractContextFile(attachedFile)
+        workingDraft = {
+          ...workingDraft,
+          contextFileName: extracted.name,
+          contextFileText: extracted.text,
+          contextFileNote: extracted.note,
+        }
+        onChange(workingDraft)
+      }
+
+      const fileSizeMb = attachedFile
+        ? (attachedFile.size / (1024 * 1024)).toFixed(2)
+        : undefined
+
+      const { markdown } = await runTechnicalProbe(
+        workingDraft,
+        (progress) => {
+          setProbeStatus(progress.message)
+        },
+        { fileSizeMb },
+      )
+
+      setProbeMarkdown(markdown)
+      setProbeStatus('')
+    } catch (err) {
+      setProbeError(err instanceof Error ? err.message : 'Не удалось выполнить прогон')
+      setProbeStatus('')
+    } finally {
+      setProbeBusy(false)
+    }
+  }
+
+  const handleSubmit = () => {
+    if (mode === 'probe') {
+      void runProbe()
+      return
+    }
+    onSubmit(mode)
+  }
+
   return (
     <div
-      className={`create-page ${overlay ? 'create-page--overlay' : ''} ${overlay && advanced ? 'create-page--expanded' : ''}`}
+      className={`create-page ${overlay ? 'create-page--overlay' : ''} ${overlay && advanced ? 'create-page--expanded' : ''} ${probeMarkdown ? 'create-page--probe' : ''}`}
     >
       <button type="button" className="create-close" onClick={onClose} aria-label="Закрыть">
         <FigmaIcon src={iconClose} size={20} />
@@ -184,16 +254,31 @@ export function Create({
               <button
                 type="button"
                 className={mode === 'generate' ? 'active' : ''}
-                onClick={() => setMode('generate')}
+                onClick={() => {
+                  setMode('generate')
+                  setProbeMarkdown('')
+                  setProbeError('')
+                }}
               >
                 Сгенерировать
               </button>
               <button
                 type="button"
                 className={mode === 'manual' ? 'active' : ''}
-                onClick={() => setMode('manual')}
+                onClick={() => {
+                  setMode('manual')
+                  setProbeMarkdown('')
+                  setProbeError('')
+                }}
               >
                 Создать вручную
+              </button>
+              <button
+                type="button"
+                className={mode === 'probe' ? 'active' : ''}
+                onClick={() => setMode('probe')}
+              >
+                Технический прогон
               </button>
             </div>
           </aside>
@@ -201,7 +286,7 @@ export function Create({
           <div className="create-form">
             <div className="create-form-scroll">
             <div className="create-main">
-              <div className={mode === 'generate' ? 'row-3' : 'row-2'}>
+              <div className={isGenerateLike ? 'row-3' : 'row-2'}>
                 <Field label="Предмет" required>
                   <Select
                     options={SUBJECTS}
@@ -218,7 +303,7 @@ export function Create({
                     onChange={(e) => onChange({ ...draft, grade: e.target.value })}
                   />
                 </Field>
-                {mode === 'generate' ? (
+                {isGenerateLike ? (
                   <Field label="Количество заданий" required>
                     <Select
                       options={TASK_COUNTS}
@@ -252,7 +337,7 @@ export function Create({
                 </div>
               </Field>
 
-              {mode === 'generate' ? (
+              {isGenerateLike ? (
                 <>
                   <Field label="Пожелания">
                     <Textarea
@@ -337,7 +422,7 @@ export function Create({
               ) : null}
             </div>
 
-            {mode === 'generate' ? (
+            {isGenerateLike ? (
               <div className="create-advanced-wrap">
                 <button
                   type="button"
@@ -459,6 +544,16 @@ export function Create({
                 ) : null}
               </div>
             ) : null}
+            {mode === 'probe' && (probeStatus || probeError || probeMarkdown) ? (
+              <div className="probe-output">
+                <div className="probe-output-header">
+                  <h3>Результат прогона</h3>
+                  {probeStatus ? <span className="probe-status">{probeStatus}</span> : null}
+                </div>
+                {probeError ? <p className="plan-error">{probeError}</p> : null}
+                {probeMarkdown ? <MarkdownPreview markdown={probeMarkdown} /> : null}
+              </div>
+            ) : null}
             </div>
 
             <footer className="create-footer">
@@ -469,10 +564,10 @@ export function Create({
                 variant="brand"
                 size="lg"
                 className="footer-btn"
-                disabled={!canSubmit}
-                onClick={() => onSubmit(mode)}
+                disabled={!canSubmit || probeBusy || planBusy || fileBusy}
+                onClick={handleSubmit}
               >
-                Создать
+                {mode === 'probe' ? (probeBusy ? 'Прогон…' : 'Создать') : 'Создать'}
               </Button>
             </footer>
           </div>

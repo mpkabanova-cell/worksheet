@@ -153,3 +153,60 @@ export function prepareReferenceContent(
 
   return stripIrrelevantSections(content)
 }
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function wrapRelevanceLine(line: string, kind: 'relevant' | 'irrelevant'): string {
+  if (!line.trim()) return ''
+  return `<span class="ctx-${kind}">${escapeHtml(line)}</span>`
+}
+
+/** Размечает исходный extract: релевантные условия и нерелевантные решения/ответы. */
+export function annotateExtractRelevance(
+  text: string,
+  options?: { block?: string | null },
+): string {
+  const source = options?.block?.trim()
+    ? selectContextBlock(text, options.block)
+    : text.replace(/\r\n/g, '\n')
+
+  const lines = source.split('\n')
+  let inIrrelevantSection = false
+  let inSolutionTail = false
+
+  return lines
+    .map((line) => {
+      const trimmed = line.trim()
+      const heading = trimmed.replace(/^#{1,3}\s+/, '')
+
+      if (isLikelyBlockHeading(trimmed)) {
+        if (isIrrelevantSectionTitle(heading)) {
+          inIrrelevantSection = true
+          inSolutionTail = true
+          return wrapRelevanceLine(line, 'irrelevant')
+        }
+        inIrrelevantSection = false
+        inSolutionTail = false
+        return wrapRelevanceLine(line, 'relevant')
+      }
+
+      if (SOLUTION_CUT_LINE_RE.test(trimmed)) {
+        inSolutionTail = true
+        return wrapRelevanceLine(line, 'irrelevant')
+      }
+
+      if (inIrrelevantSection || inSolutionTail) {
+        return wrapRelevanceLine(line, 'irrelevant')
+      }
+
+      if (!trimmed) return ''
+      return wrapRelevanceLine(line, 'relevant')
+    })
+    .join('\n')
+}
