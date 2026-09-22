@@ -1,7 +1,7 @@
 import type { AiTaskPayload } from './ai'
 import type { TaskType, WorksheetBlock } from './worksheet'
 import { looksLikeBareTaskInstruction, normalizeWs } from './taskContent'
-import { planExpectsStoryContext } from './referenceEnrich'
+import { planExpectsStoryContext, looksLikeReferenceDump } from './referenceEnrich'
 
 const CROSS_REF_PATTERNS = [
   /предыдущ/i,
@@ -53,6 +53,10 @@ function hasCaveData(text: string): boolean {
   return countTimeMentions(text) >= 3
 }
 
+function hasCaveStoryContext(text: string): boolean {
+  return /пещер/i.test(text) && /бараш|крош|совун|ежик|пин|лосяш|фонар|поход|смешар|путешеств/i.test(text)
+}
+
 function needsCaveContext(question: string): boolean {
   return /пещер|персонаж/i.test(question) && /время|минут|быстр|медлен|дольше|меньше/i.test(question)
 }
@@ -93,10 +97,22 @@ export function taskQuestionIssues(
     issues.push('question содержит служебные инструкции вместо условия задачи')
   }
 
+  if (looksLikeReferenceDump(question)) {
+    issues.push('question содержит слишком большой фрагмент source_content — нужно краткое условие одной задачи')
+  }
+
   if (type === 'fill_gaps') {
     const gaps = (task.gaps_text || '').trim()
     if (!gaps.includes('___')) {
       issues.push('fill_gaps без gaps_text с пропусками ___')
+    }
+    const combined = `${question}\n${gaps}`
+    const aboutCave =
+      /пещер|пропуск/i.test(planExpectation || '') ||
+      /пещер/i.test(question) ||
+      /пещер/i.test(gaps)
+    if (aboutCave && !hasCaveStoryContext(combined)) {
+      issues.push('fill_gaps про пещеру без полного сюжета в question или gaps_text')
     }
   } else if (type === 'ordering') {
     if (question.length < 80 || (!/\d/.test(question) && !/«.+»/.test(question))) {
@@ -104,6 +120,9 @@ export function taskQuestionIssues(
     }
   } else if (type === 'matching') {
     const combined = `${question}\n${(task.left_items ?? []).join('\n')}\n${(task.right_items ?? []).join('\n')}`
+    if (looksLikeReferenceDump(question)) {
+      issues.push('matching: question не должен содержать весь reference_file — только краткую инструкцию')
+    }
     if (needsCaveContext(question) && !hasCaveData(combined)) {
       issues.push('matching про пещеру/персонажей без времени в question или столбцах')
     }
@@ -162,8 +181,21 @@ export function validatePlanIndependence(
 
   const storyHits = countStoryOverlap(texts)
   const pipelineHints = texts.filter((t) =>
-    /упорядоч|записать время|записать.*время|стратег|оптимальн|первой пар/i.test(t),
+    /упорядоч|записать время|записать.*время|стратег|оптимальн|первой пар|пропуск/i.test(t),
   ).length
+
+  if (storyHits >= 3) {
+    issues.push(
+      'План дробит одну задачу про пещеру/персонажей на несколько пунктов — распредели разные фрагменты source_content',
+    )
+  }
+
+  if (storyHits >= 2 && texts.length >= 3) {
+    issues.push(
+      'Несколько пунктов плана повторяют один сюжет (пещера/персонажи) — каждый пункт должен опираться на свой фрагмент файла',
+    )
+  }
+
   if (pipelineHints >= 3 || (pipelineHints >= 2 && storyHits >= 2)) {
     issues.push(
       'План выглядит как этапы одной задачи (найти → упорядочить → объяснить), а не независимые задания по разным фрагментам файла',

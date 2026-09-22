@@ -11,6 +11,15 @@ describe('validatePlanIndependence', () => {
     ])
     expect(issues.length).toBeGreaterThan(0)
   })
+
+  it('flags three cave-related plan items', () => {
+    const issues = validatePlanIndependence([
+      { expectation: 'Определить время прохождения пещеры для Бараша' },
+      { expectation: 'Упорядочить персонажей по времени в пещере' },
+      { expectation: 'Сопоставить персонажей с временем прохождения пещеры' },
+    ])
+    expect(issues.some((i) => i.includes('пещер') || i.includes('сюжет'))).toBe(true)
+  })
 })
 
 describe('validateTaskIndependence', () => {
@@ -38,6 +47,35 @@ describe('validateTaskIndependence', () => {
       },
     ])
     expect(issues.some((i) => i.includes('gaps_text'))).toBe(true)
+  })
+
+  it('flags fill_gaps about cave without story context', () => {
+    const issues = validateTaskIndependence(
+      [
+        {
+          type: 'fill_gaps',
+          question: 'Заполните пропуски в условии задачи про пещеру.',
+          gaps_text: '___ минут, ___ минуту, ___ минуты, ___ минуты, ___ минут',
+        },
+      ],
+      ['Заполнить пропуски в задаче про пещеру'],
+    )
+    expect(issues.some((i) => i.includes('сюжет'))).toBe(true)
+  })
+
+  it('flags reference dump in matching question', () => {
+    const dump = '5-6 классы\n\n7-8 классы\n\n'.padEnd(1600, 'a')
+    const issues = validateTaskIndependence([
+      {
+        type: 'matching',
+        question: dump,
+        left_items: ['Совунья', 'Пин'],
+        right_items: ['3 минуты', '1 минута'],
+      },
+    ])
+    expect(issues.some((i) => i.includes('reference_file') || i.includes('source_content'))).toBe(
+      true,
+    )
   })
 
   it('flags bare instruction copied from plan expectation', () => {

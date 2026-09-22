@@ -18,7 +18,7 @@ import {
 } from './taskIndependence'
 import { listContextBlockTitles } from './contextFilter'
 import { referenceFilePayload } from './contextFile'
-import { enrichBlockFromReference } from './referenceEnrich'
+import { enrichBlockFromReference, trimReferenceDumpFromBlock } from './referenceEnrich'
 import {
   buildFillGapsFallbackBlock,
   collectAnchorTasks,
@@ -437,6 +437,10 @@ export async function generateWorksheetAI(
       for (let i = 0; i < blocks.length; i++) {
         blocks[i] = enrichBlockFromReference(blocks[i], refContent, planBriefs[i])
       }
+    }
+
+    for (let i = 0; i < blocks.length; i++) {
+      blocks[i] = trimReferenceDumpFromBlock(blocks[i])
     }
 
     for (let i = 0; i < blocks.length; i++) {
