@@ -4,6 +4,14 @@
 
 import JSZip from 'jszip'
 
+/** Убирает inline-рисунки Word до stripXml — иначе координаты wp:anchor/v:shape склеиваются в «502920061341…». */
+function stripEmbeddedObjects(xml) {
+  return xml
+    .replace(/<w:drawing\b[\s\S]*?<\/w:drawing>/gi, '')
+    .replace(/<w:pict\b[\s\S]*?<\/w:pict>/gi, '')
+    .replace(/<mc:AlternateContent\b[\s\S]*?<\/mc:AlternateContent>/gi, '')
+}
+
 function stripXml(xml) {
   return xml
     .replace(/<w:tab\/>/g, '\t')
@@ -14,6 +22,22 @@ function stripXml(xml) {
     .replace(/&gt;/g, '>')
     .replace(/&amp;/g, '&')
     .replace(/&quot;/g, '"')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+/** Хвосты координат wp:anchor, если рисунок не полностью вырезан из параграфа. */
+function cleanCoordinateGarbage(text) {
+  return text
+    .split('\n')
+    .map((line) => line.replace(/^\d{8,}/, '').trimEnd())
+    .filter((line) => {
+      const t = line.trim()
+      if (!t) return false
+      const digits = (t.match(/\d/g) || []).length
+      return !(t.length > 20 && digits / t.length > 0.85 && !/[а-яА-Яa-zA-Z]/.test(t))
+    })
+    .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 }
@@ -57,14 +81,14 @@ export async function extractTextFromDocx(data) {
     if (match[1]) {
       parts.push(...extractTableRows(match[1]))
     } else if (match[2]) {
-      const t = stripXml(match[2])
+      const t = stripXml(stripEmbeddedObjects(match[2]))
       if (t) parts.push(t)
     }
   }
 
   if (!parts.length) {
-    return stripXml(xml)
+    return cleanCoordinateGarbage(stripXml(stripEmbeddedObjects(xml)))
   }
 
-  return parts.join('\n\n').trim()
+  return cleanCoordinateGarbage(parts.join('\n\n').trim())
 }
