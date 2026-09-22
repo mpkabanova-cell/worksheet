@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   annotateExtractRelevance,
   inferBlockFromGrade,
-  inferBlockFromWishes,
   listContextBlockTitles,
   prepareReferenceContent,
   segmentContextText,

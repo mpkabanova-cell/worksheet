@@ -53,10 +53,6 @@ function hasCaveData(text: string): boolean {
   return countTimeMentions(text) >= 3
 }
 
-function hasCaveStoryContext(text: string): boolean {
-  return /пещер/i.test(text) && /бараш|крош|совун|ежик|пин|лосяш|фонар|поход|смешар|путешеств/i.test(text)
-}
-
 /** Для fill_gaps: сюжет должен быть в question, а не только имена в gaps_text. */
 export function hasCaveNarrativeInQuestion(question: string): boolean {
   const q = question.trim()
