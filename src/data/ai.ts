@@ -17,8 +17,9 @@ import {
   taskQuestionIssues,
   validatePlanIndependence,
   validateTaskIndependence,
+  planFragmentAssignmentNote,
 } from './taskIndependence'
-import { listContextBlockTitles } from './contextFilter'
+import { listReferenceTaskHints } from './contextFilter'
 import { referenceFilePayload, sourceContentForDraft } from './contextFile'
 import { enrichBlockFromReference, trimReferenceDumpFromBlock } from './referenceEnrich'
 import {
@@ -87,10 +88,18 @@ interface AiPlanPayload {
   tasks?: { type: string; expectation?: string }[]
 }
 
-function fallbackPlanExpectation(draft: WorksheetDraft, index: number, blockHint?: string): string {
-  if (blockHint) {
-    return `Составить задание по материалу «${blockHint}» из source_content`
-  }
+export type PlanGenerationSource =
+  | 'ai'
+  | 'ai_with_validation_warnings'
+  | 'fallback_fragment'
+  | 'fallback_no_api'
+
+export interface PlanGenerationMeta {
+  source: PlanGenerationSource
+  validationIssues?: string[]
+}
+
+function fallbackPlanExpectation(draft: WorksheetDraft, index: number): string {
   const topic = draft.topic.trim() || 'тема'
   const variants = [
     `Решить задачу по теме «${topic}» на основе source_content`,
@@ -102,53 +111,63 @@ function fallbackPlanExpectation(draft: WorksheetDraft, index: number, blockHint
   return variants[index % variants.length]
 }
 
-function fallbackPlanDescription(draft: WorksheetDraft, index: number, blockHint?: string): string {
-  const expectation = fallbackPlanExpectation(draft, index, blockHint)
-  return `${expectation} с самостоятельным полным условием для ученика`
+function fallbackPlanDescription(draft: WorksheetDraft, index: number, hint?: string): string {
+  if (hint) {
+    return `${hint}. Самостоятельное задание с полным условием для ученика.`.slice(0, 2000)
+  }
+  return `${fallbackPlanExpectation(draft, index)} с самостоятельным полным условием для ученика`
 }
 
-function documentBlockHints(draft: WorksheetDraft): string[] {
-  const ref = referenceFilePayload(draft)
-  if (!ref?.content && !draft.contextFileText?.trim()) return []
-  const raw = draft.contextFileText ?? ref?.content ?? ''
-  const titles = listContextBlockTitles(raw)
-  const gradeBlocks = titles.filter((t) => /\d+\s*[-–—]\s*\d+\s*класс/i.test(t))
-  if (gradeBlocks.length) return gradeBlocks
-  return titles.slice(0, 8)
+function referenceHintsForDraft(draft: WorksheetDraft, limit?: number): string[] {
+  return listReferenceTaskHints(
+    sourceContentForDraft(draft) ?? '',
+    limit ?? Math.max(draft.taskCount, 8),
+  )
+}
+
+function planItemFromHint(
+  draft: WorksheetDraft,
+  index: number,
+  hint: string | undefined,
+  existing?: PlanTask,
+): PlanTask {
+  const userExpectation = (hint ?? fallbackPlanExpectation(draft, index)).slice(0, 100)
+  return {
+    id: existing?.id ?? `plan-${Date.now()}-${index}`,
+    taskType: existing?.taskType ?? 'short_answer',
+    userExpectation,
+    description: fallbackPlanDescription(draft, index, hint),
+    planDifficulty: null,
+  }
 }
 
 function fallbackDocumentPlan(draft: WorksheetDraft): PlanTask[] {
-  const blocks = documentBlockHints(draft)
-  const types: TaskType[] = [
-    'short_answer',
-    'single_choice',
-    'fill_gaps',
-    'ordering',
-    'extended_answer',
-  ]
+  const hints = referenceHintsForDraft(draft)
+  const basePlan = ensurePlan(draft)
   const count = Math.min(15, Math.max(1, draft.taskCount || 5))
-  return Array.from({ length: count }, (_, i) => {
-    const blockHint = blocks[i % Math.max(blocks.length, 1)]
-    return {
-      id: `plan-${Date.now()}-${i}`,
-      taskType: types[i % types.length],
-      userExpectation: fallbackPlanExpectation(draft, i, blockHint),
-      description: fallbackPlanDescription(draft, i, blockHint),
-      planDifficulty: null,
-    }
-  })
+
+  return Array.from({ length: count }, (_, i) =>
+    planItemFromHint(
+      draft,
+      i,
+      hints[i % Math.max(hints.length, 1)],
+      basePlan[i] ?? draft.plan[i],
+    ),
+  )
 }
 
 function padPlanToCount(plan: PlanTask[], draft: WorksheetDraft): PlanTask[] {
+  const hints = referenceHintsForDraft(draft)
   const types = plan.map((p) => p.taskType)
   const padded = [...plan]
   while (padded.length < draft.taskCount) {
     const i = padded.length
+    const hint = hints[i % Math.max(hints.length, 1)]
     padded.push({
       id: `plan-${Date.now()}-${i}`,
       taskType: types[i % Math.max(types.length, 1)] ?? 'short_answer',
-      userExpectation: fallbackPlanExpectation(draft, i),
-      description: fallbackPlanDescription(draft, i),
+      userExpectation: (hint ?? fallbackPlanExpectation(draft, i)).slice(0, 100),
+      description: fallbackPlanDescription(draft, i, hint),
       planDifficulty: null,
     })
   }
@@ -279,72 +298,118 @@ export function ensurePlan(draft: WorksheetDraft): PlanTask[] {
   if (draft.plan.length === count) return draft.plan
   if (draft.plan.length > count) return draft.plan.slice(0, count)
 
+  const hints = referenceHintsForDraft(draft)
   const types = draft.plan.map((p) => p.taskType)
   const padded: PlanTask[] = [...draft.plan]
   while (padded.length < count) {
     const i = padded.length
     const type = types[i % Math.max(types.length, 1)] ?? 'short_answer'
+    const hint = hints[i % Math.max(hints.length, 1)]
     padded.push({
       id: `plan-${Date.now()}-${i}`,
       taskType: type,
-      userExpectation: fallbackPlanExpectation(draft, i),
-      description: fallbackPlanDescription(draft, i),
+      userExpectation: (hint ?? fallbackPlanExpectation(draft, i)).slice(0, 100),
+      description: fallbackPlanDescription(draft, i, hint),
       planDifficulty: null,
     })
   }
   return padded
 }
 
-export async function generatePlanAI(draft: WorksheetDraft): Promise<PlanTask[]> {
+function rowsToPlan(rows: AiPlanTaskRow[], draft: WorksheetDraft): PlanTask[] {
+  const plan: PlanTask[] = rows.map((row, i) => {
+    const existing = draft.plan[i]
+    const teacherInput = existing?.userExpectation?.trim()
+    const lockedDescription = existing?.description?.trim()
+    const userDescription = (row.user_description || teacherInput || '').slice(0, 200)
+    const description = lockedDescription || (row.description || '').slice(0, 2000) || null
+
+    return {
+      id: existing?.id ?? `plan-${Date.now()}-${i}`,
+      taskType: resolvePlanTaskType(row, existing),
+      userExpectation: userDescription || (row.expectation || '').slice(0, 200),
+      description,
+      planDifficulty:
+        existing?.planDifficulty ??
+        normalizePlanItemDifficulty(row.difficulty) ??
+        null,
+    }
+  })
+
+  return padPlanToCount(plan, draft)
+}
+
+export async function generatePlanAIWithMeta(
+  draft: WorksheetDraft,
+): Promise<{ plan: PlanTask[]; meta: PlanGenerationMeta }> {
   try {
+    const hints = referenceHintsForDraft(draft)
     const { system, user } = promptsForPlan(draft)
     let payload = await chatJson<AiPlanPayload>(system, user, { temperature: 0.55 })
     let rows = extractPlanRows(payload).slice(0, draft.taskCount)
+    let validationIssues = validatePlanIndependence(planRowsForIndependence(rows))
 
     for (let attempt = 0; attempt < 2; attempt++) {
-      const planIssues = validatePlanIndependence(planRowsForIndependence(rows))
-      if (!planIssues.length) break
+      if (!validationIssues.length) break
       payload = await chatJson<AiPlanPayload>(
         system,
-        user + independenceRetryNote(planIssues),
+        user + independenceRetryNote(validationIssues),
         { temperature: 0.45 + attempt * 0.1 },
       )
       rows = extractPlanRows(payload).slice(0, draft.taskCount)
+      validationIssues = validatePlanIndependence(planRowsForIndependence(rows))
     }
 
-    if (validatePlanIndependence(planRowsForIndependence(rows)).length) {
-      const blocks = documentBlockHints(draft)
-      if (blocks.length || draft.contextFileText?.trim()) {
-        return fallbackDocumentPlan(draft)
-      }
+    if (validationIssues.length && hints.length) {
+      payload = await chatJson<AiPlanPayload>(
+        system,
+        user +
+          independenceRetryNote(validationIssues) +
+          planFragmentAssignmentNote(hints, draft.taskCount),
+        { temperature: 0.4 },
+      )
+      rows = extractPlanRows(payload).slice(0, draft.taskCount)
+      validationIssues = validatePlanIndependence(planRowsForIndependence(rows))
     }
 
-    if (!rows.length) throw new AiError('Модель не вернула план заданий')
-
-    const plan: PlanTask[] = rows.map((row, i) => {
-      const existing = draft.plan[i]
-      const teacherInput = existing?.userExpectation?.trim()
-      const lockedDescription = existing?.description?.trim()
-      const userDescription = (row.user_description || teacherInput || '').slice(0, 200)
-      const description = lockedDescription || (row.description || '').slice(0, 2000) || null
-
+    if (!rows.length) {
       return {
-        id: existing?.id ?? `plan-${Date.now()}-${i}`,
-        taskType: resolvePlanTaskType(row, existing),
-        userExpectation: userDescription || (row.expectation || '').slice(0, 200),
-        description,
-        planDifficulty:
-          existing?.planDifficulty ??
-          normalizePlanItemDifficulty(row.difficulty) ??
-          null,
+        plan: fallbackDocumentPlan(draft),
+        meta: { source: 'fallback_fragment' },
       }
-    })
+    }
 
-    return padPlanToCount(plan, draft)
+    const plan = rowsToPlan(rows, draft)
+    if (validationIssues.length) {
+      return {
+        plan,
+        meta: {
+          source: 'ai_with_validation_warnings',
+          validationIssues,
+        },
+      }
+    }
+
+    return { plan, meta: { source: 'ai' } }
   } catch (err) {
-    if (isAiUnavailable(err)) return createPlan(draft.taskCount)
+    if (isAiUnavailable(err)) {
+      if (sourceContentForDraft(draft)) {
+        return {
+          plan: fallbackDocumentPlan(draft),
+          meta: { source: 'fallback_fragment' },
+        }
+      }
+      return {
+        plan: createPlan(draft.taskCount),
+        meta: { source: 'fallback_no_api' },
+      }
+    }
     throw err
   }
+}
+
+export async function generatePlanAI(draft: WorksheetDraft): Promise<PlanTask[]> {
+  return (await generatePlanAIWithMeta(draft)).plan
 }
 
 function blockNeedsRepair(block: WorksheetBlock, planBrief?: string): boolean {

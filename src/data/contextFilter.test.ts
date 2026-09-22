@@ -3,6 +3,7 @@ import {
   annotateExtractRelevance,
   inferBlockFromGrade,
   listContextBlockTitles,
+  listReferenceTaskHints,
   prepareReferenceContent,
   prepareReferenceContentDetailed,
   selectContextBlockByLines,
@@ -99,6 +100,14 @@ describe('contextFilter', () => {
     expect(filtered).toContain('преодоления пещеры')
     expect(filtered).not.toContain('7-8 классы')
     expect(filtered).not.toContain('магазин')
+  })
+
+  it('extracts task hints from filtered reference content', () => {
+    const filtered = prepareReferenceContent(CAVE_SAMPLE, { grade: '6' })
+    const hints = listReferenceTaskHints(filtered)
+    expect(hints.length).toBeGreaterThan(0)
+    expect(hints.some((hint) => /пещер|Совун/i.test(hint))).toBe(true)
+    expect(hints.some((hint) => /5-6 классы/i.test(hint))).toBe(false)
   })
 
   it('prefers wishes over grade for block selection', () => {

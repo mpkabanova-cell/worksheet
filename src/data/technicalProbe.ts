@@ -1,4 +1,4 @@
-import { ensurePlan, generatePlanAI, generateWorksheetAI } from './ai'
+import { ensurePlan, generatePlanAIWithMeta, generateWorksheetAI, type PlanGenerationMeta } from './ai'
 import { annotateExtractRelevance, listContextBlockTitles } from './contextFilter'
 import { buildContextReference, contextFilterOptions, sourceContentForDraft } from './contextFile'
 import { getGapsSourceText } from './blockUtils'
@@ -17,6 +17,23 @@ export interface TechnicalProbeMeta {
   truncated?: boolean
   planSec?: number
   sheetSec?: number
+  planSource?: PlanGenerationMeta['source']
+  planValidationIssues?: string[]
+}
+
+function planSourceLabel(source: PlanGenerationMeta['source'] | undefined): string {
+  switch (source) {
+    case 'ai':
+      return 'AI plan'
+    case 'ai_with_validation_warnings':
+      return 'AI plan (есть предупреждения валидации)'
+    case 'fallback_fragment':
+      return 'fallback по фрагментам reference (AI недоступен или пустой ответ)'
+    case 'fallback_no_api':
+      return 'fallback без API'
+    default:
+      return 'неизвестно'
+  }
 }
 
 function countBrackets(text: string): number {
@@ -199,8 +216,20 @@ export function buildTechnicalProbeMarkdown(
   }
 
   sections.push(
-    `План (${meta.planSec?.toFixed(1) ?? '—'} с):`,
+    `План (${meta.planSec?.toFixed(1) ?? '—'} с, ${planSourceLabel(meta.planSource)}):`,
     '',
+  )
+
+  if (meta.planValidationIssues?.length) {
+    sections.push(
+      '_Предупреждения validatePlanIndependence:_',
+      '',
+      ...meta.planValidationIssues.map((issue) => `- ${issue}`),
+      '',
+    )
+  }
+
+  sections.push(
     '```',
     formatProbePlan(plan),
     '```',
@@ -249,12 +278,14 @@ export async function runTechnicalProbe(
 
   onProgress?.({ stage: 'plan', message: 'Генерация плана…' })
   const t0 = Date.now()
-  const plan = hasReference
-    ? await generatePlanAI(workingDraft)
-    : workingDraft.plan
+  const planResult = hasReference
+    ? await generatePlanAIWithMeta(workingDraft)
+    : { plan: workingDraft.plan, meta: { source: 'ai' as const } }
   meta.planSec = (Date.now() - t0) / 1000
+  meta.planSource = planResult.meta.source
+  meta.planValidationIssues = planResult.meta.validationIssues
 
-  const withPlan = { ...workingDraft, plan, taskCount: plan.length }
+  const withPlan = { ...workingDraft, plan: planResult.plan, taskCount: planResult.plan.length }
 
   onProgress?.({ stage: 'worksheet', message: 'Генерация рабочего листа…' })
   const t1 = Date.now()

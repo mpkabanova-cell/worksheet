@@ -20,6 +20,17 @@ describe('validatePlanIndependence', () => {
     ])
     expect(issues.some((i) => i.includes('пещер') || i.includes('сюжет'))).toBe(true)
   })
+
+  it('accepts different fragments from the same file', () => {
+    const issues = validatePlanIndependence([
+      { expectation: 'Определить минимальное суммарное время прохождения пещеры Смешариками' },
+      { expectation: 'Выбрать верное утверждение в логической задаче про Правдинск и Лжеград' },
+      { expectation: 'Составить оптимальный маршрут доставки молока по торговым точкам' },
+      { expectation: 'Решить задачу про стоимость яблок в магазине' },
+      { expectation: 'Сравнить время проезда между двумя торговыми точками на карте молокозавода' },
+    ])
+    expect(issues).toEqual([])
+  })
 })
 
 describe('validateTaskIndependence', () => {

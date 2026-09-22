@@ -37,13 +37,15 @@ describe('buildTechnicalProbeMarkdown', () => {
       fileSizeMb: '1.20',
       planSec: 2.1,
       sheetSec: 5.4,
+      planSource: 'ai',
     })
 
     expect(md).toContain('технический прогон')
     expect(md).toContain('ctx-relevant')
     expect(md).toContain('ctx-irrelevant')
     expect(md).toContain('## Генерация листа')
-    expect(md).toContain('План (2.1 с)')
+    expect(md).toContain('План (2.1 с')
+    expect(md).toContain('AI plan')
     expect(md).toContain('Рабочий лист (5.4 с)')
   })
 })

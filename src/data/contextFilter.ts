@@ -526,6 +526,71 @@ export function listContextBlockTitles(text: string): string[] {
     .filter((title) => title.length >= 3)
 }
 
+const TASK_HEADING_RE = /^задача\s*\d+/i
+
+function trimTaskHint(text: string, max = 120): string {
+  const normalized = text.replace(/\s+/g, ' ').trim()
+  if (normalized.length <= max) return normalized
+  return `${normalized.slice(0, max - 1)}…`
+}
+
+/** Краткие фрагменты условий из reference для плана и retry. */
+export function listReferenceTaskHints(text: string, limit = 8): string[] {
+  const source = text.trim()
+  if (!source) return []
+
+  const cleaned = stripIrrelevantSections(source)
+  if (!cleaned) return []
+
+  const hints: string[] = []
+  const blocks = splitContextBlocks(cleaned)
+  const bodies =
+    blocks.length > 1 && blocks.some((block) => block.body.trim())
+      ? blocks.map((block) => block.body.trim()).filter(Boolean)
+      : [cleaned]
+
+  for (const body of bodies) {
+    const segments = segmentContextText(body)
+    let paragraph = ''
+
+    const flush = () => {
+      const trimmed = paragraph.replace(/\s+/g, ' ').trim()
+      if (trimmed.length >= 15) hints.push(trimTaskHint(trimmed))
+      paragraph = ''
+    }
+
+    for (const segment of segments) {
+      const trimmed = segment.text.trim()
+      if (!trimmed) {
+        flush()
+        continue
+      }
+      if (
+        segment.role !== 'condition' &&
+        segment.role !== 'data_table' &&
+        segment.role !== 'heading'
+      ) {
+        continue
+      }
+      if (segment.role === 'heading' && isLikelyBlockHeading(trimmed)) {
+        flush()
+        continue
+      }
+      if (TASK_HEADING_RE.test(trimmed) || /^упражнение/i.test(trimmed)) {
+        flush()
+        hints.push(trimTaskHint(trimmed))
+        continue
+      }
+      paragraph = paragraph ? `${paragraph} ${trimmed}` : trimmed
+      if (paragraph.length >= 100) flush()
+    }
+    flush()
+  }
+
+  const unique = [...new Set(hints.map((hint) => hint.trim()).filter((hint) => hint.length >= 15))]
+  return unique.slice(0, limit)
+}
+
 /** Ищет заголовок блока, упомянутый в пожеланиях учителя. */
 export function inferBlockFromWishes(wishes: string, text: string): string | null {
   const query = wishes.trim()

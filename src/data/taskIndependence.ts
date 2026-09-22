@@ -17,12 +17,57 @@ const CROSS_REF_PATTERNS = [
 
 const STORY_MARKERS = [/пещер/i, /персонаж/i, /бараш/i, /лосяш/i, /совун/i]
 
+const TOPIC_SIGNATURES: { id: string; patterns: RegExp[] }[] = [
+  {
+    id: 'cave',
+    patterns: [/пещер/i, /бараш/i, /крош/i, /совун/i, /лосяш/i, /пин/i, /наименьш.*время/i],
+  },
+  {
+    id: 'logic_cities',
+    patterns: [/правдинск/i, /лжеград/i, /ограблен/i, /суд/i, /прокурор/i],
+  },
+  {
+    id: 'milk_routes',
+    patterns: [/молок/i, /комбинат/i, /торгов/i, /разгруз/i, /маршрут/i],
+  },
+  { id: 'shop', patterns: [/магазин/i, /яблок/i, /стоим/i, /рубл/i] },
+]
+
 function taskText(task: AiTaskPayload): string {
   return [task.question, task.gaps_text, task.body].filter(Boolean).join('\n')
 }
 
 function countStoryOverlap(texts: string[]): number {
   return texts.filter((text) => STORY_MARKERS.some((re) => re.test(text))).length
+}
+
+function dominantTopic(text: string): string | null {
+  for (const { id, patterns } of TOPIC_SIGNATURES) {
+    if (patterns.some((pattern) => pattern.test(text))) return id
+  }
+  return null
+}
+
+function maxTopicCount(texts: string[]): number {
+  const counts = new Map<string, number>()
+  for (const text of texts) {
+    const topic = dominantTopic(text)
+    if (topic) counts.set(topic, (counts.get(topic) ?? 0) + 1)
+  }
+  return Math.max(0, ...counts.values())
+}
+
+function isPipelineStep(text: string): boolean {
+  return /упорядоч|записать время|записать.*время|стратег|оптимальн|первой пар|пропуск/i.test(
+    text,
+  )
+}
+
+function isCavePipelineStep(text: string): boolean {
+  return (
+    /пещер|персонаж/i.test(text) &&
+    /упорядоч|записать|стратег|оптимальн|пропуск|минимальн|наименьш|время/i.test(text)
+  )
 }
 
 function countTimeMentions(text: string): number {
@@ -181,27 +226,31 @@ export function blockQuestionIssues(
 export function validatePlanIndependence(
   tasks: { expectation?: string }[],
 ): string[] {
-  const texts = tasks.map((t) => t.expectation?.trim() || '')
+  const texts = tasks.map((t) => t.expectation?.trim() || '').filter(Boolean)
   const issues: string[] = []
 
-  const storyHits = countStoryOverlap(texts)
-  const pipelineHints = texts.filter((t) =>
-    /упорядоч|записать время|записать.*время|стратег|оптимальн|первой пар|пропуск/i.test(t),
-  ).length
+  const cavePipeline = texts.filter(isCavePipelineStep)
+  const pipelineTexts = texts.filter(isPipelineStep)
 
-  if (storyHits >= 3) {
+  if (cavePipeline.length >= 3) {
     issues.push(
       'План дробит одну задачу про пещеру/персонажей на несколько пунктов — распредели разные фрагменты source_content',
     )
   }
 
-  if (storyHits >= 2 && texts.length >= 3) {
+  if (
+    (maxTopicCount(texts) >= 3 && maxTopicCount(pipelineTexts) >= 2) ||
+    (cavePipeline.length >= 2 && texts.length >= 3 && maxTopicCount(cavePipeline) >= 2)
+  ) {
     issues.push(
       'Несколько пунктов плана повторяют один сюжет (пещера/персонажи) — каждый пункт должен опираться на свой фрагмент файла',
     )
   }
 
-  if (pipelineHints >= 3 || (pipelineHints >= 2 && storyHits >= 2)) {
+  if (
+    (pipelineTexts.length >= 3 && maxTopicCount(pipelineTexts) >= 3) ||
+    (pipelineTexts.length >= 2 && cavePipeline.length >= 2)
+  ) {
     issues.push(
       'План выглядит как этапы одной задачи (найти → упорядочить → объяснить), а не независимые задания по разным фрагментам файла',
     )
@@ -255,5 +304,19 @@ export function independenceRetryNote(issues: string[]): string {
     'description — только для автора; в question его нельзя копировать.',
     'Разные задания — разные фрагменты source_content; ответ одного не нужен для другого.',
     'Не дроби одну задачу из source_content на несколько заданий листа.',
+  ].join('\n')
+}
+
+export function planFragmentAssignmentNote(hints: string[], taskCount: number): string {
+  const assignment = hints
+    .slice(0, taskCount)
+    .map((hint, index) => `- Пункт ${index + 1}: ${hint}`)
+    .join('\n')
+
+  return [
+    '',
+    'Распредели пункты плана по разным фрагментам source_content:',
+    assignment || '- Используй разные абзацы и задачи из source_content',
+    'Не дроби одну задачу на этапы (найти → упорядочить → пропуски).',
   ].join('\n')
 }
