@@ -91,6 +91,7 @@ export function referenceFilePayload(draft: {
   contextFileText?: string
   contextFileNote?: string
   wishes?: string
+  grade?: string
 }) {
   if (!draft.contextFileName?.trim()) return null
   const raw = draft.contextFileText?.trim()
@@ -98,13 +99,18 @@ export function referenceFilePayload(draft: {
 
   if (!raw && !note) return null
 
-  const prepared = raw ? prepareReferenceContent(raw, { wishes: draft.wishes ?? null }) : null
+  const prepared = raw
+    ? prepareReferenceContent(raw, {
+        wishes: draft.wishes ?? null,
+        grade: draft.grade ?? null,
+      })
+    : null
 
   return {
     name: draft.contextFileName,
     content: prepared || null,
     relevance_note:
-      'В content только условия и учебный материал для заданий. Решения, ответы, ключи, разборы и иллюстрации из них исключены автоматически. Какой раздел файла использовать — см. additional_wishes.',
+      'В content только условия и учебный материал для заданий. Решения, ответы, ключи, разборы и иллюстрации из них исключены автоматически. Блок файла выбирается по пожеланиям или параллели формы.',
     note: note || null,
   }
 }
@@ -114,9 +120,13 @@ export function sourceContentForDraft(draft: {
   contextFileText?: string
   contextFileName?: string
   wishes?: string
+  grade?: string
 }): string | null {
   const raw = draft.contextFileText?.trim()
   if (!raw) return null
-  const filtered = prepareReferenceContent(raw, { wishes: draft.wishes ?? null })
+  const filtered = prepareReferenceContent(raw, {
+    wishes: draft.wishes ?? null,
+    grade: draft.grade ?? null,
+  })
   return filtered || null
 }

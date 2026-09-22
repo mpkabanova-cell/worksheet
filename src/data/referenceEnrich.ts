@@ -93,6 +93,22 @@ export function extractCaveConditionFromReference(content: string): string {
   return chunk
 }
 
+/** Только повествование задачи про пещеру — без строк с минутами. */
+export function extractCaveNarrativeFromReference(content: string): string {
+  const condition = extractCaveConditionFromReference(content)
+  if (!condition) return ''
+
+  const narrativeLines: string[] = []
+  for (const line of condition.split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+    if (/^\d+\s*[-–—]\s*\d+\s*класс/i.test(trimmed)) continue
+    if (/\d+\s*минут/.test(trimmed) || /минуту/.test(trimmed)) continue
+    narrativeLines.push(trimmed)
+  }
+  return narrativeLines.join('\n').trim()
+}
+
 export function extractMatchingInstruction(question: string): string {
   const lines = question
     .replace(/\r\n/g, '\n')
@@ -174,6 +190,21 @@ export function enrichBlockFromReference(
         extractMatchingInstruction(block.question || '') ||
         'Сопоставьте элементы из левого столбца с элементами правого.'
       return trimReferenceDumpFromBlock({ ...block, question: instruction })
+    }
+    return trimReferenceDumpFromBlock(block)
+  }
+
+  if (block.type === 'fill_gaps') {
+    const aboutCave =
+      /пещер/i.test(block.question || '') || /пещер/i.test(planExpectation || '')
+    if (aboutCave) {
+      const narrative = extractCaveNarrativeFromReference(referenceContent)
+      const instruction =
+        block.question?.trim() || 'Заполните пропуски в данных ниже.'
+      const question = narrative
+        ? `${narrative}\n\n${instruction}`
+        : enrichCaveQuestion(block.question || '', referenceContent)
+      return trimReferenceDumpFromBlock({ ...block, question })
     }
     return trimReferenceDumpFromBlock(block)
   }

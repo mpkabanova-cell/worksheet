@@ -48,7 +48,14 @@ const BRACKET_ONLY_RE = /^\[[^\]]+\]\s*$/
 
 const PAGE_MARKER_RE = /^--\s*\d+\s+of\s+\d+\s*--$/i
 
-const CODE_LINE_RE = /^\s*(def\s+\w+|import\s+\w+|for\s+\w+\s+in|while\s+|return\s+)/
+const CODE_LINE_RE =
+  /^\s*(def\s+\w+|import\s+\w+|from\s+\w+\s+import|for\s+\w+\s+in|while\s+|return\b|print\s*\(|if\s+\w+.*==|elif\s+|else\s*:|sp\s*=\s*\[\]|res\s*=\s*list|\.append\s*\()/
+
+const CODE_COMMENT_RE =
+  /^\s*#\s+.*(функци|список|перебор|пары|рекурсив|отсорт|длину|nod|python)/i
+
+const CODE_ALGORITHM_RE =
+  /nod\s*\(|range\s*\(\s*\d+|x\s*\*\s*y\s*\/\s*nod|tuple\s*\(\s*sorted|list\s*\(\s*set\s*\(|рекурсивн.*функци|зададим список|перебором найдем|отсортируем пары|найдем длину списка|^python\s*$/i
 
 const SOLUTION_TOOL_RE = /графоанализатор|программа\s+"граф/i
 
@@ -56,7 +63,12 @@ const RELEVANT_ROLES = new Set<ContextLineRole>(['heading', 'condition', 'data_t
 
 interface SegmentState {
   mode: 'condition' | 'solution'
+  inCodeBlock: boolean
+  inFencedCode: boolean
 }
+
+const CODE_FENCE_RE = /^```/
+const CODE_LANG_LINE_RE = /^(python|javascript|typescript|java|c\+\+|bash|sql|json)\s*$/i
 
 export function isIrrelevantSectionTitle(title: string): boolean {
   const t = title.trim()
@@ -111,9 +123,23 @@ function isSolutionMarkerLine(line: string): boolean {
   return SOLUTION_MARKER_LINE_RE.test(t) || INLINE_ANSWER_KEY_RE.test(t)
 }
 
+/** Python, псевдокод и пошаговые алгоритмы из решений — не условия задач. */
+export function isCodeOrAlgorithmLine(line: string): boolean {
+  const t = line.trim()
+  if (!t) return false
+  if (CODE_FENCE_RE.test(t)) return true
+  if (CODE_LANG_LINE_RE.test(t)) return true
+  if (CODE_LINE_RE.test(t)) return true
+  if (CODE_COMMENT_RE.test(t)) return true
+  if (CODE_ALGORITHM_RE.test(t)) return true
+  if (/^\s{2,}\S/.test(line) && /[=<>()[\]{}]|\.append|return\b|def\b|for\b|if\b/.test(t)) return true
+  return false
+}
+
 function isSolutionContentLine(line: string): boolean {
   const t = line.trim()
   if (!t) return false
+  if (isCodeOrAlgorithmLine(line)) return true
   if (isTimeArithmeticLine(t)) return true
   if (STANDALONE_ANSWER_MINUTES_RE.test(t)) return true
   if (BRACKET_ONLY_RE.test(t)) return true
@@ -156,7 +182,42 @@ function isExplicitTaskHeading(line: string): boolean {
 function classifyLineRole(line: string, state: SegmentState): ContextLineRole {
   const trimmed = line.trim()
 
-  if (isNoiseLine(line)) return 'noise'
+  if (CODE_FENCE_RE.test(trimmed)) {
+    state.inFencedCode = !state.inFencedCode
+    state.inCodeBlock = false
+    return 'noise'
+  }
+
+  if (state.inFencedCode) {
+    return 'noise'
+  }
+
+  if (isNoiseLine(line)) {
+    state.inCodeBlock = false
+    return 'noise'
+  }
+
+  if (isCodeOrAlgorithmLine(line)) {
+    state.inCodeBlock = true
+    state.mode = 'solution'
+    return 'noise'
+  }
+
+  if (state.inCodeBlock) {
+    if (!trimmed) {
+      state.inCodeBlock = false
+      return 'noise'
+    }
+    if (
+      isCodeOrAlgorithmLine(line) ||
+      /^\s{2,}\S/.test(line) ||
+      /^[^\p{Script=Cyrillic}]*$/u.test(trimmed) ||
+      /[=<>()[\]{}]|\.append|return\b/.test(trimmed)
+    ) {
+      return 'noise'
+    }
+    state.inCodeBlock = false
+  }
 
   if (isExplicitTaskHeading(trimmed)) {
     if (isIrrelevantSectionTitle(headingText(trimmed))) {
@@ -203,7 +264,7 @@ function classifyLineRole(line: string, state: SegmentState): ContextLineRole {
 
 /** Классифицирует каждую строку extract с учётом scoped solution. */
 export function segmentContextText(text: string): SegmentedContextLine[] {
-  const state: SegmentState = { mode: 'condition' }
+  const state: SegmentState = { mode: 'condition', inCodeBlock: false, inFencedCode: false }
   return normalizeLines(text).map((line) => ({
     text: line,
     role: classifyLineRole(line, state),
@@ -331,19 +392,65 @@ export function inferBlockFromWishes(wishes: string, text: string): string | nul
   return null
 }
 
+export interface ContextFilterOptions {
+  block?: string | null
+  wishes?: string | null
+  grade?: string | null
+}
+
+export interface AnnotateExtractOptions extends ContextFilterOptions {
+  /** true — разметка всего extract; false — только выбранного блока (для reference). */
+  fullExtract?: boolean
+}
+
+/** Подбирает блок файла по параллели формы (например, 6 → «5-6 классы»). */
+export function inferBlockFromGrade(grade: string, text: string): string | null {
+  const parsed = Number.parseInt(grade.trim(), 10)
+  if (!Number.isFinite(parsed) || parsed <= 0) return null
+
+  const titles = listContextBlockTitles(text)
+  const byRange = titles.find((title) => {
+    const match = title.match(/(\d+)\s*[-–—]\s*(\d+)\s*класс/i)
+    if (!match) return false
+    const lo = Number.parseInt(match[1], 10)
+    const hi = Number.parseInt(match[2], 10)
+    return parsed >= lo && parsed <= hi
+  })
+  if (byRange) return byRange
+
+  const bySingle = titles.find((title) => {
+    const match = title.match(/^(\d+)\s*класс/i)
+    return match ? Number.parseInt(match[1], 10) === parsed : false
+  })
+  return bySingle ?? null
+}
+
+export function resolveSelectedContextBlock(
+  text: string,
+  options?: ContextFilterOptions,
+): string | null {
+  if (options?.block?.trim()) return options.block.trim()
+
+  if (options?.wishes?.trim()) {
+    const fromWishes = inferBlockFromWishes(options.wishes, text)
+    if (fromWishes) return fromWishes
+  }
+
+  if (options?.grade?.trim()) {
+    return inferBlockFromGrade(options.grade, text)
+  }
+
+  return null
+}
+
 export function resolveContextSource(
   text: string,
-  options?: { block?: string | null; wishes?: string | null },
+  options?: ContextFilterOptions,
 ): string {
   let content = text.replace(/\r\n/g, '\n').trim()
   if (!content) return ''
 
-  const blockFromWishes =
-    !options?.block?.trim() && options?.wishes?.trim()
-      ? inferBlockFromWishes(options.wishes, content)
-      : null
-
-  const block = options?.block?.trim() || blockFromWishes
+  const block = resolveSelectedContextBlock(content, options)
   if (block) {
     content = selectContextBlock(content, block)
   }
@@ -353,7 +460,7 @@ export function resolveContextSource(
 
 export function prepareReferenceContent(
   text: string,
-  options?: { block?: string | null; wishes?: string | null },
+  options?: ContextFilterOptions,
 ): string {
   const content = resolveContextSource(text, options)
   if (!content) return ''
@@ -373,12 +480,14 @@ function wrapRelevanceLine(line: string, kind: 'relevant' | 'irrelevant'): strin
   return `<span class="ctx-${kind}">${escapeHtml(line)}</span>`
 }
 
-/** Размечает исходный extract: релевантные условия и нерелевантные решения/ответы. */
+/** Размечает extract: релевантные условия и нерелевантные решения/ответы. */
 export function annotateExtractRelevance(
   text: string,
-  options?: { block?: string | null; wishes?: string | null },
+  options?: AnnotateExtractOptions,
 ): string {
-  const source = resolveContextSource(text, options)
+  const source = options?.fullExtract
+    ? text.replace(/\r\n/g, '\n').trim()
+    : resolveContextSource(text, options)
   if (!source) return ''
 
   return segmentContextText(source)

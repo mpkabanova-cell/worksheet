@@ -63,6 +63,18 @@ describe('validateTaskIndependence', () => {
     expect(issues.some((i) => i.includes('сюжет'))).toBe(true)
   })
 
+  it('flags fill_gaps with character names only in gaps_text', () => {
+    const issues = validateTaskIndependence([
+      {
+        type: 'fill_gaps',
+        question: 'Заполните пропуски в условии задачи про пещеру.',
+        gaps_text:
+          'Совунья пересекла пещеру за ___ минут, Пин затратил ___ минуту, Крош затратил ___ минуты.',
+      },
+    ])
+    expect(issues.some((i) => i.includes('сюжет'))).toBe(true)
+  })
+
   it('flags reference dump in matching question', () => {
     const dump = '5-6 классы\n\n7-8 классы\n\n'.padEnd(1600, 'a')
     const issues = validateTaskIndependence([

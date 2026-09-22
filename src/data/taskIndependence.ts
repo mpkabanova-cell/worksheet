@@ -57,6 +57,16 @@ function hasCaveStoryContext(text: string): boolean {
   return /пещер/i.test(text) && /бараш|крош|совун|ежик|пин|лосяш|фонар|поход|смешар|путешеств/i.test(text)
 }
 
+/** Для fill_gaps: сюжет должен быть в question, а не только имена в gaps_text. */
+export function hasCaveNarrativeInQuestion(question: string): boolean {
+  const q = question.trim()
+  if (!q || !/пещер/i.test(q)) return false
+  if (/поход|фонар|наименьшее\s+суммарное|проходной|путешеств|не\s+больше\s+двух|мышин/i.test(q)) {
+    return true
+  }
+  return q.length >= 180 && /бараш|крош|совун|ежик|пин|лосяш/i.test(q)
+}
+
 function needsCaveContext(question: string): boolean {
   return /пещер|персонаж/i.test(question) && /время|минут|быстр|медлен|дольше|меньше/i.test(question)
 }
@@ -106,13 +116,12 @@ export function taskQuestionIssues(
     if (!gaps.includes('___')) {
       issues.push('fill_gaps без gaps_text с пропусками ___')
     }
-    const combined = `${question}\n${gaps}`
     const aboutCave =
       /пещер|пропуск/i.test(planExpectation || '') ||
       /пещер/i.test(question) ||
       /пещер/i.test(gaps)
-    if (aboutCave && !hasCaveStoryContext(combined)) {
-      issues.push('fill_gaps про пещеру без полного сюжета в question или gaps_text')
+    if (aboutCave && !hasCaveNarrativeInQuestion(question)) {
+      issues.push('fill_gaps про пещеру без полного сюжета в question')
     }
   } else if (type === 'ordering') {
     if (question.length < 80 || (!/\d/.test(question) && !/«.+»/.test(question))) {

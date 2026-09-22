@@ -66,11 +66,30 @@ describe('referenceFilePayload', () => {
     const long = 'a'.repeat(20_000)
     const payload = referenceFilePayload({
       contextFileName: 'doc.docx',
-      contextFileText: `5-6 классы\n\nУсловие задачи.\n\nРешение:\n\n18 минут.\n\n${long}`,
+      contextFileText: `5-6 классы\n\nУсловие задачи.\n\n${long}\n\nРешение:\n\n18 минут.\n\n7-8 классы\n\nдругое`,
+      grade: '6',
     })
     expect(payload?.content?.length).toBeGreaterThan(19_000)
     expect(payload?.content).toContain('Условие задачи')
     expect(payload?.content).not.toContain('Решение:')
     expect(payload?.content).not.toContain('18 минут')
+    expect(payload?.content).not.toContain('другое')
+  })
+
+  it('selects block by grade for reference payload', () => {
+    const raw = `5-6 классы
+
+Условие про пещеру.
+
+7-8 классы
+
+Задача про магазин.`
+    const payload = referenceFilePayload({
+      contextFileName: 'proba.pdf',
+      contextFileText: raw,
+      grade: '6',
+    })
+    expect(payload?.content).toContain('пещер')
+    expect(payload?.content).not.toContain('магазин')
   })
 })

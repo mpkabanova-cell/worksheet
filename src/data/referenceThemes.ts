@@ -2,7 +2,7 @@ import { stripSolutionTail } from './contextFilter'
 import { getGapsSourceText } from './blockUtils'
 import type { TaskType, WorksheetBlock } from './worksheet'
 import { blockQuestionIssues } from './taskIndependence'
-import { extractCaveConditionFromReference } from './referenceEnrich'
+import { extractCaveConditionFromReference, extractCaveNarrativeFromReference } from './referenceEnrich'
 
 export type ReferenceThemeId = 'cave' | 'logic-towns' | 'delivery'
 
@@ -204,9 +204,41 @@ export function buildFillGapsFallbackBlock(
   const snippet = themeId ? extractThemeCondition(refContent, themeId) : ''
 
   if (themeId === 'cave' && snippet) {
+    const condition = extractCaveConditionFromReference(refContent)
+    const narrative = extractCaveNarrativeFromReference(refContent)
+    if (condition) {
+      const dataLines: string[] = []
+      for (const line of condition.split('\n').map((item) => item.trim()).filter(Boolean)) {
+        if (/^\d+\s*[-–—]\s*\d+\s*класс/i.test(line)) continue
+        if (/\d+\s*минут/.test(line) || /минуту/.test(line)) {
+          dataLines.push(line)
+        }
+      }
+
+      const gapsAnswers = dataLines
+        .map((line) => line.match(/(\d+)/)?.[1] ?? '')
+        .filter(Boolean)
+
+      return {
+        ...block,
+        question: [
+          narrative ||
+            'Бараш, Крош, Совунья, Ежик, Пин и Лосяш отправились в поход. Перед ними открылся вход в проходную Мышиную пещеру. Какое наименьшее суммарное время затратили друзья для преодоления пещеры, если',
+          '',
+          'Заполните пропуски в данных ниже.',
+        ].join('\n'),
+        gapsText: dataLines.map((line) => line.replace(/\d+/g, '___')).join('\n'),
+        gapsAnswers: gapsAnswers.length ? gapsAnswers : ['3', '1', '2', '3', '5'],
+      }
+    }
+
     return {
       ...block,
-      question: 'Заполните пропуски в условии задачи про пещеру.',
+      question: [
+        'Бараш, Крош, Совунья, Ежик, Пин и Лосяш отправились в поход к Голубому озеру. К вечеру друзья добрались до Чертовой скалы и вошли в проходную Мышиную пещеру. Проход был такой узкий, что одновременно могли идти не больше двух путешественников, а фонарь был только один. Бараш хотел идти в первой паре. Какое наименьшее суммарное время затратили друзья для преодоления пещеры, если',
+        '',
+        'Заполните пропуски в данных ниже.',
+      ].join('\n'),
       gapsText:
         'Совунья пересекла пещеру за ___ минут, Пин затратил ___ минуту, Крош затратил ___ минуты, Ежик вышел из пещеры через ___ минуты, Лосяша не могли дождаться ___ минут.',
       gapsAnswers: ['3', '1', '2', '3', '5'],

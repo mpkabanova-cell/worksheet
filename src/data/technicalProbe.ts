@@ -1,5 +1,5 @@
 import { generatePlanAI, generateWorksheetAI } from './ai'
-import { annotateExtractRelevance, inferBlockFromWishes, listContextBlockTitles, prepareReferenceContent } from './contextFilter'
+import { annotateExtractRelevance, listContextBlockTitles, prepareReferenceContent, resolveSelectedContextBlock } from './contextFilter'
 import { referenceFilePayload } from './contextFile'
 import { getGapsSourceText } from './blockUtils'
 import { labelForType, type WorksheetDraft } from './worksheet'
@@ -96,16 +96,18 @@ export function buildTechnicalProbeMarkdown(
   const raw = draft.contextFileText?.trim() ?? ''
   const fileLabel = draft.contextFileName?.trim() || 'без файла'
   const brackets = raw ? countBrackets(raw) : 0
-  const contextOptions = { wishes: draft.wishes.trim() || null }
+  const contextOptions = {
+    wishes: draft.wishes.trim() || null,
+    grade: draft.grade.trim() || null,
+  }
   const filtered = raw ? prepareReferenceContent(raw, contextOptions) : ''
   const blockTitles = raw ? listContextBlockTitles(raw) : []
-  const selectedBlock =
-    contextOptions.wishes && raw
-      ? inferBlockFromWishes(draft.wishes, raw)
-      : null
-  const blockNote = draft.wishes.trim()
-    ? `, пожелания: «${draft.wishes.trim().slice(0, 80)}${draft.wishes.length > 80 ? '…' : ''}»`
-    : ''
+  const selectedBlock = raw ? resolveSelectedContextBlock(raw, contextOptions) : null
+  const blockNote = selectedBlock
+    ? `, блок «${selectedBlock}»${draft.wishes.trim() ? ` (пожелания: «${draft.wishes.trim().slice(0, 60)}${draft.wishes.length > 60 ? '…' : ''}»)` : ` (по ${draft.grade} классу)`}`
+    : draft.wishes.trim()
+      ? `, пожелания: «${draft.wishes.trim().slice(0, 80)}${draft.wishes.length > 80 ? '…' : ''}»`
+      : ''
 
   const metaParts = [
     meta.fileSizeMb ? `${meta.fileSizeMb} МБ` : null,
@@ -128,18 +130,22 @@ export function buildTechnicalProbeMarkdown(
         '## Блоки в файле',
         '',
         blockTitles.map((title) => `- ${title}`).join('\n'),
-        selectedBlock ? `\nВыбран по пожеланиям: **${selectedBlock}**` : '',
+        selectedBlock
+          ? `\nВыбран для генерации: **${selectedBlock}**${draft.wishes.trim() ? ' (по пожеланиям)' : draft.grade.trim() ? ` (по ${draft.grade} классу)` : ''}`
+          : '\nБлок не выбран — в reference попадёт весь файл.',
         '',
       )
     }
 
     sections.push(
-      '## Исходный текст с разметкой релевантности',
+      '## Полный extract с разметкой релевантности',
+      '',
+      '_Тот же текст, что в `contextFileText` после OCR — построчно, без обрезки по классу. Для генерации ниже используется отфильтрованный блок._',
       '',
       '<p class="ctx-legend"><span class="ctx-relevant">релевантно</span> · <span class="ctx-irrelevant">нерелевантно</span></p>',
       '',
       '<div class="ctx-annotated">',
-      annotateExtractRelevance(raw, contextOptions),
+      annotateExtractRelevance(raw, { ...contextOptions, fullExtract: true }),
       '</div>',
       '',
       `## Отфильтрованный reference_file (${filtered.length.toLocaleString('ru-RU')} симв.)`,

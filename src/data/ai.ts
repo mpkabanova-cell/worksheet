@@ -10,6 +10,8 @@ import { sanitizeBlock, clampAnswerHeight, defaultAnswerHeight, defaultAnswerSty
 import { normalizeAiTask } from './taskContent'
 import { repairJsonLatexEscapes } from './mathTextUtils'
 import {
+  blockQuestionIssues,
+  hasCaveNarrativeInQuestion,
   independenceRetryNote,
   repairTaskExpectation,
   taskQuestionIssues,
@@ -445,22 +447,33 @@ export async function generateWorksheetAI(
 
     for (let i = 0; i < blocks.length; i++) {
       if (blocks[i].type !== 'fill_gaps') continue
-      if (getGapsSourceText(blocks[i]).includes('___')) continue
-      if (refContent) {
+      const aboutCave =
+        /пещер/i.test(blocks[i].question || '') || /пещер/i.test(planBriefs[i] || '')
+      const storyIssues =
+        blockQuestionIssues(blocks[i], planBriefs[i]).some(
+          (issue) => issue.includes('сюжет') || issue.includes('коротк'),
+        ) ||
+        (aboutCave && !hasCaveNarrativeInQuestion(blocks[i].question || ''))
+      const gapsMissing = !getGapsSourceText(blocks[i]).includes('___')
+      if (!refContent) {
+        if (gapsMissing) {
+          blocks[i] = {
+            ...blocks[i],
+            question: 'Заполните пропуски в условии задачи.',
+            gapsText:
+              'Один мастер изготавливает деталь за ___ минут, а ученик — за ___ минут. За 2 часа они вместе изготовили ___ деталей.',
+            gapsAnswers: ['12', '20', '15'],
+          }
+        }
+        continue
+      }
+      if (gapsMissing || storyIssues) {
         blocks[i] = buildFillGapsFallbackBlock(
           blocks[i],
           refContent,
           planBriefs[i],
           collectAnchorTasks(blocks, planBriefs, { skipBlockIndex: i }),
         )
-        continue
-      }
-      blocks[i] = {
-        ...blocks[i],
-        question: 'Заполните пропуски в условии задачи.',
-        gapsText:
-          'Один мастер изготавливает деталь за ___ минут, а ученик — за ___ минут. За 2 часа они вместе изготовили ___ деталей.',
-        gapsAnswers: ['12', '20', '15'],
       }
     }
 

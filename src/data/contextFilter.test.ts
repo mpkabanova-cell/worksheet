@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   annotateExtractRelevance,
+  inferBlockFromGrade,
   inferBlockFromWishes,
   listContextBlockTitles,
   prepareReferenceContent,
@@ -29,6 +30,17 @@ const CAVE_SAMPLE = `5-6 классы
 7-8 классы
 
 Другая задача про магазин. Сколько стоят 2 кг яблок?`
+
+const PYTHON_SAMPLE = `# Оформим рекурсивную функцию нахождения НОД двух чисел
+def nod(a,b):
+    if b==0:
+        return a
+    return nod(b,a%b)
+sp=[]
+for x in range(1,1001):
+    if nod(x,y)+x*y/nod(x,y)==x*y:
+        sp.append([x,y])
+print(len(res))`
 
 const LOGIC_MILK_SAMPLE = `7-8 классы
 
@@ -79,13 +91,22 @@ describe('contextFilter', () => {
     expect(titles.some((t) => /минут\s*=/.test(t))).toBe(false)
   })
 
-  it('infers block from additional_wishes text', () => {
-    expect(inferBlockFromWishes('Использовать блок 7-8 классы', CAVE_SAMPLE)).toBe('7-8 классы')
-    const filtered = prepareReferenceContent(CAVE_SAMPLE, {
-      wishes: 'Задания только из раздела 5-6 классы',
-    })
+  it('infers block from grade when wishes are empty', () => {
+    expect(inferBlockFromGrade('6', CAVE_SAMPLE)).toBe('5-6 классы')
+    expect(inferBlockFromGrade('7', CAVE_SAMPLE)).toBe('7-8 классы')
+    const filtered = prepareReferenceContent(CAVE_SAMPLE, { grade: '6' })
     expect(filtered).toContain('преодоления пещеры')
     expect(filtered).not.toContain('7-8 классы')
+    expect(filtered).not.toContain('магазин')
+  })
+
+  it('prefers wishes over grade for block selection', () => {
+    const filtered = prepareReferenceContent(CAVE_SAMPLE, {
+      grade: '6',
+      wishes: 'Использовать блок 7-8 классы',
+    })
+    expect(filtered).toContain('магазин')
+    expect(filtered).not.toContain('преодоления пещеры')
   })
 
   it('annotates relevant and irrelevant lines', () => {
@@ -132,11 +153,18 @@ describe('contextFilter', () => {
   })
 
   it('respects wishes in annotateExtractRelevance scope', () => {
-    const full = annotateExtractRelevance(CAVE_SAMPLE)
+    const full = annotateExtractRelevance(CAVE_SAMPLE, { fullExtract: true })
     const scoped = annotateExtractRelevance(CAVE_SAMPLE, { wishes: '5-6 классы' })
     expect(full).toContain('магазин')
     expect(scoped).not.toContain('магазин')
     expect(scoped).toContain('преодоления пещеры')
+  })
+
+  it('annotates full extract even when grade selects a block', () => {
+    const full = annotateExtractRelevance(CAVE_SAMPLE, { grade: '6', fullExtract: true })
+    const scoped = annotateExtractRelevance(CAVE_SAMPLE, { grade: '6' })
+    expect(full).toContain('магазин')
+    expect(scoped).not.toContain('магазин')
   })
 
   it('classifies roles via segmentContextText', () => {
@@ -148,5 +176,13 @@ describe('contextFilter', () => {
 
     const milkRoles = segmentContextText(LOGIC_MILK_SAMPLE).map((line) => line.role)
     expect(milkRoles).toContain('data_table')
+
+    const pythonRoles = segmentContextText(PYTHON_SAMPLE)
+    expect(pythonRoles.every((line) => line.role === 'noise')).toBe(true)
+    expect(stripIrrelevantSections(PYTHON_SAMPLE)).toBe('')
+
+    const fenced = annotateExtractRelevance('```python\n' + PYTHON_SAMPLE + '\n```')
+    expect(fenced).not.toContain('ctx-relevant')
+    expect(fenced).toContain('ctx-irrelevant')
   })
 })

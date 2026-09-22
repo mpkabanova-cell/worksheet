@@ -3,6 +3,7 @@ import {
   enrichBlockFromReference,
   enrichCaveQuestion,
   extractCaveConditionFromReference,
+  extractCaveNarrativeFromReference,
   extractMatchingInstruction,
   looksLikeReferenceDump,
   planExpectsStoryContext,
@@ -51,6 +52,28 @@ describe('referenceEnrich', () => {
     expect(text).not.toContain('7-8 классы')
     expect(text).not.toContain('Правдинск')
     expect(text).not.toContain('Молочный комбинат')
+  })
+
+  it('extracts cave narrative without time lines', () => {
+    const narrative = extractCaveNarrativeFromReference(CAVE_REFERENCE)
+    expect(narrative).toContain('отправились в поход')
+    expect(narrative).not.toContain('3 минуты')
+  })
+
+  it('prepends cave narrative to fill_gaps question', () => {
+    const block: WorksheetBlock = {
+      id: 'g1',
+      type: 'fill_gaps',
+      page: 0,
+      title: 'Задание 4',
+      question: 'Заполните пропуски в условии задачи про пещеру.',
+      gapsText:
+        'Совунья пересекла пещеру за ___ минут, Пин затратил ___ минуту, Крош затратил ___ минуты.',
+      gapsAnswers: ['3', '1', '2'],
+    }
+    const enriched = enrichBlockFromReference(block, CAVE_REFERENCE, 'Заполнить пропуски в задаче про пещеру')
+    expect(enriched.question).toContain('отправились в поход')
+    expect(enriched.question).toContain('Заполните пропуски')
   })
 
   it('prepends cave data to bare question', () => {
