@@ -1,4 +1,7 @@
 import type { AiTaskPayload } from './ai'
+import type { TaskType, WorksheetBlock } from './worksheet'
+import { looksLikeBareTaskInstruction, normalizeWs } from './taskContent'
+import { planExpectsStoryContext } from './referenceEnrich'
 
 const CROSS_REF_PATTERNS = [
   /предыдущ/i,
@@ -9,6 +12,7 @@ const CROSS_REF_PATTERNS = [
   /ранее получен/i,
   /используя результат/i,
   /из текста листа/i,
+  /reference_file/i,
 ]
 
 const STORY_MARKERS = [/пещер/i, /персонаж/i, /бараш/i, /лосяш/i, /совун/i]
@@ -21,6 +25,135 @@ function countStoryOverlap(texts: string[]): number {
   return texts.filter((text) => STORY_MARKERS.some((re) => re.test(text))).length
 }
 
+function countTimeMentions(text: string): number {
+  return text.match(/\d+\s*минут/g)?.length ?? 0
+}
+
+export function questionMatchesExpectation(question: string, expectation?: string): boolean {
+  const q = normalizeWs(question).toLowerCase()
+  const e = normalizeWs(expectation || '').toLowerCase()
+  if (!e || q.length < 15) return false
+  if (q === e) return true
+  const qCore = q.replace(
+    /^(определите|выберите|сопоставьте|объясните|упорядочьте|запишите|найдите|заполните)\s*,?\s*/i,
+    '',
+  )
+  const eCore = e.replace(
+    /^(определить|выбрать|сопоставить|объяснить|упорядочить|записать|найти|заполнить)\s*,?\s*/i,
+    '',
+  )
+  return qCore === eCore || q.includes(eCore) || eCore.includes(q)
+}
+
+function choiceOptionsText(task: AiTaskPayload): string {
+  return (task.options ?? []).join('\n')
+}
+
+function hasCaveData(text: string): boolean {
+  return countTimeMentions(text) >= 3
+}
+
+function needsCaveContext(question: string): boolean {
+  return /пещер|персонаж/i.test(question) && /время|минут|быстр|медлен|дольше|меньше/i.test(question)
+}
+
+/** Проблемы формулировки одного задания (без номера). */
+export function taskQuestionIssues(
+  task: AiTaskPayload,
+  planExpectation?: string,
+): string[] {
+  const issues: string[] = []
+  const question = (task.question || '').trim()
+  const text = taskText(task)
+  const type = task.type as TaskType | undefined
+
+  for (const pattern of CROSS_REF_PATTERNS) {
+    if (pattern.test(text)) {
+      issues.push('отсылка к другим заданиям, reference_file или тексту листа')
+      break
+    }
+  }
+
+  if (planExpectation && questionMatchesExpectation(question, planExpectation)) {
+    issues.push('question повторяет teacher_expectation — нужно полное условие задачи')
+  }
+
+  if (planExpectation && planExpectsStoryContext(planExpectation)) {
+    const combined = `${question}\n${choiceOptionsText(task)}`
+    if (!hasCaveData(combined) && question.length < 100) {
+      issues.push('question не содержит данных из reference_file (персонажи, время, условия)')
+    }
+  }
+
+  if (looksLikeBareTaskInstruction(question)) {
+    issues.push('question — только инструкция, без данных задачи')
+  }
+
+  if (/reference_file|teacher_expectation|не копируй teacher/i.test(question)) {
+    issues.push('question содержит служебные инструкции вместо условия задачи')
+  }
+
+  if (type === 'fill_gaps') {
+    const gaps = (task.gaps_text || '').trim()
+    if (!gaps.includes('___')) {
+      issues.push('fill_gaps без gaps_text с пропусками ___')
+    }
+  } else if (type === 'ordering') {
+    if (question.length < 80 || (!/\d/.test(question) && !/«.+»/.test(question))) {
+      issues.push('ordering без полного условия задачи в question')
+    }
+  } else if (type === 'matching') {
+    const combined = `${question}\n${(task.left_items ?? []).join('\n')}\n${(task.right_items ?? []).join('\n')}`
+    if (needsCaveContext(question) && !hasCaveData(combined)) {
+      issues.push('matching про пещеру/персонажей без времени в question или столбцах')
+    }
+    if (question.length < 40 && !task.left_items?.length) {
+      issues.push('matching без понятного question')
+    }
+  } else if (type === 'single_choice' || type === 'multiple_choice') {
+    const combined = `${question}\n${choiceOptionsText(task)}`
+    if (needsCaveContext(question) && !hasCaveData(combined)) {
+      issues.push('выбор ответа про пещеру/персонажей без времени в question или options')
+    }
+    if (question.length < 50 && looksLikeBareTaskInstruction(question)) {
+      issues.push('question слишком короткий для выбора ответа')
+    }
+  } else {
+    const hasNumbers = /\d/.test(question)
+    const minLen = hasNumbers ? 70 : 120
+    if (question.length < minLen) {
+      issues.push('question слишком короткое — нет полного условия с данными')
+    }
+  }
+
+  if (needsCaveContext(question) && !hasCaveData(`${question}\n${choiceOptionsText(task)}`)) {
+    issues.push('про пещеру/персонажей, но нет полного набора времён в question')
+  }
+
+  if (/кажд(ого|ому) персонаж/i.test(question) && !/\d+\s*минут/i.test(question)) {
+    issues.push('просит время персонажей, но не перечисляет данные в question')
+  }
+
+  return [...new Set(issues)]
+}
+
+export function blockQuestionIssues(
+  block: WorksheetBlock,
+  planExpectation?: string,
+): string[] {
+  return taskQuestionIssues(
+    {
+      type: block.type,
+      question: block.question,
+      gaps_text: block.gapsText || block.gapsSourceText,
+      options: block.options?.map((o) => o.text),
+      left_items: block.leftItems?.map((i) => i.text),
+      right_items: block.rightItems?.map((i) => i.text),
+    },
+    planExpectation,
+  )
+}
+
 export function validatePlanIndependence(
   tasks: { expectation?: string }[],
 ): string[] {
@@ -28,87 +161,50 @@ export function validatePlanIndependence(
   const issues: string[] = []
 
   const storyHits = countStoryOverlap(texts)
-  if (storyHits >= 2) {
-    issues.push(
-      'План повторяет один сюжет (пещера/персонажи) в нескольких заданиях — нужны разные самостоятельные задачи',
-    )
-  }
-
   const pipelineHints = texts.filter((t) =>
     /упорядоч|записать время|записать.*время|стратег|оптимальн|первой пар/i.test(t),
   ).length
-  if (pipelineHints >= 2) {
+  if (pipelineHints >= 3 || (pipelineHints >= 2 && storyHits >= 2)) {
     issues.push(
-      'План выглядит как этапы одной задачи (найти → упорядочить → объяснить), а не независимые задания',
-    )
-  } else if (pipelineHints >= 1 && storyHits >= 1) {
-    issues.push(
-      'План выглядит как этапы одной задачи (найти → упорядочить → объяснить), а не независимые задания',
+      'План выглядит как этапы одной задачи (найти → упорядочить → объяснить), а не независимые задания по разным фрагментам файла',
     )
   }
 
   return issues
 }
 
-export function validateTaskIndependence(tasks: AiTaskPayload[]): string[] {
+export function validateTaskIndependence(
+  tasks: AiTaskPayload[],
+  planExpectations?: string[],
+): string[] {
   const issues: string[] = []
   const allTexts = tasks.map(taskText)
 
-  if (countStoryOverlap(allTexts) >= 2) {
+  if (countStoryOverlap(allTexts) >= 3) {
     issues.push(
-      'Несколько заданий про один и тот же сюжет — дробление одной задачи; сделай каждое задание отдельной полной задачей или разными сюжетами',
+      'Несколько заданий дробят одну задачу — сделай каждое задание отдельной полной задачей по своему фрагменту reference_file',
     )
   }
 
   tasks.forEach((task, i) => {
     const n = i + 1
-    const text = taskText(task)
-    const question = (task.question || '').trim()
-
-    for (const pattern of CROSS_REF_PATTERNS) {
-      if (pattern.test(text)) {
-        issues.push(`Задание ${n}: отсылка к другим заданиям или тексту листа`)
-        break
-      }
-    }
-
-    if (task.type === 'fill_gaps') {
-      const gaps = (task.gaps_text || '').trim()
-      if (!gaps.includes('___')) {
-        issues.push(`Задание ${n}: fill_gaps без gaps_text с пропусками ___`)
-      }
-    } else if (task.type === 'ordering') {
-      if (question.length < 80 || (!/\d/.test(question) && !/«.+»/.test(question))) {
-        issues.push(`Задание ${n}: ordering без полного условия задачи в question`)
-      }
-      if (/пещер/i.test(question) && (question.match(/\d+\s*минут/g)?.length ?? 0) < 3) {
-        issues.push(`Задание ${n}: про пещеру без полного набора данных в question`)
-      }
-    } else {
-      const hasNumbers = /\d/.test(question)
-      const minLen = hasNumbers ? 70 : 120
-      if (question.length < minLen && !['single_choice', 'multiple_choice'].includes(task.type)) {
-        issues.push(`Задание ${n}: question слишком короткое — нет полного условия с данными`)
-      }
-    }
-
-    if (/пещер|персонаж/i.test(question)) {
-      const timeMentions = question.match(/\d+\s*минут/g)?.length ?? 0
-      if (timeMentions < 3 && /время|минут/i.test(question)) {
-        issues.push(`Задание ${n}: про пещеру/персонажей, но в question нет полного набора данных (времена, ограничения)`)
-      }
-    }
-
-    if (/кажд(ого|ому) персонаж/i.test(question) && !/\d+\s*минут/i.test(question)) {
-      issues.push(`Задание ${n}: просит время персонажей, но не перечисляет данные в question`)
-    }
-
-    if (/упорядоч/i.test(question) && question.length < 80 && !/«.+»/.test(question)) {
-      issues.push(`Задание ${n}: ordering без полного условия задачи в question`)
+    for (const issue of taskQuestionIssues(task, planExpectations?.[i])) {
+      issues.push(`Задание ${n}: ${issue}`)
     }
   })
 
   return [...new Set(issues)]
+}
+
+export function repairTaskExpectation(baseExpectation: string): string {
+  return [
+    'Исправь задание: в question — полное условие из reference_file (сюжет, все персонажи, числа, ограничения) и только потом вопрос.',
+    'Не копируй teacher_expectation и не пиши только «Определите…» / «Выберите…».',
+    'Не включай в question служебные фразы про reference_file, teacher_expectation или эту инструкцию.',
+    baseExpectation.trim() ? `Исходная установка: ${baseExpectation.trim()}` : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
 }
 
 export function independenceRetryNote(issues: string[]): string {
@@ -117,8 +213,9 @@ export function independenceRetryNote(issues: string[]): string {
     'КРИТИЧЕСКИЕ нарушения самостоятельности заданий — исправь и верни JSON заново:',
     ...issues.map((issue) => `- ${issue}`),
     '',
-    'Каждое задание: полное условие в question (все числа и ограничения).',
-    'Разные задания — разные задачи; ответ одного не нужен для другого.',
+    'Каждое question — готовое условие для ученика: сюжет + все данные + вопрос в одном поле.',
+    'teacher_expectation — только для автора; в question его нельзя копировать.',
+    'Разные задания — разные фрагменты reference_file; ответ одного не нужен для другого.',
     'Не дроби одну задачу из reference_file на несколько заданий листа.',
   ].join('\n')
 }

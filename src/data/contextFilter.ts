@@ -28,6 +28,9 @@ export function isIrrelevantSectionTitle(title: string): boolean {
 export function isLikelyBlockHeading(line: string): boolean {
   const t = line.trim()
   if (!t || t.length > 120) return false
+  if (/^\d+\s*минут\s*=/.test(t)) return false
+  if (/=\s*\d+\s*минут/.test(t)) return false
+  if (/^[+\d\s=минут\.]+$/i.test(t)) return false
   if (HEADING_LINE_RE.some((re) => re.test(t))) return true
   if (isIrrelevantSectionTitle(t)) return true
   if (/^[A-ZА-ЯЁ0-9][^.!?]{0,70}$/.test(t) && t.length <= 48 && !t.includes(',')) return true
@@ -133,6 +136,8 @@ export function listContextBlockTitles(text: string): string[] {
   return splitContextBlocks(text)
     .map((b) => b.title.trim())
     .filter((title) => title && !isIrrelevantSectionTitle(title))
+    .filter((title) => !/^\d+\s*минут\s*=/.test(title))
+    .filter((title) => title.length >= 3)
 }
 
 export function prepareReferenceContent(

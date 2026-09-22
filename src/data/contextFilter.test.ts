@@ -47,5 +47,6 @@ describe('contextFilter', () => {
     expect(titles).toContain('5-6 классы')
     expect(titles).toContain('7-8 классы')
     expect(titles.some((t) => /решение/i.test(t))).toBe(false)
+    expect(titles.some((t) => /минут\s*=/.test(t))).toBe(false)
   })
 })

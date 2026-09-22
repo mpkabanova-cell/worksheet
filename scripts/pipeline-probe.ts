@@ -1,5 +1,5 @@
 /**
- * Прогон plan + worksheet для ZADACHI_PROBY_EXTRACT.md
+ * Полный прогон: extract-context → plan → worksheet для ZADACHI_PROBY_EXTRACT.md
  * Запуск: node_modules/.bin/vite-node scripts/pipeline-probe.ts
  */
 
@@ -11,10 +11,18 @@ import type { WorksheetDraft } from '../src/data/worksheet'
 import { generatePlanAI, generateWorksheetAI } from '../src/data/ai'
 import { extractJson } from '../src/data/aiClient'
 import { labelForType } from '../src/data/worksheet'
+import { prepareReferenceContent } from '../src/data/contextFilter'
+import { referenceFilePayload } from '../src/data/contextFile'
 
 dotenv.config()
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const DOCX_PATH =
+  process.env.PROBE_DOCX ||
+  '/Users/kabanovamaria/Documents/Фоксфорд/Задачи пробы.docx'
+const MD_PATH = path.join(root, 'docs/ZADACHI_PROBY_EXTRACT.md')
+const CONTEXT_BLOCK = process.env.PROBE_BLOCK?.trim() || undefined
+
 const OPENAI_API_KEY = (process.env.OPENAI_API_KEY || '').trim()
 const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || 'https://openrouter.ai/api/v1').replace(
   /\/$/,
@@ -22,12 +30,14 @@ const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || 'https://openrouter.ai/a
 )
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'google/gemini-2.5-flash'
 
-function readExtractText(): string {
-  const md = fs.readFileSync(path.join(root, 'docs/ZADACHI_PROBY_EXTRACT.md'), 'utf8')
-  const start = md.indexOf('```\n')
-  const end = md.lastIndexOf('\n```')
-  if (start === -1 || end <= start) throw new Error('Не найден блок contextFileText в ZADACHI_PROBY_EXTRACT.md')
-  return md.slice(start + 4, end)
+async function extractDocx(): Promise<{ text: string; truncated: boolean; sec: number; sizeMb: string }> {
+  const { extractContextFromFile } = await import('../server/extractContext.js')
+  const buffer = fs.readFileSync(DOCX_PATH)
+  const sizeMb = (buffer.length / (1024 * 1024)).toFixed(2)
+  const t0 = Date.now()
+  const result = await extractContextFromFile(buffer, path.basename(DOCX_PATH))
+  const sec = ((Date.now() - t0) / 1000).toFixed(0)
+  return { ...result, sec: Number(sec), sizeMb }
 }
 
 async function chatJson<T>(
@@ -70,7 +80,6 @@ async function chatJson<T>(
   return extractJson(content) as T
 }
 
-// Подмена fetch для aiClient → OpenRouter напрямую
 const nativeFetch = globalThis.fetch.bind(globalThis)
 globalThis.fetch = (async (input, init) => {
   const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
@@ -91,6 +100,10 @@ globalThis.fetch = (async (input, init) => {
   }
   return nativeFetch(input, init)
 }) as typeof fetch
+
+function countBrackets(text: string): number {
+  return (text.match(/\[[^\]]+\]/g) ?? []).length
+}
 
 function formatPlan(plan: WorksheetDraft['plan']): string {
   return plan
@@ -151,7 +164,23 @@ function formatWorksheet(draft: WorksheetDraft): string {
 }
 
 async function main() {
-  const contextFileText = readExtractText()
+  console.log('Extract…', DOCX_PATH)
+  const { text, truncated, sec, sizeMb } = await extractDocx()
+  const brackets = countBrackets(text)
+  const filtered = prepareReferenceContent(text, { block: CONTEXT_BLOCK })
+  const filteredLen = filtered.length
+
+  const today = new Date().toISOString().slice(0, 10)
+  const extractSection = [
+    '# Задачи пробы.docx — результат extract-context',
+    '',
+    `Прогон ${today}. ${sizeMb} МБ, ${sec} с, ${text.length.toLocaleString('ru-RU')} символов, ${brackets} [скобок], truncated: ${truncated}.`,
+    '',
+    '```',
+    text,
+    '```',
+  ].join('\n')
+
   const draft: WorksheetDraft = {
     id: 'probe',
     subject: 'Математика',
@@ -169,9 +198,13 @@ async function main() {
     blocks: [],
     pages: 1,
     print: { answersSeparate: false, copies: 1, orientation: 'portrait' },
-    contextFileName: 'Задачи пробы.docx',
-    contextFileText,
+    contextFileName: path.basename(DOCX_PATH),
+    contextFileText: text,
+    contextFileBlock: CONTEXT_BLOCK,
   }
+
+  const ref = referenceFilePayload(draft)
+  console.log(`Filtered for prompts: ${filteredLen} chars${CONTEXT_BLOCK ? `, block «${CONTEXT_BLOCK}»` : ''}`)
 
   console.log('Plan…')
   const t0 = Date.now()
@@ -184,13 +217,14 @@ async function main() {
   const sheet = await generateWorksheetAI(withPlan, 'create')
   const sheetSec = ((Date.now() - t1) / 1000).toFixed(1)
 
+  const blockNote = CONTEXT_BLOCK ? `, блок «${CONTEXT_BLOCK}»` : ''
   const appendix = [
     '',
     '---',
     '',
     '## Генерация листа',
     '',
-    'Вход: Математика, 5 класс, 5 заданий, тема «решение задач», reference_file = extract выше.',
+    `Вход: Математика, 5 класс, 5 заданий, тема «решение задач», reference_file = extract выше (без решений${blockNote}, ${filteredLen} симв.).`,
     '',
     `План (${planSec} с):`,
     '',
@@ -206,10 +240,11 @@ async function main() {
     '',
   ].join('\n')
 
-  const mdPath = path.join(root, 'docs/ZADACHI_PROBY_EXTRACT.md')
-  const base = fs.readFileSync(mdPath, 'utf8').replace(/\n---\n\n## Генерация листа[\s\S]*$/, '')
-  fs.writeFileSync(mdPath, base.trimEnd() + appendix, 'utf8')
-  console.log('Updated', mdPath)
+  fs.writeFileSync(MD_PATH, extractSection + appendix, 'utf8')
+  console.log('Updated', MD_PATH)
+  if (ref?.content) {
+    console.log('reference_file.content preview:', ref.content.slice(0, 120).replace(/\n/g, ' ') + '…')
+  }
 }
 
 main().catch((err) => {

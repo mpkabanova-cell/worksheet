@@ -13,11 +13,24 @@ export function normalizeWs(text: string): string {
   return text.replace(/\s+/g, ' ').trim()
 }
 
+const BARE_INSTRUCTION_RE =
+  /^(определит[ье]|выберит[ье]|сопоставит[ье]|объяснит[ье]|упорядоч[ьи]те?|запишит[ье]|найдит[ье]|заполнит[ье]|распределит[ье])\b/i
+
+/** Вопрос похож на методическую установку, а не на условие для ученика. */
+export function looksLikeBareTaskInstruction(question: string): boolean {
+  const q = question.trim()
+  if (!q || !BARE_INSTRUCTION_RE.test(q)) return false
+  if (q.length >= 200) return false
+  if ((q.match(/\d+\s*минут/g)?.length ?? 0) >= 3) return false
+  if (/\d/.test(q) && q.length >= 120) return false
+  return true
+}
+
 export function expectationToQuestion(expectation?: string): string {
   const value = expectation?.trim()
   if (!value) return ''
 
-  return value
+  const converted = value
     .replace(/^Заполнить/i, 'Заполните')
     .replace(/^Сопоставить/i, 'Сопоставьте')
     .replace(/^Решить/i, 'Решите')
@@ -28,6 +41,10 @@ export function expectationToQuestion(expectation?: string): string {
     .replace(/^Найти/i, 'Найдите')
     .replace(/^Упорядочить/i, 'Упорядочьте')
     .replace(/^Распределить/i, 'Распределите')
+    .replace(/^Определить/i, 'Определите')
+
+  if (looksLikeBareTaskInstruction(converted)) return ''
+  return converted
 }
 
 function hasGapMarker(text: string): boolean {
@@ -201,8 +218,11 @@ function normalizeQuestionTask<T extends AiTaskFields>(
   expectation?: string,
 ): T {
   let question = (task.question ?? '').trim()
-  if (isMissingTaskQuestion(question)) {
+  if (isMissingTaskQuestion(question) || looksLikeBareTaskInstruction(question)) {
     question = defaultQuestionForTaskType(type, expectation)
+  }
+  if (looksLikeBareTaskInstruction(question)) {
+    question = defaultQuestionForTaskType(type)
   }
   return { ...task, question }
 }

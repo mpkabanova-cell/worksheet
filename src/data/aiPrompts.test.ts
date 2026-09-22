@@ -24,10 +24,10 @@ describe('IMAGE_DESCRIPTION_RULES in prompts', () => {
     expect(system).toContain('не этап многошагового решения')
   })
 
-  it('includes relevance rules in worksheet prompt', () => {
+  it('includes reference material rules in worksheet prompt', () => {
     const { system } = promptsForWorksheet(draft, 'create')
-    expect(system).toContain('Релевантность reference_file.content')
-    expect(system).toContain('готовые решения')
+    expect(system).toContain('Опора на reference_file')
+    expect(system).toContain('главный источник задач')
   })
 
   it('includes standalone task rules in worksheet prompt', () => {

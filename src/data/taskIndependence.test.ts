@@ -40,6 +40,32 @@ describe('validateTaskIndependence', () => {
     expect(issues.some((i) => i.includes('gaps_text'))).toBe(true)
   })
 
+  it('flags bare instruction copied from plan expectation', () => {
+    const expectation = 'Определить, кто из персонажей проходит пещеру за наименьшее время'
+    const tasks: AiTaskPayload[] = [
+      {
+        type: 'single_choice',
+        question: 'Определите, кто из персонажей проходит пещеру за наименьшее время.',
+        options: ['Бараш', 'Лосяш', 'Совунья'],
+      },
+    ]
+    const issues = validateTaskIndependence(tasks, [expectation])
+    expect(issues.some((i) => i.includes('teacher_expectation') || i.includes('инструкция'))).toBe(
+      true,
+    )
+  })
+
+  it('flags cave choice without time data', () => {
+    const issues = validateTaskIndependence([
+      {
+        type: 'single_choice',
+        question: 'Определите, кто проходит пещеру быстрее всех.',
+        options: ['Бараш', 'Лосяш', 'Совунья'],
+      },
+    ])
+    expect(issues.some((i) => i.includes('пещер') || i.includes('время'))).toBe(true)
+  })
+
   it('accepts self-contained word problem', () => {
     const issues = validateTaskIndependence([
       {

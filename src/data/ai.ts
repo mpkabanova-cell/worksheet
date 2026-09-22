@@ -11,9 +11,14 @@ import { normalizeAiTask } from './taskContent'
 import { repairJsonLatexEscapes } from './mathTextUtils'
 import {
   independenceRetryNote,
+  repairTaskExpectation,
+  taskQuestionIssues,
   validatePlanIndependence,
   validateTaskIndependence,
 } from './taskIndependence'
+import { listContextBlockTitles } from './contextFilter'
+import { referenceFilePayload } from './contextFile'
+import { enrichBlockFromReference } from './referenceEnrich'
 
 function sanitizeAiText(text: string | undefined): string {
   if (!text) return ''
@@ -53,20 +58,33 @@ interface AiPlanPayload {
 
 const ALLOWED_PLAN_TYPES = new Set(PLAN_TASK_TYPES.map((t) => t.type))
 
-function fallbackPlanExpectation(draft: WorksheetDraft, index: number): string {
+function fallbackPlanExpectation(draft: WorksheetDraft, index: number, blockHint?: string): string {
+  if (blockHint) {
+    return `Составить задание по материалу «${blockHint}» из reference_file`
+  }
   const topic = draft.topic.trim() || 'тема'
   const variants = [
-    `Решить текстовую задачу на покупки по теме «${topic}»`,
-    `Выбрать верный ответ в задаче на движение по теме «${topic}»`,
-    `Заполнить пропуски в условии задачи на работу по теме «${topic}»`,
-    `Упорядочить шаги решения задачи на время по теме «${topic}»`,
-    `Объяснить ход решения задачи на части по теме «${topic}»`,
-    `Сопоставить условие и ответ в задаче по теме «${topic}»`,
+    `Решить задачу по теме «${topic}» на основе reference_file`,
+    `Выбрать верный ответ по материалу reference_file`,
+    `Заполнить пропуски по условию из reference_file`,
+    `Упорядочить элементы по задаче из reference_file`,
+    `Объяснить ход решения задачи из reference_file`,
   ]
   return variants[index % variants.length]
 }
 
-function fallbackIndependentPlan(draft: WorksheetDraft): PlanTask[] {
+function documentBlockHints(draft: WorksheetDraft): string[] {
+  const ref = referenceFilePayload(draft)
+  if (!ref?.content && !draft.contextFileText?.trim()) return []
+  const raw = draft.contextFileText ?? ref?.content ?? ''
+  const titles = listContextBlockTitles(raw)
+  const gradeBlocks = titles.filter((t) => /\d+\s*[-–—]\s*\d+\s*класс/i.test(t))
+  if (gradeBlocks.length) return gradeBlocks
+  return titles.slice(0, 8)
+}
+
+function fallbackDocumentPlan(draft: WorksheetDraft): PlanTask[] {
+  const blocks = documentBlockHints(draft)
   const types: TaskType[] = [
     'short_answer',
     'single_choice',
@@ -78,7 +96,7 @@ function fallbackIndependentPlan(draft: WorksheetDraft): PlanTask[] {
   return Array.from({ length: count }, (_, i) => ({
     id: `plan-${Date.now()}-${i}`,
     taskType: types[i % types.length],
-    userExpectation: fallbackPlanExpectation(draft, i),
+    userExpectation: fallbackPlanExpectation(draft, i, blocks[i % Math.max(blocks.length, 1)]),
   }))
 }
 
@@ -237,7 +255,10 @@ export async function generatePlanAI(draft: WorksheetDraft): Promise<PlanTask[]>
     }
 
     if (validatePlanIndependence(rows).length) {
-      return fallbackIndependentPlan(draft)
+      const blocks = documentBlockHints(draft)
+      if (blocks.length || draft.contextFileText?.trim()) {
+        return fallbackDocumentPlan(draft)
+      }
     }
 
     if (!rows.length) throw new AiError('Модель не вернула план заданий')
@@ -255,15 +276,21 @@ export async function generatePlanAI(draft: WorksheetDraft): Promise<PlanTask[]>
   }
 }
 
-function blockNeedsRepair(block: WorksheetBlock): boolean {
-  if (block.type === 'fill_gaps') {
-    return !getGapsSourceText(block).includes('___')
-  }
-  if (block.type === 'ordering') {
-    const q = block.question?.trim() || ''
-    return q.length < 80 || (!/\d/.test(q) && !/«.+»/.test(q))
-  }
-  return false
+function blockNeedsRepair(
+  block: WorksheetBlock,
+  planExpectation?: string,
+): boolean {
+  return taskQuestionIssues(
+    {
+      type: block.type,
+      question: block.question,
+      gaps_text: getGapsSourceText(block),
+      options: block.options?.map((o) => o.text),
+      left_items: block.leftItems?.map((i) => i.text),
+      right_items: block.rightItems?.map((i) => i.text),
+    },
+    planExpectation,
+  ).length > 0
 }
 
 export async function generateWorksheetAI(
@@ -280,8 +307,9 @@ export async function generateWorksheetAI(
     })
 
     let tasks = (payload.tasks ?? []).slice(0, prepared.taskCount)
+    const planExpectations = plan.map((p) => p.userExpectation)
     for (let attempt = 0; attempt < 2; attempt++) {
-      const taskIssues = validateTaskIndependence(tasks)
+      const taskIssues = validateTaskIndependence(tasks, planExpectations)
       if (!taskIssues.length) break
       payload = await chatJson<AiWorksheetPayload>(
         system,
@@ -291,11 +319,11 @@ export async function generateWorksheetAI(
       tasks = (payload.tasks ?? []).slice(0, prepared.taskCount)
     }
 
-    if (validateTaskIndependence(tasks).length) {
+    if (validateTaskIndependence(tasks, planExpectations).length && referenceFilePayload(prepared)?.content) {
       payload = await chatJson<AiWorksheetPayload>(
         system,
         user +
-          '\n\nИГНОРИРУЙ сюжеты из reference_file (пещера, персонажи, граф). Сгенерируй независимые текстовые задачи по теме для указанного класса. Каждое question — полное условие со всеми числами. fill_gaps — обязательно с gaps_text и ___.',
+          '\n\nКаждое question — полное условие для ученика: текст задачи из reference_file (все данные и числа) + вопрос. Не копируй teacher_expectation («Определить…», «Выберите…» без условия). Не используй готовые решения из файла.',
         { temperature: 0.55 },
       )
       tasks = (payload.tasks ?? []).slice(0, prepared.taskCount)
@@ -324,15 +352,31 @@ export async function generateWorksheetAI(
     const blocks = aligned.map((t, i) => toBlock(t, i, prepared, plan[i]?.userExpectation))
 
     for (let i = 0; i < blocks.length; i++) {
-      if (!blockNeedsRepair(blocks[i])) continue
-      try {
-        blocks[i] = await generateSingleTaskAI(
-          prepared,
-          plan[i]?.taskType ?? blocks[i].type,
+      const expectation = plan[i]?.userExpectation || fallbackPlanExpectation(prepared, i)
+      let attempts = 0
+      while (blockNeedsRepair(blocks[i], expectation) && attempts < 3) {
+        try {
+          blocks[i] = await generateSingleTaskAI(
+            prepared,
+            plan[i]?.taskType ?? blocks[i].type,
+            expectation,
+            repairTaskExpectation(expectation),
+          )
+        } catch {
+          break
+        }
+        attempts += 1
+      }
+    }
+
+    const refContent = referenceFilePayload(prepared)?.content
+    if (refContent) {
+      for (let i = 0; i < blocks.length; i++) {
+        blocks[i] = enrichBlockFromReference(
+          blocks[i],
+          refContent,
           plan[i]?.userExpectation || fallbackPlanExpectation(prepared, i),
         )
-      } catch {
-        /* keep original */
       }
     }
 
@@ -366,9 +410,10 @@ export async function generateSingleTaskAI(
   draft: WorksheetDraft,
   taskType: TaskType,
   expectation = '',
+  repairNote?: string,
 ): Promise<WorksheetBlock> {
   try {
-    const { system, user } = promptsForSingleTask(draft, taskType, expectation)
+    const { system, user } = promptsForSingleTask(draft, taskType, expectation, repairNote)
     const payload = await chatJson<{ task: AiTaskPayload }>(system, user, { temperature: 0.55 })
 
     if (!payload.task) throw new AiError('Модель не вернула задание')
