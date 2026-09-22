@@ -73,7 +73,9 @@ describe('referenceEnrich', () => {
     }
     const enriched = enrichBlockFromReference(block, CAVE_REFERENCE, 'Заполнить пропуски в задаче про пещеру')
     expect(enriched.question).toContain('отправились в поход')
+    expect(enriched.question).toContain('3 минут')
     expect(enriched.question).toContain('Заполните пропуски')
+    expect(enriched.question).not.toContain('Задача на выбор персонажа')
   })
 
   it('prepends cave data to bare question', () => {

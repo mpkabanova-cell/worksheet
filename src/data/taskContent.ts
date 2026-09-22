@@ -16,6 +16,43 @@ export function normalizeWs(text: string): string {
 const BARE_INSTRUCTION_RE =
   /^(определит[ье]|выберит[ье]|сопоставит[ье]|объяснит[ье]|упорядоч[ьи]те?|запишит[ье]|найдит[ье]|заполнит[ье]|распределит[ье])\b/i
 
+const META_TASK_DESCRIPTION_PATTERNS = [
+  /задача на выбор персонажа/i,
+  /задача на\s+(?:выбор|сопоставление|распределение|упорядочивание)/i,
+  /исходя из предоставленных данных/i,
+  /на основе предоставленн(?:ой|ых) информации/i,
+  /требуется выбрать один вариант ответа/i,
+  /^сопоставление\s+[^.\n]{10,200}\.\s*$/im,
+]
+
+/** Служебная формулировка из description/plan, не для ученика. */
+export function containsMetaTaskDescription(text: string): boolean {
+  const value = text.trim()
+  if (!value) return false
+  return META_TASK_DESCRIPTION_PATTERNS.some((pattern) => pattern.test(value))
+}
+
+/** Убирает строки description/plan, попавшие в question. */
+export function stripMetaTaskDescription(text: string): string {
+  let result = text.trim()
+  if (!result) return result
+
+  const linePatterns = [
+    /^задача на выбор персонажа[^\n]*/gim,
+    /^задача на\s+[^\n]{4,120}\.\s*$/gim,
+    /^[^.\n]*исходя из предоставленных данных[^\n]*\.?\s*$/gim,
+    /^[^.\n]*на основе предоставленн(?:ой|ых) информации[^\n]*\.?\s*$/gim,
+    /^[^.\n]*требуется выбрать один вариант ответа\.?\s*$/gim,
+    /^сопоставление\s+[^.\n]{10,200}\.\s*$/gim,
+  ]
+
+  for (const pattern of linePatterns) {
+    result = result.replace(pattern, '').trim()
+  }
+
+  return result.replace(/\n{3,}/g, '\n\n').trim()
+}
+
 /** Вопрос похож на методическую установку, а не на условие для ученика. */
 export function looksLikeBareTaskInstruction(question: string): boolean {
   const q = question.trim()
@@ -162,7 +199,7 @@ function sanitizeTaskTextFields<T extends AiTaskFields>(task: T): T {
   const next = { ...task }
 
   if (next.question != null) {
-    next.question = stripTheoryFromField(next.question)
+    next.question = stripMetaTaskDescription(stripTheoryFromField(next.question))
   }
 
   if (next.options?.length) {
@@ -201,11 +238,24 @@ function normalizeFillGapsTask<T extends AiTaskFields>(
     }
   }
 
+  question = finalizeQuestionText(question, 'fill_gaps', expectation)
+
   return { ...task, question, gaps_text: gapsText }
 }
 
+function finalizeQuestionText(question: string, type: TaskType, expectation?: string): string {
+  let value = stripMetaTaskDescription(question.trim())
+  if (isMissingTaskQuestion(value) || looksLikeBareTaskInstruction(value)) {
+    value = defaultQuestionForTaskType(type, expectation)
+  }
+  if (containsMetaTaskDescription(value)) {
+    value = stripMetaTaskDescription(value)
+  }
+  return value
+}
+
 function normalizeMatchingTask<T extends AiTaskFields>(task: T, expectation?: string): T {
-  let question = (task.question ?? '').trim()
+  let question = finalizeQuestionText(task.question ?? '', 'matching', expectation)
   if (!question) {
     question = defaultQuestionForTaskType('matching', expectation)
   }
@@ -217,12 +267,9 @@ function normalizeQuestionTask<T extends AiTaskFields>(
   type: TaskType,
   expectation?: string,
 ): T {
-  let question = (task.question ?? '').trim()
+  let question = finalizeQuestionText(task.question ?? '', type, expectation)
   if (isMissingTaskQuestion(question) || looksLikeBareTaskInstruction(question)) {
     question = defaultQuestionForTaskType(type, expectation)
-  }
-  if (looksLikeBareTaskInstruction(question)) {
-    question = defaultQuestionForTaskType(type)
   }
   return { ...task, question }
 }

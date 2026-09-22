@@ -2,7 +2,7 @@ import { stripSolutionTail } from './contextFilter'
 import { getGapsSourceText } from './blockUtils'
 import type { TaskType, WorksheetBlock } from './worksheet'
 import { blockQuestionIssues } from './taskIndependence'
-import { extractCaveConditionFromReference, extractCaveNarrativeFromReference } from './referenceEnrich'
+import { extractCaveConditionFromReference } from './referenceEnrich'
 
 export type ReferenceThemeId = 'cave' | 'logic-towns' | 'delivery'
 
@@ -205,7 +205,6 @@ export function buildFillGapsFallbackBlock(
 
   if (themeId === 'cave' && snippet) {
     const condition = extractCaveConditionFromReference(refContent)
-    const narrative = extractCaveNarrativeFromReference(refContent)
     if (condition) {
       const dataLines: string[] = []
       for (const line of condition.split('\n').map((item) => item.trim()).filter(Boolean)) {
@@ -222,8 +221,7 @@ export function buildFillGapsFallbackBlock(
       return {
         ...block,
         question: [
-          narrative ||
-            'Бараш, Крош, Совунья, Ежик, Пин и Лосяш отправились в поход. Перед ними открылся вход в проходную Мышиную пещеру. Какое наименьшее суммарное время затратили друзья для преодоления пещеры, если',
+          condition,
           '',
           'Заполните пропуски в данных ниже.',
         ].join('\n'),

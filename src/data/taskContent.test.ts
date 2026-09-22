@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_ORDERING_QUESTION,
   DEFAULT_SHORT_ANSWER_QUESTION,
+  containsMetaTaskDescription,
   getBlockQuestion,
   looksLikeTheory,
   normalizeAiTask,
   stripLeadingTheoryFromGaps,
+  stripMetaTaskDescription,
   stripTheoryFromField,
 } from './taskContent'
 import type { WorksheetBlock } from './worksheet'
@@ -43,6 +45,17 @@ describe('stripLeadingTheoryFromGaps', () => {
 
 Число ___ является целым.`
     expect(stripLeadingTheoryFromGaps(text)).toBe('Число ___ является целым.')
+  })
+})
+
+describe('stripMetaTaskDescription', () => {
+  it('removes plan description lines from question', () => {
+    const raw = `Бараш, Крош и Совунья отправились в поход.
+
+Задача на выбор персонажа, который затратил наибольшее время на прохождение пещеры, исходя из предоставленных данных. Требуется выбрать один вариант ответа.`
+    expect(stripMetaTaskDescription(raw)).not.toContain('Задача на выбор персонажа')
+    expect(stripMetaTaskDescription(raw)).toContain('отправились в поход')
+    expect(containsMetaTaskDescription(stripMetaTaskDescription(raw))).toBe(false)
   })
 })
 

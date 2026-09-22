@@ -1,6 +1,6 @@
 import type { AiTaskPayload } from './ai'
 import type { TaskType, WorksheetBlock } from './worksheet'
-import { looksLikeBareTaskInstruction, normalizeWs } from './taskContent'
+import { looksLikeBareTaskInstruction, normalizeWs, containsMetaTaskDescription } from './taskContent'
 import { planExpectsStoryContext, looksLikeReferenceDump } from './referenceEnrich'
 
 const CROSS_REF_PATTERNS = [
@@ -74,6 +74,28 @@ function countTimeMentions(text: string): number {
   return text.match(/\d+\s*минут/g)?.length ?? 0
 }
 
+function countGapMinuteBlankCount(gaps: string): number {
+  const lines = gaps.split('\n').map((line) => line.trim()).filter(Boolean)
+  return lines.filter((line) => /___/.test(line) && /минут/i.test(line)).length
+}
+
+function taskHasSelfContainedCaveData(task: AiTaskPayload): boolean {
+  const question = (task.question || '').trim()
+  const gaps = (task.gaps_text || '').trim()
+  const options = choiceOptionsText(task)
+  const questionTimes = countTimeMentions(question)
+  const optionTimes = countTimeMentions(options)
+
+  if (questionTimes >= 3) return true
+  if (questionTimes + optionTimes >= 3) return true
+
+  if (task.type === 'fill_gaps' && countGapMinuteBlankCount(gaps) > 0) {
+    return questionTimes >= countGapMinuteBlankCount(gaps)
+  }
+
+  return countTimeMentions(`${question}\n${gaps}\n${options}`) >= 3
+}
+
 export function questionMatchesExpectation(question: string, expectation?: string): boolean {
   const q = normalizeWs(question).toLowerCase()
   const e = normalizeWs(expectation || '').toLowerCase()
@@ -133,6 +155,14 @@ export function taskQuestionIssues(
     issues.push('question повторяет description — нужно полное условие задачи')
   }
 
+  if (containsMetaTaskDescription(question)) {
+    issues.push('question содержит служебную формулировку description (например «Задача на выбор персонажа»)')
+  }
+
+  if (planExpectation && containsMetaTaskDescription(planExpectation) && questionMatchesExpectation(question, planExpectation)) {
+    issues.push('question скопирован из description — нужен текст условия для ученика')
+  }
+
   if (planExpectation && planExpectsStoryContext(planExpectation)) {
     const combined = `${question}\n${choiceOptionsText(task)}`
     if (!hasCaveData(combined) && question.length < 100) {
@@ -157,12 +187,19 @@ export function taskQuestionIssues(
     if (!gaps.includes('___')) {
       issues.push('fill_gaps без gaps_text с пропусками ___')
     }
+    const gapMinuteBlanks = countGapMinuteBlankCount(gaps)
+    if (gapMinuteBlanks > 0 && countTimeMentions(question) < gapMinuteBlanks) {
+      issues.push('fill_gaps: в question нет числовых данных для пропусков с минутами — задание не самостоятельное')
+    }
     const aboutCave =
       /пещер|пропуск/i.test(planExpectation || '') ||
       /пещер/i.test(question) ||
       /пещер/i.test(gaps)
     if (aboutCave && !hasCaveNarrativeInQuestion(question)) {
       issues.push('fill_gaps про пещеру без полного сюжета в question')
+    }
+    if (aboutCave && !taskHasSelfContainedCaveData(task)) {
+      issues.push('fill_gaps про пещеру без полного набора времён в question — нельзя опираться на другие задания')
     }
   } else if (type === 'ordering') {
     if (question.length < 80 || (!/\d/.test(question) && !/«.+»/.test(question))) {
@@ -184,8 +221,21 @@ export function taskQuestionIssues(
     if (needsCaveContext(question) && !hasCaveData(combined)) {
       issues.push('выбор ответа про пещеру/персонажей без времени в question или options')
     }
+    if (needsCaveContext(question) && !taskHasSelfContainedCaveData(task)) {
+      issues.push('выбор ответа про пещеру без полного набора времён — задание не самостоятельное')
+    }
     if (question.length < 50 && looksLikeBareTaskInstruction(question)) {
       issues.push('question слишком короткий для выбора ответа')
+    }
+  } else if (type === 'grouping') {
+    if (containsMetaTaskDescription(question)) {
+      issues.push('grouping: question содержит description вместо условия для ученика')
+    }
+    if (needsCaveContext(question) && !taskHasSelfContainedCaveData(task)) {
+      issues.push('grouping про пещеру без полного набора времён — задание не самостоятельное')
+    }
+    if (question.length < 80 && looksLikeBareTaskInstruction(question)) {
+      issues.push('grouping без полного условия задачи в question')
     }
   } else {
     const hasNumbers = /\d/.test(question)
@@ -195,8 +245,8 @@ export function taskQuestionIssues(
     }
   }
 
-  if (needsCaveContext(question) && !hasCaveData(`${question}\n${choiceOptionsText(task)}`)) {
-    issues.push('про пещеру/персонажей, но нет полного набора времён в question')
+  if (needsCaveContext(question) && !taskHasSelfContainedCaveData(task)) {
+    issues.push('про пещеру/персонажей, но нет полного набора времён в этом задании')
   }
 
   if (/кажд(ого|ому) персонаж/i.test(question) && !/\d+\s*минут/i.test(question)) {
@@ -272,6 +322,15 @@ export function validateTaskIndependence(
     )
   }
 
+  const caveTasksMissingData = tasks.filter(
+    (task) => /пещер/i.test(taskText(task)) && !taskHasSelfContainedCaveData(task),
+  )
+  if (caveTasksMissingData.length >= 2) {
+    issues.push(
+      'Несколько заданий про пещеру без полных данных в каждом question — ученик не может решать их независимо',
+    )
+  }
+
   tasks.forEach((task, i) => {
     const n = i + 1
     for (const issue of taskQuestionIssues(task, planExpectations?.[i])) {
@@ -287,7 +346,8 @@ export function repairTaskExpectation(baseDescription: string): string {
     'Исправь задание: в question — полное условие из source_content (сюжет, все персонажи, числа, ограничения) и только потом вопрос.',
     'Альтернатива должна быть сюжетно близка к anchor_tasks и source_content, но самостоятельной.',
     'Не копируй description и не пиши только «Определите…» / «Выберите…».',
-    'Не включай в question служебные фразы про source_content, description или эту инструкцию.',
+    'Не включай в question служебные фразы: «Задача на выбор персонажа», «исходя из предоставленных данных», «на основе предоставленной информации», source_content, description.',
+    'Ученик не видит другие задания листа — все числа и правила должны быть в этом question.',
     baseDescription.trim() ? `Исходная установка (description): ${baseDescription.trim()}` : '',
   ]
     .filter(Boolean)

@@ -544,7 +544,13 @@ export async function generateWorksheetAI(
         /пещер/i.test(blocks[i].question || '') || /пещер/i.test(planBriefs[i] || '')
       const storyIssues =
         blockQuestionIssues(blocks[i], planBriefs[i]).some(
-          (issue) => issue.includes('сюжет') || issue.includes('коротк'),
+          (issue) =>
+            issue.includes('сюжет') ||
+            issue.includes('коротк') ||
+            issue.includes('минут') ||
+            issue.includes('самостоятель') ||
+            issue.includes('description') ||
+            issue.includes('служеб'),
         ) ||
         (aboutCave && !hasCaveNarrativeInQuestion(blocks[i].question || ''))
       const gapsMissing = !getGapsSourceText(blocks[i]).includes('___')

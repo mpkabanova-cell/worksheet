@@ -137,4 +137,29 @@ describe('validateTaskIndependence', () => {
     ])
     expect(issues).toEqual([])
   })
+
+  it('flags fill_gaps with minute blanks but no times in question', () => {
+    const issues = validateTaskIndependence([
+      {
+        type: 'fill_gaps',
+        question:
+          'Бараш, Крош, Совунья отправились в поход. Какое наименьшее суммарное время затратили друзья для преодоления пещеры, если',
+        gaps_text:
+          'Совунья пересекла пещеру за ___ минут, Пин затратил ___ минуту, Крош затратил ___ минуты.',
+      },
+    ])
+    expect(issues.some((i) => i.includes('минут') || i.includes('самостоятель'))).toBe(true)
+  })
+
+  it('flags meta description copied into question', () => {
+    const issues = validateTaskIndependence([
+      {
+        type: 'single_choice',
+        question:
+          'Задача на выбор персонажа, который затратил наибольшее время на прохождение пещеры, исходя из предоставленных данных.',
+        options: ['Бараш', 'Лосяш'],
+      },
+    ])
+    expect(issues.some((i) => i.includes('Задача на выбор') || i.includes('служеб'))).toBe(true)
+  })
 })

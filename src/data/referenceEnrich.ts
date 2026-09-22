@@ -1,4 +1,5 @@
 import { splitContextBlocks, stripIrrelevantSections } from './contextFilter'
+import { stripMetaTaskDescription } from './taskContent'
 import type { TaskType, WorksheetBlock } from './worksheet'
 
 export const QUESTION_MAX_LEN = 1500
@@ -150,6 +151,10 @@ export function trimReferenceDumpFromQuestion(question: string, type?: TaskType)
   return q
 }
 
+function cleanStudentQuestion(question: string, type?: TaskType): string {
+  return trimReferenceDumpFromQuestion(stripMetaTaskDescription(question), type)
+}
+
 export function enrichCaveQuestion(question: string, referenceContent: string): string {
   const q = question.trim()
   if (hasCaveData(q)) return trimReferenceDumpFromQuestion(q)
@@ -172,7 +177,7 @@ function matchingHasColumnData(block: WorksheetBlock): boolean {
 export function trimReferenceDumpFromBlock(block: WorksheetBlock): WorksheetBlock {
   const question = block.question?.trim()
   if (!question) return block
-  const trimmed = trimReferenceDumpFromQuestion(question, block.type)
+  const trimmed = cleanStudentQuestion(question, block.type)
   if (trimmed === question) return block
   return { ...block, question: trimmed }
 }
@@ -198,13 +203,18 @@ export function enrichBlockFromReference(
     const aboutCave =
       /пещер/i.test(block.question || '') || /пещер/i.test(planExpectation || '')
     if (aboutCave) {
-      const narrative = extractCaveNarrativeFromReference(referenceContent)
-      const instruction =
-        block.question?.trim() || 'Заполните пропуски в данных ниже.'
-      const question = narrative
-        ? `${narrative}\n\n${instruction}`
-        : enrichCaveQuestion(block.question || '', referenceContent)
-      return trimReferenceDumpFromBlock({ ...block, question })
+      const condition = extractCaveConditionFromReference(referenceContent)
+      const instruction = 'Заполните пропуски в данных ниже.'
+      if (condition) {
+        const question = condition.includes(instruction)
+          ? condition
+          : `${condition}\n\n${instruction}`
+        return trimReferenceDumpFromBlock({ ...block, question })
+      }
+      return trimReferenceDumpFromBlock({
+        ...block,
+        question: enrichCaveQuestion(block.question || '', referenceContent),
+      })
     }
     return trimReferenceDumpFromBlock(block)
   }
