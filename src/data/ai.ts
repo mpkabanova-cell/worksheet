@@ -15,11 +15,14 @@ import {
   independenceRetryNote,
   repairTaskExpectation,
   taskQuestionIssues,
+  taskSelfSufficiencyIssues,
   validatePlanIndependence,
   validateTaskIndependence,
+  validateTaskSelfSufficiency,
+  validateWorksheetPipeline,
   planFragmentAssignmentNote,
 } from './taskIndependence'
-import { listReferenceTaskHints } from './contextFilter'
+import { listReferenceTaskHints, wishesUseFullDocument } from './contextFilter'
 import { referenceFilePayload, sourceContentForDraft } from './contextFile'
 import { enrichBlockFromReference, trimReferenceDumpFromBlock } from './referenceEnrich'
 import {
@@ -61,6 +64,8 @@ export interface WorksheetGenerationOptions {
   maxIndependenceRetries?: number
   /** Не делать дополнительный chatJson после неудачной валидации. */
   skipExtraIndependencePass?: boolean
+  /** Не блокировать выдачу листа при нарушении самодостаточности (для тестов). */
+  skipFinalSelfSufficiencyGate?: boolean
 }
 
 export interface AiTaskPayload {
@@ -159,15 +164,17 @@ function fallbackDocumentPlan(draft: WorksheetDraft): PlanTask[] {
   const hints = referenceHintsForDraft(draft)
   const basePlan = ensurePlan(draft)
   const count = Math.min(15, Math.max(1, draft.taskCount || 5))
+  const fullMaterial = wishesUseFullDocument(draft.additionalWishes)
 
-  return Array.from({ length: count }, (_, i) =>
-    planItemFromHint(
+  return Array.from({ length: count }, (_, i) => {
+    const hintIndex = fullMaterial && hints.length > 1 ? i % hints.length : i % Math.max(hints.length, 1)
+    return planItemFromHint(
       draft,
       i,
-      hints[i % Math.max(hints.length, 1)],
+      hints[hintIndex],
       basePlan[i] ?? draft.taskPlan[i],
-    ),
-  )
+    )
+  })
 }
 
 function padPlanToCount(plan: PlanTask[], draft: WorksheetDraft): PlanTask[] {
@@ -508,7 +515,13 @@ export async function generatePlanAIWithMeta(
   try {
     const hints = referenceHintsForDraft(workingDraft)
     const { system, user } = promptsForPlan(workingDraft)
-    let payload = await chatJson<AiPlanPayload>(system, user, { temperature: 0.55 })
+    const fullMaterial = wishesUseFullDocument(workingDraft.additionalWishes)
+    const fragmentNote =
+      fullMaterial && hints.length
+        ? `${planFragmentAssignmentNote(hints, workingDraft.taskCount)}\n\nНе более одного пункта про пещеру/персонажей; остальные — другие сюжеты из source_content. Каждый пункт — самостоятельная задача с полным условием, не этап многошагового решения.`
+        : ''
+    const planUser = user + fragmentNote
+    let payload = await chatJson<AiPlanPayload>(system, planUser, { temperature: 0.55 })
     let rows = extractPlanRows(payload).slice(0, workingDraft.taskCount)
     let validationIssues = validatePlanIndependence(planRowsForIndependence(rows))
 
@@ -516,7 +529,7 @@ export async function generatePlanAIWithMeta(
       if (!validationIssues.length) break
       payload = await chatJson<AiPlanPayload>(
         system,
-        user + independenceRetryNote(validationIssues),
+        planUser + independenceRetryNote(validationIssues),
         { temperature: 0.45 + attempt * 0.1 },
       )
       rows = extractPlanRows(payload).slice(0, workingDraft.taskCount)
@@ -526,7 +539,7 @@ export async function generatePlanAIWithMeta(
     if (validationIssues.length && hints.length) {
       payload = await chatJson<AiPlanPayload>(
         system,
-        user +
+        planUser +
           independenceRetryNote(validationIssues) +
           planFragmentAssignmentNote(hints, workingDraft.taskCount),
         { temperature: 0.4 },
@@ -571,17 +584,30 @@ export async function generatePlanAI(draft: WorksheetDraft): Promise<PlanTask[]>
 }
 
 function blockNeedsRepair(block: WorksheetBlock, planBrief?: string): boolean {
-  return taskQuestionIssues(
-    {
-      type: block.type,
-      question: block.question,
-      gaps_text: getGapsSourceText(block),
-      options: block.options?.map((o) => o.text),
-      left_items: block.leftItems?.map((i) => i.text),
-      right_items: block.rightItems?.map((i) => i.text),
-    },
-    planBrief,
-  ).length > 0
+  const task = blockToAiPayload(block)
+  return taskSelfSufficiencyIssues(task, planBrief).length > 0
+}
+
+function blockToAiPayload(block: WorksheetBlock): AiTaskPayload {
+  return {
+    type: block.type,
+    question: block.question,
+    gaps_text: getGapsSourceText(block),
+    options: block.options?.map((o) => o.text),
+    left_items: block.leftItems?.map((i) => i.text),
+    right_items: block.rightItems?.map((i) => i.text),
+  }
+}
+
+function collectWorksheetValidationIssues(
+  blocks: WorksheetBlock[],
+  planBriefs: string[],
+): string[] {
+  const tasks = blocks.map(blockToAiPayload)
+  return [
+    ...validateTaskSelfSufficiency(tasks, planBriefs),
+    ...validateWorksheetPipeline(tasks, planBriefs),
+  ]
 }
 
 function templateTasksFromPayload(payload: AiWorksheetPayload): WorksheetTemplateTask[] {
@@ -778,6 +804,35 @@ export async function generateWorksheetAI(
     }
 
     blocks = ensureWorksheetTaskBlocks(blocks, plan, prepared, refContent, planBriefs)
+
+    if (!options?.skipFinalSelfSufficiencyGate) {
+      let finalIssues = collectWorksheetValidationIssues(blocks, planBriefs)
+      if (finalIssues.length) {
+        payload = await chatJson<WorksheetJsonTemplate & AiWorksheetPayload>(
+          system,
+          user + independenceRetryNote(finalIssues),
+          { temperature: 0.35 },
+        )
+        templateTasks = templateTasksFromPayload(payload).slice(0, prepared.taskCount)
+        blocks = templateToBlocks(
+          { title: payload.title, intro: payload.intro, tasks: templateTasks },
+          plan,
+          prepared,
+        )
+        if (refContent) {
+          for (let i = 0; i < blocks.length; i++) {
+            blocks[i] = enrichBlockFromReference(blocks[i], refContent, planBriefs[i])
+          }
+        }
+        blocks = ensureWorksheetTaskBlocks(blocks, plan, prepared, refContent, planBriefs)
+        finalIssues = collectWorksheetValidationIssues(blocks, planBriefs)
+        if (finalIssues.length) {
+          throw new AiError(
+            `Лист не прошёл проверку самодостаточности заданий: ${finalIssues.slice(0, 4).join('; ')}`,
+          )
+        }
+      }
+    }
 
     return withGenerationBaseline(
       {

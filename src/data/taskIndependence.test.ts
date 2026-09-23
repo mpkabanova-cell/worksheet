@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { AiTaskPayload } from './ai'
-import { validatePlanIndependence, validateTaskIndependence } from './taskIndependence'
+import {
+  validatePlanIndependence,
+  validateTaskIndependence,
+  validateTaskSelfSufficiency,
+  validateWorksheetPipeline,
+} from './taskIndependence'
 
 describe('validatePlanIndependence', () => {
   it('flags repeated cave story in plan', () => {
@@ -184,5 +189,45 @@ describe('validateTaskIndependence', () => {
       },
     ])
     expect(issues.some((i) => i.includes('шаблон') || i.includes('правило'))).toBe(true)
+  })
+
+  it('flags user cave-pipeline worksheet with description questions', () => {
+    const tasks: AiTaskPayload[] = [
+      {
+        type: 'extended_answer',
+        question:
+          'Решение задачи на логику и оптимизацию времени прохождения пещеры с учетом ограничений и индивидуальных скоростей персонажей, с записью полного хода решения и итогового ответа.',
+      },
+      {
+        type: 'single_choice',
+        question:
+          'Выбор персонажа с наименьшим индивидуальным временем прохождения пещеры из предложенного списка.',
+        options: ['Совунья', 'Пин', 'Крош', 'Ежик'],
+      },
+      {
+        type: 'single_choice',
+        question:
+          'Выбор персонажа с наибольшим индивидуальным временем прохождения пещеры из предложенного списка.',
+        options: ['Бараш', 'Совунья', 'Лосяш', 'Крош'],
+      },
+      {
+        type: 'fill_gaps',
+        question: 'Заполните пропуски в данных ниже.',
+        gaps_text:
+          'Совунья пересекла пещеру за ___ минут, Пин затратил ___ минуту, Крош затратил ___ минуты.',
+      },
+      {
+        type: 'matching',
+        question: 'Сопоставьте каждого персонажа с его временем прохождения Мышиной пещеры.',
+        left_items: ['Совунья', 'Пин', 'Бараш', 'Крош', 'Ежик', 'Лосяш'],
+        right_items: ['1 минута', '5 минут', '3 минуты', '2 минуты', '1 минута', '3 минуты'],
+      },
+    ]
+
+    const pipelineIssues = validateWorksheetPipeline(tasks)
+    expect(pipelineIssues.some((i) => i.includes('этап') || i.includes('пещер'))).toBe(true)
+
+    const selfIssues = validateTaskSelfSufficiency(tasks)
+    expect(selfIssues.some((i) => i.includes('описание') || i.includes('min/max'))).toBe(true)
   })
 })

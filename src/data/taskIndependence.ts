@@ -58,7 +58,7 @@ function maxTopicCount(texts: string[]): number {
 }
 
 function isPipelineStep(text: string): boolean {
-  return /упорядоч|записать время|записать.*время|стратег|оптимальн|первой пар|пропуск/i.test(
+  return /упорядоч|записать время|записать.*время|стратег|оптимальн|первой пар|пропуск|выбор персонажа|наименьш.*индивиду|наибольш.*индивиду|сопостав.*время|восстановлен.*данн|полный ход решения/i.test(
     text,
   )
 }
@@ -66,8 +66,43 @@ function isPipelineStep(text: string): boolean {
 function isCavePipelineStep(text: string): boolean {
   return (
     /пещер|персонаж/i.test(text) &&
-    /упорядоч|записать|стратег|оптимальн|пропуск|минимальн|наименьш|время/i.test(text)
+    /упорядоч|записать|стратег|оптимальн|пропуск|минимальн|наименьш|наибольш|время|выбор|сопостав|восстановлен/i.test(
+      text,
+    )
   )
+}
+
+const PIPELINE_STAGE_PATTERNS: { id: string; re: RegExp }[] = [
+  { id: 'optimize', re: /оптимизац|наименьш.*суммар|минимальн.*суммар|полный ход решения/i },
+  { id: 'min_choice', re: /наименьш.*(?:индивиду|время)|минимальн.*индивиду|быстрее всех/i },
+  { id: 'max_choice', re: /наибольш.*(?:индивиду|время)|максимальн.*индивиду|дольше всех/i },
+  { id: 'fill_data', re: /пропуск|восстановлен.*данн|заполните пропуски в данных/i },
+  { id: 'match_times', re: /сопостав.*(?:время|персонаж)/i },
+]
+
+function detectPipelineStages(texts: string[]): Set<string> {
+  const stages = new Set<string>()
+  for (const text of texts) {
+    for (const { id, re } of PIPELINE_STAGE_PATTERNS) {
+      if (re.test(text)) stages.add(id)
+    }
+  }
+  return stages
+}
+
+function isMinMaxChoiceWithoutData(task: AiTaskPayload): boolean {
+  const question = (task.question || '').trim()
+  if (task.type !== 'single_choice' && task.type !== 'multiple_choice') return false
+  if (!/наименьш|наибольш|минимальн|максимальн|быстрее|дольше/i.test(question)) return false
+  if (looksLikeAuthorPlanDescription(question)) return true
+  const combined = `${question}\n${choiceOptionsText(task)}`
+  return countTimeMentions(combined) < 2 && !/\d+\s*минут/i.test(question)
+}
+
+function matchingHasDuplicateRightItems(task: AiTaskPayload): boolean {
+  if (task.type !== 'matching') return false
+  const rights = (task.right_items ?? []).map((item) => normalizeWs(item).toLowerCase()).filter(Boolean)
+  return rights.length > 1 && new Set(rights).size < rights.length
 }
 
 function countTimeMentions(text: string): number {
@@ -273,6 +308,92 @@ export function taskQuestionIssues(
   return [...new Set(issues)]
 }
 
+/** Проверяет, хватает ли данных внутри одного задания для ответа. */
+export function taskSelfSufficiencyIssues(
+  task: AiTaskPayload,
+  planExpectation?: string,
+): string[] {
+  const issues: string[] = [...taskQuestionIssues(task, planExpectation)]
+  const question = (task.question || '').trim()
+  const type = task.type as TaskType | undefined
+
+  if (isMinMaxChoiceWithoutData(task)) {
+    issues.push(
+      'выбор min/max без перечисления времён в question — ученик не может решить задание изолированно',
+    )
+  }
+
+  if (type === 'matching' && matchingHasDuplicateRightItems(task)) {
+    issues.push('matching: дубли в правом столбце без полного условия — задание неоднозначно')
+  }
+
+  if (
+    (type === 'extended_answer' || type === 'short_answer') &&
+    (looksLikeAuthorPlanDescription(question) ||
+      (/пещер|оптимизац/i.test(question) && !hasCaveNarrativeInQuestion(question) && countTimeMentions(question) < 2))
+  ) {
+    issues.push('question не содержит полного условия задачи — нужны сюжет, ограничения и данные')
+  }
+
+  if (type === 'fill_gaps') {
+    const gaps = (task.gaps_text || '').trim()
+    const combined = `${question}\n${gaps}`
+    if (/пещер|персонаж/i.test(combined) && !hasCaveNarrativeInQuestion(question) && !gaps.includes('___')) {
+      issues.push('fill_gaps: данные без пропусков и без сюжета в question — не самодостаточное задание')
+    }
+  }
+
+  return [...new Set(issues)]
+}
+
+/** Самодостаточность всех заданий листа. */
+export function validateTaskSelfSufficiency(
+  tasks: AiTaskPayload[],
+  planExpectations?: string[],
+): string[] {
+  const issues: string[] = []
+  tasks.forEach((task, i) => {
+    for (const issue of taskSelfSufficiencyIssues(task, planExpectations?.[i])) {
+      issues.push(`Задание ${i + 1}: ${issue}`)
+    }
+  })
+  return [...new Set(issues)]
+}
+
+/** Запрет pipeline: одна задача из файла разбита на этапы листа. */
+export function validateWorksheetPipeline(
+  tasks: AiTaskPayload[],
+  planExpectations?: string[],
+): string[] {
+  const issues: string[] = []
+  const texts = tasks.map((task, i) => `${taskText(task)}\n${planExpectations?.[i] || ''}`.trim())
+
+  const caveTexts = texts.filter((text) => dominantTopic(text) === 'cave')
+  if (caveTexts.length >= 3) {
+    const stages = detectPipelineStages(caveTexts)
+    if (stages.size >= 3) {
+      issues.push(
+        'Лист дробит одну задачу про пещеру на этапы (оптимизация / min-max / пропуски / сопоставление) — каждое задание должно быть полной задачей',
+      )
+    }
+  }
+
+  if (maxTopicCount(texts) >= 3 && texts.length >= 4) {
+    issues.push(
+      'Несколько заданий повторяют один сюжет — распредели разные фрагменты source_content, не более одной задачи про пещеру без явного пожелания',
+    )
+  }
+
+  const pipelineTexts = texts.filter(isPipelineStep)
+  if (pipelineTexts.length >= 3 && maxTopicCount(pipelineTexts) >= 3) {
+    issues.push(
+      'Лист выглядит как этапы одной задачи (найти → выбрать → заполнить → сопоставить), а не независимые задания',
+    )
+  }
+
+  return issues
+}
+
 export function blockQuestionIssues(
   block: WorksheetBlock,
   planExpectation?: string,
@@ -323,6 +444,13 @@ export function validatePlanIndependence(
     )
   }
 
+  const caveTexts = texts.filter((text) => dominantTopic(text) === 'cave')
+  if (caveTexts.length >= 3 && detectPipelineStages(caveTexts).size >= 3) {
+    issues.push(
+      'План дробит задачу про пещеру на этапы (оптимизация / min-max / пропуски / сопоставление)',
+    )
+  }
+
   return issues
 }
 
@@ -330,7 +458,9 @@ export function validateTaskIndependence(
   tasks: AiTaskPayload[],
   planExpectations?: string[],
 ): string[] {
-  const issues: string[] = []
+  const issues: string[] = [
+    ...validateWorksheetPipeline(tasks, planExpectations),
+  ]
   const allTexts = tasks.map(taskText)
 
   if (countStoryOverlap(allTexts) >= 3) {
@@ -350,7 +480,7 @@ export function validateTaskIndependence(
 
   tasks.forEach((task, i) => {
     const n = i + 1
-    for (const issue of taskQuestionIssues(task, planExpectations?.[i])) {
+    for (const issue of taskSelfSufficiencyIssues(task, planExpectations?.[i])) {
       issues.push(`Задание ${n}: ${issue}`)
     }
   })

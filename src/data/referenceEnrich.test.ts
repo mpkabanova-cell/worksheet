@@ -123,4 +123,26 @@ describe('referenceEnrich', () => {
     expect(enriched.question).not.toContain('7-8 классы')
     expect(enriched.question!.length).toBeLessThan(500)
   })
+
+  it('enriches extended_answer description with full cave condition from reference', () => {
+    const block: WorksheetBlock = {
+      id: 'e1',
+      type: 'extended_answer',
+      page: 0,
+      title: 'Задание 1',
+      issued: false,
+      question:
+        'Решение задачи на логику и оптимизацию времени прохождения пещеры с учетом ограничений и индивидуальных скоростей персонажей, с записью полного хода решения и итогового ответа.',
+      answerLines: 8,
+    }
+
+    const enriched = enrichBlockFromReference(
+      block,
+      CAVE_REFERENCE,
+      'Определить минимальное суммарное время прохождения пещеры',
+    )
+    expect(enriched.question).toContain('Бараш')
+    expect(enriched.question).toContain('3 минут')
+    expect(enriched.question).not.toContain('Решение задачи на логику')
+  })
 })

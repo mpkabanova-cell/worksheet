@@ -67,6 +67,16 @@ describe('looksLikeAuthorPlanDescription', () => {
         'Задача на логику и оптимизацию маршрута, требующая вычисления минимального суммарного времени прохождения пещеры. Ожидается подробное решение с обоснованием.',
       ),
     ).toBe(true)
+    expect(
+      looksLikeAuthorPlanDescription(
+        'Решение задачи на логику и оптимизацию времени прохождения пещеры с учетом ограничений.',
+      ),
+    ).toBe(true)
+    expect(
+      looksLikeAuthorPlanDescription(
+        'Выбор персонажа с наименьшим индивидуальным временем прохождения пещеры из предложенного списка.',
+      ),
+    ).toBe(true)
   })
 
   it('accepts real word problem with numbers', () => {

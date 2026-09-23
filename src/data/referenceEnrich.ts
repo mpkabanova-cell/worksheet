@@ -1,5 +1,5 @@
 import { splitContextBlocks, stripIrrelevantSections } from './contextFilter'
-import { stripMetaTaskDescription } from './taskContent'
+import { looksLikeAuthorPlanDescription, stripMetaTaskDescription } from './taskContent'
 import type { TaskType, WorksheetBlock } from './worksheet'
 
 export const QUESTION_MAX_LEN = 1500
@@ -215,6 +215,20 @@ export function enrichBlockFromReference(
         ...block,
         question: enrichCaveQuestion(block.question || '', referenceContent),
       })
+    }
+    return trimReferenceDumpFromBlock(block)
+  }
+
+  if (block.type === 'extended_answer' || block.type === 'short_answer') {
+    const needsEnrich =
+      looksLikeAuthorPlanDescription(block.question || '') ||
+      planExpectsStoryContext(planExpectation) ||
+      questionNeedsCaveContext(block.question || '')
+    if (needsEnrich) {
+      const enriched = enrichCaveQuestion(block.question || '', referenceContent)
+      if (enriched.trim()) {
+        return trimReferenceDumpFromBlock({ ...block, question: enriched })
+      }
     }
     return trimReferenceDumpFromBlock(block)
   }

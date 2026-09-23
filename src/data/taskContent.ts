@@ -42,6 +42,10 @@ export function looksLikeAuthorPlanDescription(text: string): boolean {
   const value = text.trim()
   if (!value) return false
   if (/^задача на\s+/i.test(value) && !/\d/.test(value) && value.length <= 400) return true
+  if (/^решение задачи на\s+/i.test(value) && !/\d/.test(value)) return true
+  if (/^выбор персонажа/i.test(value)) return true
+  if (/индивидуальным временем прохождения/i.test(value)) return true
+  if (/с записью полного хода решения/i.test(value)) return true
   if (/ожидается\s+подробн/i.test(value)) return true
   if (/^восстановление\s+пропущенных\s+числовых\s+данных/i.test(value)) return true
   if (/^[^.\n]{10,180},\s*требующ/i.test(value)) return true
@@ -70,6 +74,8 @@ export function stripMetaTaskDescription(text: string): string {
 
   const linePatterns = [
     /^задача на\s+[^\n]{4,320}\.\s*/gim,
+    /^решение задачи на\s+[^\n]{4,320}\.?\s*/gim,
+    /^выбор персонажа[^\n]*\.?\s*/gim,
     /^[^.\n]{8,180},\s*требующ[^\n]*\.?\s*/gim,
     /^ожидается\s+подробн[^\n]*\.?\s*/gim,
     /^восстановление\s+пропущенных\s+числовых\s+данных[^\n]*\.?\s*/gim,
