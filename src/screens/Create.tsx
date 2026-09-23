@@ -26,7 +26,7 @@ type CreateMode = 'generate' | 'manual' | 'probe'
 
 interface CreateProps {
   draft: WorksheetDraft
-  onChange: (draft: WorksheetDraft) => void
+  onChange: (updater: WorksheetDraft | ((prev: WorksheetDraft) => WorksheetDraft)) => void
   onClose: () => void
   onSubmit: (mode: 'generate' | 'manual') => void
   advancedOpen?: boolean
@@ -128,20 +128,20 @@ export function Create({
     setFileBusy(true)
     try {
       const extracted = await extractContextFile(file)
-      onChange({
-        ...draft,
+      onChange((prev) => ({
+        ...prev,
         contextFileName: extracted.name,
         contextFileText: extracted.text || undefined,
         contextFileNote: extracted.note,
-      })
+      }))
     } catch (err) {
       onSoon?.(err instanceof Error ? err.message : 'Не удалось обработать файл')
-      onChange({
-        ...draft,
+      onChange((prev) => ({
+        ...prev,
         contextFileName: file.name,
         contextFileText: undefined,
         contextFileNote: `Файл «${file.name}» приложён, но текст не извлечён.`,
-      })
+      }))
     } finally {
       setFileBusy(false)
     }
@@ -150,12 +150,12 @@ export function Create({
   const clearFile = () => {
     setAttachedFile(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
-    onChange({
-      ...draft,
+    onChange((prev) => ({
+      ...prev,
       contextFileName: undefined,
       contextFileText: undefined,
       contextFileNote: undefined,
-    })
+    }))
   }
 
   const runProbe = async () => {
@@ -539,6 +539,11 @@ export function Create({
             </div>
 
             <footer className="create-footer">
+              {!canSubmit ? (
+                <p className="create-footer-hint">Заполните предмет, параллель и тему, чтобы создать лист.</p>
+              ) : fileBusy ? (
+                <p className="create-footer-hint">Обработка файла…</p>
+              ) : null}
               <Button variant="secondary" size="lg" className="footer-btn" onClick={onClose}>
                 Отменить
               </Button>
