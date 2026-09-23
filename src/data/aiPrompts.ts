@@ -7,7 +7,7 @@ import {
   collectAnchorTasks,
   type AnchorTask,
 } from './referenceThemes'
-import { PLAN_AGENT_MECHANICS_LIST, PLAN_AGENT_SYSTEM } from './planAgentPrompt'
+import { PLAN_AGENT_SYSTEM } from './planAgentPrompt'
 import { normalizeDifficultyMode } from './planMechanics'
 import { WORKSHEET_GENERATOR_SYSTEM } from './worksheetGeneratorPrompt'
 import { agent1UserPayload, agent2UserPayload } from './worksheetSpecPayload'
@@ -237,8 +237,6 @@ function existingTasksBrief(blocks: WorksheetBlock[]) {
 
 export function promptsForPlan(draft: WorksheetDraft) {
   const system = `${PLAN_AGENT_SYSTEM}
-
-${PLAN_AGENT_MECHANICS_LIST}
 
 ${OUTPUT_FORMAT}
 

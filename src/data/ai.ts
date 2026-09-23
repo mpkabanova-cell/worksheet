@@ -409,12 +409,31 @@ export function ensurePlan(draft: WorksheetDraft): PlanTask[] {
   return resizePlanToTaskCount(draft.taskPlan, draft.taskCount)
 }
 
+function planUserDescriptionFromRow(
+  row: AiPlanTaskRow,
+  teacherInput: string | undefined,
+  description: string | null,
+): string {
+  const fromTeacher = teacherInput?.trim()
+  if (fromTeacher) return fromTeacher.slice(0, 100)
+
+  const fromAgent = row.user_description?.trim() || row.expectation?.trim()
+  if (fromAgent) return fromAgent.slice(0, 100)
+
+  if (description) {
+    const firstSentence = description.split(/(?<=[.!?])\s+/)[0]?.trim() || description.trim()
+    return firstSentence.slice(0, 100)
+  }
+
+  return ''
+}
+
 function rowsToPlan(rows: AiPlanTaskRow[], draft: WorksheetDraft): PlanTask[] {
   const plan: PlanTask[] = rows.map((row, i) => {
     const existing = draft.taskPlan[i]
     const teacherInput = existing?.userDescription?.trim()
-    const userDescription = (row.user_description || teacherInput || row.expectation || '').slice(0, 100)
     const description = (row.description || '').slice(0, 2000) || null
+    const userDescription = planUserDescriptionFromRow(row, teacherInput, description)
 
     return {
       id: existing?.id ?? `plan-${Date.now()}-${i}`,

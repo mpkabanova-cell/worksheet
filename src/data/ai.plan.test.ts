@@ -97,6 +97,33 @@ describe('generatePlanAI task_count safety net', () => {
     expect(plan[2].userDescription.length).toBeGreaterThan(0)
   })
 
+  it('derives userDescription from description when model omits user_description', async () => {
+    vi.mocked(chatJson).mockResolvedValue({
+      task_plan: [
+        {
+          type: 'input',
+          description: 'Определить персонажа с минимальным временем прохождения пещеры.',
+          difficulty: 'basic',
+        },
+        {
+          type: 'single_choice',
+          description:
+            'Выбрать утверждение о прохождении пещеры. Ожидается выбор одного варианта.',
+          difficulty: 'medium',
+        },
+      ],
+    })
+
+    const taskPlan = createPlan(2)
+    taskPlan[0].userDescription = 'Кто затратил меньше всего времени'
+    const draft = { ...filledCreateDraft(), taskCount: 2, taskPlan }
+
+    const plan = await generatePlanAI(draft)
+    expect(plan[0].userDescription).toBe('Кто затратил меньше всего времени')
+    expect(plan[1].userDescription).toContain('Выбрать утверждение')
+    expect(plan[1].description).toContain('утверждение')
+  })
+
   it('parses task_plan with description and difficulty', async () => {
     vi.mocked(chatJson).mockResolvedValue({
       task_plan: [
