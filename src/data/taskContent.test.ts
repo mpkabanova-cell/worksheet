@@ -5,6 +5,7 @@ import {
   containsMetaTaskDescription,
   getBlockQuestion,
   looksLikeTheory,
+  looksLikeAuthorPlanDescription,
   normalizeAiTask,
   stripLeadingTheoryFromGaps,
   stripMetaTaskDescription,
@@ -56,6 +57,24 @@ describe('stripMetaTaskDescription', () => {
     expect(stripMetaTaskDescription(raw)).not.toContain('Задача на выбор персонажа')
     expect(stripMetaTaskDescription(raw)).toContain('отправились в поход')
     expect(containsMetaTaskDescription(stripMetaTaskDescription(raw))).toBe(false)
+  })
+})
+
+describe('looksLikeAuthorPlanDescription', () => {
+  it('detects plan-style extended answer description', () => {
+    expect(
+      looksLikeAuthorPlanDescription(
+        'Задача на логику и оптимизацию маршрута, требующая вычисления минимального суммарного времени прохождения пещеры. Ожидается подробное решение с обоснованием.',
+      ),
+    ).toBe(true)
+  })
+
+  it('accepts real word problem with numbers', () => {
+    expect(
+      looksLikeAuthorPlanDescription(
+        'Бараш, Крош и Совунья отправились в поход. Совунья пересекла пещеру за 3 минуты, Пин — за 1 минуту. Какое наименьшее суммарное время?',
+      ),
+    ).toBe(false)
   })
 })
 

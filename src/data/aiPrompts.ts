@@ -301,6 +301,7 @@ ${OUTPUT_FORMAT}
 - order_items: перемешанный порядок; correct_answers — правильная последовательность.
 - matching: right_items перемешай; correct_answers — пары «лево → право», биекция 1:1.
 - fill_gaps: gaps_text с ___; question — короткая формулировка, не дублируй gaps_text.
+- fill_gaps: запрещён шаблон «По теме «…» важно помнить: ___ — это основа…»; бери числа и сюжет из source_content.
 - table: 2–6 групп; элементы — короткие слова/числа без теории в question.`
 
   const regenerateAnchors =
@@ -363,7 +364,8 @@ ${CONTENT_RULES}
 
 - Не повторяй формулировки из existing_tasks.
 - Поле instruction — всегда "".
-- Если есть description — разверни его в question с полным условием; не копируй description дословно.
+- Если есть description — разверни его в question с полным условием из source_content; не копируй description дословно.
+- Запрещено в question: «Задача на логику…», «требующая вычисления…», «Ожидается подробное решение…», «Восстановление пропущенных числовых данных…» — это description плана, не текст для ученика.
 - user_description / teacher_expectation — краткий замысел; не копируй в question.
 - repair_note — служебная подсказка для исправления; не включай её текст в question.
 - fill_gaps: question — короткое задание; gaps_text — только строки с пропусками ___, без теории и определений. Пропуски только в обычном тексте, не внутри формул ($...$). Запрещено: «(a+b)^2 = a^2 + ___ + b^2» с gaps_answers: ["2ab"].

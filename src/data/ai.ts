@@ -7,7 +7,7 @@ import {
 } from './generator'
 import { promptsForPlan, promptsForSingleTask, promptsForWorksheet } from './aiPrompts'
 import { sanitizeBlock, clampAnswerHeight, defaultAnswerHeight, defaultAnswerStyle, groupsToTableFields, createDefaultGroupingTableFields, getGapsSourceText, isValidFillGapsBlock } from './blockUtils'
-import { expectationToQuestion, normalizeAiTask } from './taskContent'
+import { expectationToQuestion, looksLikeAuthorPlanDescription, isGenericTopicFillGaps, normalizeAiTask } from './taskContent'
 import { repairJsonLatexEscapes } from './mathTextUtils'
 import {
   blockQuestionIssues,
@@ -238,12 +238,43 @@ function mockBlockForPlanIndex(
   blocksSoFar: WorksheetBlock[],
   planItem: PlanTask,
   brief: string,
+  refContent?: string | null,
+  anchors: ReturnType<typeof collectAnchorTasks> = [],
 ): WorksheetBlock {
-  return mockSingle(
+  const taskType = fromSpecMechanic(planItem.type ?? 'input', planItem.description)
+
+  if (refContent && taskType === 'fill_gaps') {
+    const shell: WorksheetBlock = {
+      id: uid('task'),
+      type: 'fill_gaps',
+      page: 0,
+      title: 'Задание',
+      instruction: '',
+      question: '',
+      gapsText: '',
+      gapsAnswers: [],
+    }
+    return buildFillGapsFallbackBlock(shell, refContent, brief, anchors)
+  }
+
+  let block = mockSingle(
     { ...draft, blocks: blocksSoFar, taskCount: draft.taskCount },
-    fromSpecMechanic(planItem.type ?? 'input', planItem.description),
+    taskType,
     planItem.userDescription || brief,
   )
+
+  if (refContent) {
+    if (
+      taskType === 'fill_gaps' &&
+      isGenericTopicFillGaps(getGapsSourceText(block), block.gapsAnswers)
+    ) {
+      block = buildFillGapsFallbackBlock(block, refContent, brief, anchors)
+    } else if (looksLikeAuthorPlanDescription(block.question || '')) {
+      block = enrichBlockFromReference(block, refContent, brief)
+    }
+  }
+
+  return block
 }
 
 /** Гарантирует ровно plan.length учебных блоков; восстанавливает fill_gaps, превращённые в text. */
@@ -261,9 +292,12 @@ export function ensureWorksheetTaskBlocks(
     const brief = planBriefs[i] ?? ''
     const sourceBlock = blocks[i]
     let block = sourceBlock
+    const anchors = collectAnchorTasks([...result, ...blocks.slice(i + 1)], planBriefs, {
+      skipBlockIndex: i,
+    })
 
     if (!block || !isWorksheetTaskBlock(block)) {
-      block = mockBlockForPlanIndex(draft, result, planItem, brief)
+      block = mockBlockForPlanIndex(draft, result, planItem, brief, refContent, anchors)
     } else if (planItem.type === 'fill_gaps' && block.type !== 'fill_gaps') {
       const recovered: WorksheetBlock = {
         ...block,
@@ -276,14 +310,9 @@ export function ensureWorksheetTaskBlocks(
         body: undefined,
       }
       if (refContent) {
-        block = buildFillGapsFallbackBlock(
-          recovered,
-          refContent,
-          brief,
-          collectAnchorTasks([...result, ...blocks.slice(i + 1)], planBriefs, { skipBlockIndex: i }),
-        )
+        block = buildFillGapsFallbackBlock(recovered, refContent, brief, anchors)
       } else if (!isValidFillGapsBlock(recovered)) {
-        block = mockBlockForPlanIndex(draft, result, planItem, brief)
+        block = mockBlockForPlanIndex(draft, result, planItem, brief, refContent, anchors)
       } else {
         block = recovered
       }
@@ -297,10 +326,28 @@ export function ensureWorksheetTaskBlocks(
 
     if (planItem.type === 'fill_gaps' && sanitized.type !== 'fill_gaps') {
       sanitized = sanitizeBlock({
-        ...mockBlockForPlanIndex(draft, result, planItem, brief),
+        ...mockBlockForPlanIndex(draft, result, planItem, brief, refContent, anchors),
         id: sourceBlock?.id ?? block.id,
         title: sourceBlock?.title ?? `Задание ${i + 1}`,
       })
+    }
+
+    if (refContent) {
+      const gapsText = getGapsSourceText(sanitized)
+      if (
+        sanitized.type === 'fill_gaps' &&
+        (isGenericTopicFillGaps(gapsText, sanitized.gapsAnswers) ||
+          looksLikeAuthorPlanDescription(sanitized.question || ''))
+      ) {
+        sanitized = sanitizeBlock(
+          buildFillGapsFallbackBlock(sanitized, refContent, brief, anchors),
+        )
+      } else if (
+        looksLikeAuthorPlanDescription(sanitized.question || '') &&
+        blockQuestionIssues(sanitized, brief).some((issue) => issue.includes('описание'))
+      ) {
+        sanitized = sanitizeBlock(enrichBlockFromReference(sanitized, refContent, brief))
+      }
     }
 
     result.push(sanitized)
@@ -675,6 +722,18 @@ export async function generateWorksheetAI(
       blocks[i] = trimReferenceDumpFromBlock(blocks[i])
     }
 
+    if (refContent) {
+      for (let i = 0; i < blocks.length; i++) {
+        if (blocks[i].type === 'fill_gaps') continue
+        if (
+          looksLikeAuthorPlanDescription(blocks[i].question || '') ||
+          blockQuestionIssues(blocks[i], planBriefs[i]).some((issue) => issue.includes('описание'))
+        ) {
+          blocks[i] = enrichBlockFromReference(blocks[i], refContent, planBriefs[i])
+        }
+      }
+    }
+
     for (let i = 0; i < blocks.length; i++) {
       if (blocks[i].type !== 'fill_gaps') continue
       const aboutCave =
@@ -691,6 +750,11 @@ export async function generateWorksheetAI(
         ) ||
         (aboutCave && !hasCaveNarrativeInQuestion(blocks[i].question || ''))
       const gapsMissing = !getGapsSourceText(blocks[i]).includes('___')
+      const genericGaps = isGenericTopicFillGaps(
+        getGapsSourceText(blocks[i]),
+        blocks[i].gapsAnswers,
+      )
+      const authorQuestion = looksLikeAuthorPlanDescription(blocks[i].question || '')
       if (!refContent) {
         if (gapsMissing) {
           blocks[i] = {
@@ -703,7 +767,7 @@ export async function generateWorksheetAI(
         }
         continue
       }
-      if (gapsMissing || storyIssues) {
+      if (gapsMissing || storyIssues || genericGaps || authorQuestion) {
         blocks[i] = buildFillGapsFallbackBlock(
           blocks[i],
           refContent,

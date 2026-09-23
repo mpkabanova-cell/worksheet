@@ -18,18 +18,49 @@ const BARE_INSTRUCTION_RE =
 
 const META_TASK_DESCRIPTION_PATTERNS = [
   /задача на выбор персонажа/i,
-  /задача на\s+(?:выбор|сопоставление|распределение|упорядочивание)/i,
+  /задача на\s+(?:выбор|сопоставление|распределение|упорядочивание|логик|оптимизац)/i,
   /исходя из предоставленных данных/i,
   /на основе предоставленн(?:ой|ых) информации/i,
   /требуется выбрать один вариант ответа/i,
+  /требующ(?:ая|ее)\s+(?:вычислени|сопоставлени|выбор|анализ|восстановлени)/i,
+  /ожидается\s+подробн(?:ое|ый)\s+решени/i,
   /^сопоставление\s+[^.\n]{10,200}\.\s*$/im,
 ]
+
+export const GENERIC_TOPIC_FILL_GAPS_RE =
+  /^По теме «[^»]+» важно помнить:\s*___\s*—\s*это основа,\s*а\s*___\s*помогает проверить результат\.?$/i
 
 /** Служебная формулировка из description/plan, не для ученика. */
 export function containsMetaTaskDescription(text: string): boolean {
   const value = text.trim()
   if (!value) return false
-  return META_TASK_DESCRIPTION_PATTERNS.some((pattern) => pattern.test(value))
+  return META_TASK_DESCRIPTION_PATTERNS.some((pattern) => pattern.test(value)) || looksLikeAuthorPlanDescription(value)
+}
+
+/** Методическое описание задания (description плана), а не условие для ученика. */
+export function looksLikeAuthorPlanDescription(text: string): boolean {
+  const value = text.trim()
+  if (!value) return false
+  if (/^задача на\s+/i.test(value) && !/\d/.test(value) && value.length <= 400) return true
+  if (/ожидается\s+подробн/i.test(value)) return true
+  if (/^восстановление\s+пропущенных\s+числовых\s+данных/i.test(value)) return true
+  if (/^[^.\n]{10,180},\s*требующ/i.test(value)) return true
+  return false
+}
+
+/** Шаблонное fill_gaps из mock-генератора — не из файла и не по сюжету. */
+export function isGenericTopicFillGaps(
+  gapsText: string | undefined,
+  gapsAnswers?: string[] | null,
+): boolean {
+  const gaps = gapsText?.trim() ?? ''
+  if (!gaps) return false
+  if (GENERIC_TOPIC_FILL_GAPS_RE.test(gaps)) return true
+  return (
+    gapsAnswers?.length === 2 &&
+    gapsAnswers[0]?.trim().toLowerCase() === 'правило' &&
+    gapsAnswers[1]?.trim().toLowerCase() === 'пример'
+  )
 }
 
 /** Убирает строки description/plan, попавшие в question. */
@@ -38,8 +69,11 @@ export function stripMetaTaskDescription(text: string): string {
   if (!result) return result
 
   const linePatterns = [
+    /^задача на\s+[^\n]{4,320}\.\s*/gim,
+    /^[^.\n]{8,180},\s*требующ[^\n]*\.?\s*/gim,
+    /^ожидается\s+подробн[^\n]*\.?\s*/gim,
+    /^восстановление\s+пропущенных\s+числовых\s+данных[^\n]*\.?\s*/gim,
     /^задача на выбор персонажа[^\n]*/gim,
-    /^задача на\s+[^\n]{4,120}\.\s*$/gim,
     /^[^.\n]*исходя из предоставленных данных[^\n]*\.?\s*$/gim,
     /^[^.\n]*на основе предоставленн(?:ой|ых) информации[^\n]*\.?\s*$/gim,
     /^[^.\n]*требуется выбрать один вариант ответа\.?\s*$/gim,
@@ -245,11 +279,17 @@ function normalizeFillGapsTask<T extends AiTaskFields>(
 
 function finalizeQuestionText(question: string, type: TaskType, expectation?: string): string {
   let value = stripMetaTaskDescription(question.trim())
+  if (looksLikeAuthorPlanDescription(value)) {
+    value = ''
+  }
   if (isMissingTaskQuestion(value) || looksLikeBareTaskInstruction(value)) {
     value = defaultQuestionForTaskType(type, expectation)
   }
-  if (containsMetaTaskDescription(value)) {
+  if (containsMetaTaskDescription(value) || looksLikeAuthorPlanDescription(value)) {
     value = stripMetaTaskDescription(value)
+    if (looksLikeAuthorPlanDescription(value) || containsMetaTaskDescription(value)) {
+      value = defaultQuestionForTaskType(type, expectation)
+    }
   }
   return value
 }

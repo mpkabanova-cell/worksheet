@@ -1,6 +1,6 @@
 import type { AiTaskPayload } from './ai'
 import type { TaskType, WorksheetBlock } from './worksheet'
-import { looksLikeBareTaskInstruction, normalizeWs, containsMetaTaskDescription } from './taskContent'
+import { looksLikeBareTaskInstruction, normalizeWs, containsMetaTaskDescription, looksLikeAuthorPlanDescription, isGenericTopicFillGaps } from './taskContent'
 import { planExpectsStoryContext, looksLikeReferenceDump } from './referenceEnrich'
 
 const CROSS_REF_PATTERNS = [
@@ -101,6 +101,7 @@ export function questionMatchesExpectation(question: string, expectation?: strin
   const e = normalizeWs(expectation || '').toLowerCase()
   if (!e || q.length < 15) return false
   if (q === e) return true
+  if (e.length >= 35 && q.includes(e.slice(0, Math.min(80, e.length)).toLowerCase())) return true
   const qCore = q.replace(
     /^(определите|выберите|сопоставьте|объясните|упорядочьте|запишите|найдите|заполните)\s*,?\s*/i,
     '',
@@ -159,8 +160,12 @@ export function taskQuestionIssues(
     issues.push('question содержит служебную формулировку description (например «Задача на выбор персонажа»)')
   }
 
-  if (planExpectation && containsMetaTaskDescription(planExpectation) && questionMatchesExpectation(question, planExpectation)) {
-    issues.push('question скопирован из description — нужен текст условия для ученика')
+  if (looksLikeAuthorPlanDescription(question)) {
+    issues.push('question — описание задания для автора, а не условие с данными для ученика')
+  }
+
+  if (planExpectation && looksLikeAuthorPlanDescription(planExpectation) && questionMatchesExpectation(question, planExpectation)) {
+    issues.push('question скопирован из description плана — нужен текст условия задачи из source_content')
   }
 
   if (planExpectation && planExpectsStoryContext(planExpectation)) {
@@ -186,6 +191,16 @@ export function taskQuestionIssues(
     const gaps = (task.gaps_text || '').trim()
     if (!gaps.includes('___')) {
       issues.push('fill_gaps без gaps_text с пропусками ___')
+    }
+    if (isGenericTopicFillGaps(gaps, task.gaps_answers)) {
+      issues.push('fill_gaps использует шаблон «правило/пример по теме», а не условие из source_content')
+    }
+    if (
+      planExpectation &&
+      /\d|менедж|время|числ|расч[её]т/i.test(planExpectation) &&
+      isGenericTopicFillGaps(gaps, task.gaps_answers)
+    ) {
+      issues.push('fill_gaps не соответствует description — нужны числовые данные из файла, а не общий шаблон')
     }
     const gapMinuteBlanks = countGapMinuteBlankCount(gaps)
     if (gapMinuteBlanks > 0 && countTimeMentions(question) < gapMinuteBlanks) {
@@ -240,7 +255,9 @@ export function taskQuestionIssues(
   } else {
     const hasNumbers = /\d/.test(question)
     const minLen = hasNumbers ? 70 : 120
-    if (question.length < minLen) {
+    if (looksLikeAuthorPlanDescription(question)) {
+      issues.push('question — описание задания, а не условие с данными')
+    } else if (question.length < minLen) {
       issues.push('question слишком короткое — нет полного условия с данными')
     }
   }

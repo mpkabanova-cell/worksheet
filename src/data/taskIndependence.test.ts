@@ -162,4 +162,27 @@ describe('validateTaskIndependence', () => {
     ])
     expect(issues.some((i) => i.includes('Задача на выбор') || i.includes('служеб'))).toBe(true)
   })
+
+  it('flags author plan description instead of student question', () => {
+    const description =
+      'Задача на логику и оптимизацию маршрута, требующая вычисления минимального суммарного времени прохождения пещеры с учетом заданных условий и ограничений. Ожидается подробное решение с обоснованием.'
+    const issues = validateTaskIndependence(
+      [{ type: 'extended_answer', question: description }],
+      [description],
+    )
+    expect(issues.some((i) => i.includes('описание'))).toBe(true)
+  })
+
+  it('flags generic topic fill_gaps template', () => {
+    const issues = validateTaskIndependence([
+      {
+        type: 'fill_gaps',
+        question: 'Восстановление пропущенных числовых данных в расчете времени работы менеджера',
+        gaps_text:
+          'По теме «Решение задач» важно помнить: ___ — это основа, а ___ помогает проверить результат.',
+        gaps_answers: ['правило', 'пример'],
+      },
+    ])
+    expect(issues.some((i) => i.includes('шаблон') || i.includes('правило'))).toBe(true)
+  })
 })
