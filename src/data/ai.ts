@@ -14,7 +14,6 @@ import {
   hasCaveNarrativeInQuestion,
   independenceRetryNote,
   repairTaskExpectation,
-  taskQuestionIssues,
   taskSelfSufficiencyIssues,
   validatePlanIndependence,
   validateTaskIndependence,
