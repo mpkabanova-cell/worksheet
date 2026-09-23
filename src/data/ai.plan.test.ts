@@ -124,6 +124,34 @@ describe('generatePlanAI task_count safety net', () => {
     expect(plan[1].description).toContain('утверждение')
   })
 
+  it('preserves preselected plan type when planner returns another mechanic', async () => {
+    vi.mocked(chatJson).mockResolvedValue({
+      task_plan: [
+        {
+          type: 'input',
+          user_description: 'Краткий ответ',
+          description: 'Задача с кратким ответом',
+          difficulty: 'basic',
+        },
+        {
+          type: 'input',
+          user_description: 'Выбор варианта',
+          description: 'Задача на выбор одного варианта',
+          difficulty: 'medium',
+        },
+      ],
+    })
+
+    const taskPlan = createPlan(2)
+    taskPlan[0].type = 'input'
+    taskPlan[1].type = 'single_choice'
+    const draft = { ...filledCreateDraft(), taskCount: 2, taskPlan }
+
+    const plan = await generatePlanAI(draft)
+    expect(plan[0].type).toBe('input')
+    expect(plan[1].type).toBe('single_choice')
+  })
+
   it('parses task_plan with description and difficulty', async () => {
     vi.mocked(chatJson).mockResolvedValue({
       task_plan: [
@@ -142,7 +170,9 @@ describe('generatePlanAI task_count safety net', () => {
       ],
     })
 
-    const draft = { ...filledCreateDraft(), taskCount: 2, taskPlan: createPlan(2) }
+    const taskPlan = createPlan(2)
+    taskPlan[1].type = null
+    const draft = { ...filledCreateDraft(), taskCount: 2, taskPlan }
 
     const plan = await generatePlanAI(draft)
     expect(plan).toHaveLength(2)

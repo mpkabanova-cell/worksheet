@@ -1,5 +1,5 @@
 import type { SpecMechanic } from './planMechanics'
-import { toSpecMechanic } from './planMechanics'
+import { defaultSpecMechanicForPlanIndex, toSpecMechanic } from './planMechanics'
 import type { GenerationBaseline, SpecTaskPlanRow } from './taskPlanOrchestration'
 
 export type NavId =
@@ -305,6 +305,7 @@ export function labelForType(type: TaskType): string {
 export function createPlan(count: number): PlanTask[] {
   return Array.from({ length: count }, (_, i) => ({
     id: `plan-${Date.now()}-${i}`,
+    type: defaultSpecMechanicForPlanIndex(i),
     userDescription: '',
     description: null,
     difficulty: null,

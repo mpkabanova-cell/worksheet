@@ -209,8 +209,9 @@ function normalizeType(raw: string, fallback: TaskType = 'short_answer'): TaskTy
 }
 
 function resolvePlanSpecType(row: AiPlanTaskRow, existing?: PlanTask): SpecMechanic | null {
-  if (existing?.type && !row.type) return existing.type
-  const raw = row.type ?? existing?.type
+  // Spec: если type уже выбран (в т.ч. дефолт UI) — не заменяем ответом планировщика.
+  if (existing?.type) return existing.type
+  const raw = row.type
   if (!raw) return null
   return isSpecMechanic(raw) ? raw : null
 }

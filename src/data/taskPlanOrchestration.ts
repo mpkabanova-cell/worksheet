@@ -1,6 +1,6 @@
 import type { DifficultyMode, PlanItemDifficulty, PlanTask, WorksheetDraft } from './worksheet'
 import { sourceContentForDraft } from './contextFile'
-import { normalizeDifficultyMode, type SpecMechanic } from './planMechanics'
+import { normalizeDifficultyMode, defaultSpecMechanicForPlanIndex, type SpecMechanic } from './planMechanics'
 
 export interface SpecTaskPlanRow {
   type: SpecMechanic | null
@@ -44,6 +44,7 @@ export function specRowToPlan(row: SpecTaskPlanRow, existing?: PlanTask): PlanTa
 export function createEmptyPlanRow(index = 0): PlanTask {
   return {
     id: `plan-${Date.now()}-${index}`,
+    type: defaultSpecMechanicForPlanIndex(index),
     userDescription: '',
     description: null,
     difficulty: null,

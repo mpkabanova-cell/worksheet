@@ -9,8 +9,20 @@ import {
   toSpecMechanic,
 } from './planMechanics'
 import type { PlanTask } from './worksheet'
+import { createPlan } from './worksheet'
 
 describe('planMechanics', () => {
+  it('assigns default mechanics to new plan rows', () => {
+    const plan = createPlan(5)
+    expect(plan.map((p) => p.type)).toEqual([
+      'input',
+      'single_choice',
+      'single_choice',
+      'fill_gaps',
+      'matching',
+    ])
+  })
+
   it('maps internal types to spec mechanics', () => {
     expect(toSpecMechanic('short_answer')).toBe('input')
     expect(toSpecMechanic('extended_answer')).toBe('input')

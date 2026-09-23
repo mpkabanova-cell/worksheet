@@ -23,6 +23,20 @@ const SPEC_MECHANICS = new Set<string>([
 const EXTENDED_INPUT_RE =
   /разв[её]рнут|подробн|ход[а-яё]*\s+реш|обоснован|объяснен|построени|доказат|аргументац/i
 
+/** Стартовый набор механик для нового плана (цикл по индексу). */
+const DEFAULT_PLAN_TASK_TYPES: TaskType[] = [
+  'short_answer',
+  'single_choice',
+  'single_choice',
+  'fill_gaps',
+  'matching',
+  'extended_answer',
+]
+
+export function defaultSpecMechanicForPlanIndex(index: number): SpecMechanic {
+  return toSpecMechanic(DEFAULT_PLAN_TASK_TYPES[index % DEFAULT_PLAN_TASK_TYPES.length]) ?? 'input'
+}
+
 /** Миграция старых черновиков: starter → medium. */
 export function normalizeDifficultyMode(mode: string): DifficultyMode {
   if (mode === 'starter') return 'medium'
