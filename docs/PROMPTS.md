@@ -83,24 +83,25 @@ flowchart LR
 ### 1. promptsForPlan — агент планирования
 
 1. **UI:** на экране create учитель нажимает «Сгенерировать план».
-2. **Фронт:** `generatePlanAI(draft)` → `promptsForPlan(draft)` (system: [`planAgentPrompt.ts`](../src/data/planAgentPrompt.ts)).
-3. **User JSON:** `subject`, `grade`, `topic`, `plan_difficulty`, `additional_wishes`, `source_content`, `task_plan`.
-4. **Фронт:** `chatJson` → `/api/chat`, temperature **0.55**.
-5. **Фронт:** парсит `{ task_plan: [{ type, user_description, description, difficulty }] }` → `PlanTask[]`.
-6. **Fallback:** при `503` / отсутствии ключа — `createPlan()` без ИИ.
+2. **Фронт:** `generatePlanAIWithMeta(draft)` → `preparePlanForGeneration` (resize + invalidation).
+3. **Условный вызов:** если все `description` заполнены → `meta.source: cached`, Planner не вызывается.
+4. **User JSON:** `subject`, `grade`, `topic`, `plan_difficulty`, `additional_wishes`, `source_content`, `task_plan`.
+5. **Фронт:** `chatJson` → `/api/chat`, temperature **0.55**.
+6. **Фронт:** парсит `{ task_plan: [{ type, user_description, description, difficulty }] }` → `PlanTask[]`; `generationBaseline` сохраняется в draft.
+7. **Fallback:** при `503` / отсутствии ключа — `createPlan()` без ИИ.
+
+Подробнее: [`PLAN_AGENT.md`](./PLAN_AGENT.md).
 
 ### 2. promptsForWorksheet — весь лист (create / regenerate)
 
 1. **UI:** «Создать» или «Перегенерировать» → экран loader.
-2. **Фронт:** `generateWorksheetAI(draft, mode)` → `promptsForWorksheet(draft, mode)`.
-   - `create`: temperature **0.45**, user содержит `task_plan`.
-   - `regenerate`: temperature **0.7**, user дополнительно содержит `previous_tasks` (краткие формулировки текущих заданий).
-3. **Бэкенд:** тот же `/api/chat`; для не-Gemini моделей сервер добавляет `response_format: json_object`.
-4. **Фронт:** парсит `{ title, intro, tasks[] }` → для каждого task вызывает `toBlock()`:
-   - `normalizeAiTask` — question, gaps;
-   - `sanitizeBlock` — теория, invalid matching → grouping, fill_gaps validation;
-   - типы из плана принудительно подставляются из `draft.plan[i]`.
-5. **Результат:** обновлённый `WorksheetDraft` с `blocks[]` → редактор / preview.
+2. **Фронт:** `generateWorksheetAI(draft, mode)` → orchestration (resize, invalidation, Planner при необходимости).
+3. **User JSON:** `subject`, `grade`, `topic`, `additional_wishes`, `source_content`, `show_intro`, `task_plan` (trimmed), `generated_json_template`, `generated_json_schema`.
+4. **System:** [`worksheetGeneratorPrompt.ts`](../src/data/worksheetGeneratorPrompt.ts).
+5. **Фронт:** парсит заполненный template → `templateToBlocks()` → `blocks[]`.
+6. **Результат:** `generationBaseline` обновляется после успеха.
+
+Подробнее: [`WORKSHEET_GENERATOR.md`](./WORKSHEET_GENERATOR.md).
 
 ### 3. promptsForSingleTask — одно задание
 

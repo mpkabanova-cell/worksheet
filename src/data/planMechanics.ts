@@ -21,7 +21,7 @@ const SPEC_MECHANICS = new Set<string>([
 ])
 
 const EXTENDED_INPUT_RE =
-  /разв[её]рнут|подробн|ход\s+реш|обоснован|объяснен|построени|доказат|аргументац/i
+  /разв[её]рнут|подробн|ход[а-яё]*\s+реш|обоснован|объяснен|построени|доказат|аргументац/i
 
 /** Миграция старых черновиков: starter → medium. */
 export function normalizeDifficultyMode(mode: string): DifficultyMode {

@@ -17,7 +17,7 @@ describe('IMAGE_DESCRIPTION_RULES in prompts', () => {
 
   it('includes image rules in worksheet prompt', () => {
     const { system } = promptsForWorksheet(draft, 'create')
-    expect(system).toContain('непригодную иллюстрацию')
+    expect(system).toContain('непригоден')
     expect(system).toContain('не показывай [скобки]')
   })
 
@@ -27,10 +27,16 @@ describe('IMAGE_DESCRIPTION_RULES in prompts', () => {
     expect(system).toContain('не этап многошагового решения')
   })
 
-  it('worksheet prompt uses description from task_plan', () => {
-    const { system } = promptsForWorksheet(draft, 'create')
-    expect(system).toContain('description')
-    expect(system).toContain('user_description')
+  it('worksheet prompt uses task_plan and generated_json_template', () => {
+    const { system, user } = promptsForWorksheet(draft, 'create')
+    expect(system).toContain('task_plan')
+    expect(system).toContain('generated_json_template')
+    const parsed = JSON.parse(user)
+    expect(parsed.generated_json_template).toBeDefined()
+    expect(parsed.generated_json_schema).toBeDefined()
+    expect(parsed.task_plan).toBeDefined()
+    expect(parsed.source_content).toBeDefined()
+    expect(parsed.additional_wishes).toBeDefined()
   })
 
   it('includes reference material rules in worksheet prompt', () => {

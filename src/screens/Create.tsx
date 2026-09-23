@@ -6,11 +6,11 @@ import iconClose from '@/assets/create/close.svg'
 import iconClear from '@/assets/create/clear.svg'
 import { Button, Field, FigmaIcon, Input, Select, Textarea } from '@/components/ui'
 import { MarkdownPreview } from '@/components/MarkdownPreview'
-import { generatePlanAI } from '@/data/ai'
+import { generatePlanAIWithMeta } from '@/data/ai'
 import { extractContextFile } from '@/data/contextFile'
 import { runTechnicalProbe } from '@/data/technicalProbe'
 import { planItemDifficultyLabel, normalizeDifficultyMode } from '@/data/planMechanics'
-import { createPlan } from '@/data/worksheet'
+import { resizePlanToTaskCount, withGenerationBaseline } from '@/data/taskPlanOrchestration'
 import type { DifficultyMode, TaskType, WorksheetDraft } from '@/data/worksheet'
 import {
   DIFFICULTY_OPTIONS,
@@ -69,14 +69,11 @@ export function Create({
 
   const syncTaskCount = (countStr: string) => {
     const count = Number(countStr) || 5
-    onChange({
-      ...draft,
+    onChange((prev) => ({
+      ...prev,
       taskCount: count,
-      plan: createPlan(
-        count,
-        draft.plan.map((p) => p.taskType),
-      ),
-    })
+      plan: resizePlanToTaskCount(prev.plan, count),
+    }))
   }
 
   const updatePlan = (index: number, patch: Partial<(typeof draft.plan)[number]>) => {
@@ -102,8 +99,12 @@ export function Create({
     setPlanBusy(true)
     setPlanError('')
     try {
-      const plan = await generatePlanAI(draft)
-      onChange({ ...draft, plan })
+      const { plan, meta } = await generatePlanAIWithMeta(draft)
+      const next = withGenerationBaseline({ ...draft, plan }, plan)
+      onChange(next)
+      if (meta.source === 'cached') {
+        setPlanError('')
+      }
     } catch (err) {
       setPlanError(err instanceof Error ? err.message : 'Не удалось сгенерировать план')
     } finally {
@@ -171,10 +172,7 @@ export function Create({
     let workingDraft = {
       ...draft,
       title: draft.topic.trim() || draft.title,
-      plan:
-        draft.plan.length >= draft.taskCount
-          ? draft.plan
-          : createPlan(draft.taskCount, draft.plan.map((p) => p.taskType)),
+      plan: resizePlanToTaskCount(draft.plan, draft.taskCount),
     }
 
     let extractTruncated: boolean | undefined
@@ -436,12 +434,18 @@ export function Create({
                               <span className="plan-index">{index + 1}.</span>
                               <Select
                                 className="plan-type"
+                                placeholder="—"
                                 options={PLAN_TASK_TYPES.map((t) => t.label)}
                                 value={
-                                  PLAN_TASK_TYPES.find((t) => t.type === row.taskType)?.label ??
                                   row.taskType
+                                    ? PLAN_TASK_TYPES.find((t) => t.type === row.taskType)?.label ?? ''
+                                    : ''
                                 }
                                 onChange={(e) => {
+                                  if (!e.target.value) {
+                                    updatePlan(index, { taskType: undefined })
+                                    return
+                                  }
                                   const found = PLAN_TASK_TYPES.find((t) => t.label === e.target.value)
                                   if (found) updatePlan(index, { taskType: found.type as TaskType })
                                 }}

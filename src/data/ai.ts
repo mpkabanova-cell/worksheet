@@ -32,7 +32,18 @@ import {
   planDifficultyToStars,
   planGenerationBrief,
   resolveInputType,
+  toSpecMechanic,
 } from './planMechanics'
+import {
+  preparePlanForGeneration,
+  resizePlanToTaskCount,
+  withGenerationBaseline,
+} from './taskPlanOrchestration'
+import {
+  templateTaskToAiPayload,
+  type WorksheetJsonTemplate,
+  type WorksheetTemplateTask,
+} from './worksheetJsonTemplate'
 
 function sanitizeAiText(text: string | undefined): string {
   if (!text) return ''
@@ -72,7 +83,7 @@ export interface AiTaskPayload {
 interface AiWorksheetPayload {
   title?: string
   intro?: string
-  tasks: AiTaskPayload[]
+  tasks: AiTaskPayload[] | WorksheetTemplateTask[]
 }
 
 interface AiPlanTaskRow {
@@ -91,6 +102,7 @@ interface AiPlanPayload {
 export type PlanGenerationSource =
   | 'ai'
   | 'ai_with_validation_warnings'
+  | 'cached'
   | 'fallback_fragment'
   | 'fallback_no_api'
 
@@ -158,14 +170,14 @@ function fallbackDocumentPlan(draft: WorksheetDraft): PlanTask[] {
 
 function padPlanToCount(plan: PlanTask[], draft: WorksheetDraft): PlanTask[] {
   const hints = referenceHintsForDraft(draft)
-  const types = plan.map((p) => p.taskType)
+  const types = plan.map((p) => p.taskType).filter(Boolean) as TaskType[]
   const padded = [...plan]
   while (padded.length < draft.taskCount) {
     const i = padded.length
     const hint = hints[i % Math.max(hints.length, 1)]
     padded.push({
       id: `plan-${Date.now()}-${i}`,
-      taskType: types[i % Math.max(types.length, 1)] ?? 'short_answer',
+      taskType: types[i % Math.max(types.length, 1)] ?? undefined,
       userExpectation: (hint ?? fallbackPlanExpectation(draft, i)).slice(0, 100),
       description: fallbackPlanDescription(draft, i, hint),
       planDifficulty: null,
@@ -224,7 +236,7 @@ function mockBlockForPlanIndex(
 ): WorksheetBlock {
   return mockSingle(
     { ...draft, blocks: blocksSoFar, taskCount: draft.taskCount },
-    planItem.taskType,
+    planItem.taskType ?? 'short_answer',
     planItem.userExpectation || brief,
   )
 }
@@ -387,45 +399,22 @@ function toBlock(
 }
 
 export function ensurePlan(draft: WorksheetDraft): PlanTask[] {
-  const count = Math.min(15, Math.max(1, draft.taskCount || draft.plan.length || 5))
-  if (draft.plan.length === count) return draft.plan
-  if (draft.plan.length > count) return draft.plan.slice(0, count)
-
-  const hints = referenceHintsForDraft(draft)
-  const types = draft.plan.map((p) => p.taskType)
-  const padded: PlanTask[] = [...draft.plan]
-  while (padded.length < count) {
-    const i = padded.length
-    const type = types[i % Math.max(types.length, 1)] ?? 'short_answer'
-    const hint = hints[i % Math.max(hints.length, 1)]
-    padded.push({
-      id: `plan-${Date.now()}-${i}`,
-      taskType: type,
-      userExpectation: (hint ?? fallbackPlanExpectation(draft, i)).slice(0, 100),
-      description: fallbackPlanDescription(draft, i, hint),
-      planDifficulty: null,
-    })
-  }
-  return padded
+  return resizePlanToTaskCount(draft.plan, draft.taskCount)
 }
 
 function rowsToPlan(rows: AiPlanTaskRow[], draft: WorksheetDraft): PlanTask[] {
   const plan: PlanTask[] = rows.map((row, i) => {
     const existing = draft.plan[i]
     const teacherInput = existing?.userExpectation?.trim()
-    const lockedDescription = existing?.description?.trim()
     const userDescription = (row.user_description || teacherInput || '').slice(0, 200)
-    const description = lockedDescription || (row.description || '').slice(0, 2000) || null
+    const description = (row.description || '').slice(0, 2000) || null
 
     return {
       id: existing?.id ?? `plan-${Date.now()}-${i}`,
       taskType: resolvePlanTaskType(row, existing),
       userExpectation: userDescription || (row.expectation || '').slice(0, 200),
       description,
-      planDifficulty:
-        existing?.planDifficulty ??
-        normalizePlanItemDifficulty(row.difficulty) ??
-        null,
+      planDifficulty: normalizePlanItemDifficulty(row.difficulty) ?? existing?.planDifficulty ?? null,
     }
   })
 
@@ -435,11 +424,18 @@ function rowsToPlan(rows: AiPlanTaskRow[], draft: WorksheetDraft): PlanTask[] {
 export async function generatePlanAIWithMeta(
   draft: WorksheetDraft,
 ): Promise<{ plan: PlanTask[]; meta: PlanGenerationMeta }> {
+  const { plan: preparedPlan, needsPlanner } = preparePlanForGeneration(draft)
+  const workingDraft = { ...draft, plan: preparedPlan, taskCount: preparedPlan.length }
+
+  if (!needsPlanner) {
+    return { plan: preparedPlan, meta: { source: 'cached' } }
+  }
+
   try {
-    const hints = referenceHintsForDraft(draft)
-    const { system, user } = promptsForPlan(draft)
+    const hints = referenceHintsForDraft(workingDraft)
+    const { system, user } = promptsForPlan(workingDraft)
     let payload = await chatJson<AiPlanPayload>(system, user, { temperature: 0.55 })
-    let rows = extractPlanRows(payload).slice(0, draft.taskCount)
+    let rows = extractPlanRows(payload).slice(0, workingDraft.taskCount)
     let validationIssues = validatePlanIndependence(planRowsForIndependence(rows))
 
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -449,7 +445,7 @@ export async function generatePlanAIWithMeta(
         user + independenceRetryNote(validationIssues),
         { temperature: 0.45 + attempt * 0.1 },
       )
-      rows = extractPlanRows(payload).slice(0, draft.taskCount)
+      rows = extractPlanRows(payload).slice(0, workingDraft.taskCount)
       validationIssues = validatePlanIndependence(planRowsForIndependence(rows))
     }
 
@@ -458,42 +454,37 @@ export async function generatePlanAIWithMeta(
         system,
         user +
           independenceRetryNote(validationIssues) +
-          planFragmentAssignmentNote(hints, draft.taskCount),
+          planFragmentAssignmentNote(hints, workingDraft.taskCount),
         { temperature: 0.4 },
       )
-      rows = extractPlanRows(payload).slice(0, draft.taskCount)
+      rows = extractPlanRows(payload).slice(0, workingDraft.taskCount)
       validationIssues = validatePlanIndependence(planRowsForIndependence(rows))
     }
 
     if (!rows.length) {
+      const fallbackPlan = fallbackDocumentPlan(workingDraft)
       return {
-        plan: fallbackDocumentPlan(draft),
+        plan: fallbackPlan,
         meta: { source: 'fallback_fragment' },
       }
     }
 
-    const plan = rowsToPlan(rows, draft)
-    if (validationIssues.length) {
-      return {
-        plan,
-        meta: {
-          source: 'ai_with_validation_warnings',
-          validationIssues,
-        },
-      }
-    }
+    const plan = rowsToPlan(rows, workingDraft)
+    const meta: PlanGenerationMeta = validationIssues.length
+      ? { source: 'ai_with_validation_warnings', validationIssues }
+      : { source: 'ai' }
 
-    return { plan, meta: { source: 'ai' } }
+    return { plan, meta }
   } catch (err) {
     if (isAiUnavailable(err)) {
-      if (sourceContentForDraft(draft)) {
+      if (sourceContentForDraft(workingDraft)) {
         return {
-          plan: fallbackDocumentPlan(draft),
+          plan: fallbackDocumentPlan(workingDraft),
           meta: { source: 'fallback_fragment' },
         }
       }
       return {
-        plan: createPlan(draft.taskCount),
+        plan: createPlan(workingDraft.taskCount),
         meta: { source: 'fallback_no_api' },
       }
     }
@@ -519,9 +510,25 @@ function blockNeedsRepair(block: WorksheetBlock, planBrief?: string): boolean {
   ).length > 0
 }
 
-function planNeedsAiGeneration(draft: WorksheetDraft): boolean {
-  if (!sourceContentForDraft(draft)) return false
-  return draft.plan.every((item) => !item.description?.trim() && !item.userExpectation?.trim())
+function templateTasksFromPayload(payload: AiWorksheetPayload): WorksheetTemplateTask[] {
+  return (payload.tasks ?? []) as WorksheetTemplateTask[]
+}
+
+function templateTasksToAiPayloads(
+  tasks: WorksheetTemplateTask[],
+  plan: PlanTask[],
+): AiTaskPayload[] {
+  return tasks.map((task, i) => templateTaskToAiPayload(task, plan[i]) as AiTaskPayload)
+}
+
+/** @internal Exported for tests. */
+export function templateToBlocks(
+  filled: WorksheetJsonTemplate,
+  plan: PlanTask[],
+  draft: WorksheetDraft,
+): WorksheetBlock[] {
+  const tasks = (filled.tasks ?? []).slice(0, plan.length)
+  return tasks.map((task, i) => toBlock(templateTaskToAiPayload(task, plan[i]) as AiTaskPayload, i, draft, plan[i]))
 }
 
 export async function generateWorksheetAI(
@@ -529,71 +536,81 @@ export async function generateWorksheetAI(
   mode: GenerateMode = 'create',
   options?: WorksheetGenerationOptions,
 ): Promise<WorksheetDraft> {
-  let plan = ensurePlan(draft)
+  let { plan, needsPlanner } = preparePlanForGeneration(draft)
   let prepared = { ...draft, plan, taskCount: plan.length }
 
-  if (mode === 'create' && planNeedsAiGeneration(prepared)) {
-    plan = await generatePlanAI(prepared)
-    prepared = { ...prepared, plan, taskCount: plan.length }
+  if (needsPlanner) {
+    const { plan: planned, meta } = await generatePlanAIWithMeta(prepared)
+    plan = planned
+    prepared = withGenerationBaseline({ ...prepared, plan, taskCount: plan.length }, plan)
+    if (meta.source === 'fallback_no_api' || meta.source === 'fallback_fragment') {
+      // keep going with fallback plan
+    }
   }
 
   const maxIndependenceRetries = options?.maxIndependenceRetries ?? 2
 
   try {
     const { system, user } = promptsForWorksheet(prepared, mode)
-    let payload = await chatJson<AiWorksheetPayload>(system, user, {
+    let payload = await chatJson<WorksheetJsonTemplate & AiWorksheetPayload>(system, user, {
       temperature: mode === 'regenerate' ? 0.7 : 0.45,
     })
 
-    let tasks = (payload.tasks ?? []).slice(0, prepared.taskCount)
+    let templateTasks = templateTasksFromPayload(payload).slice(0, prepared.taskCount)
     const planBriefs = plan.map((p) => planGenerationBrief(p))
+
     for (let attempt = 0; attempt < maxIndependenceRetries; attempt++) {
-      const taskIssues = validateTaskIndependence(tasks, planBriefs)
+      const aiTasks = templateTasksToAiPayloads(templateTasks, plan)
+      const taskIssues = validateTaskIndependence(aiTasks, planBriefs)
       if (!taskIssues.length) break
-      payload = await chatJson<AiWorksheetPayload>(
+      payload = await chatJson<WorksheetJsonTemplate & AiWorksheetPayload>(
         system,
         user + independenceRetryNote(taskIssues),
         { temperature: 0.45 + attempt * 0.1 },
       )
-      tasks = (payload.tasks ?? []).slice(0, prepared.taskCount)
+      templateTasks = templateTasksFromPayload(payload).slice(0, prepared.taskCount)
     }
 
     if (
       !options?.skipExtraIndependencePass &&
-      validateTaskIndependence(tasks, planBriefs).length &&
+      validateTaskIndependence(templateTasksToAiPayloads(templateTasks, plan), planBriefs).length &&
       referenceFilePayload(prepared)?.content
     ) {
-      payload = await chatJson<AiWorksheetPayload>(
+      payload = await chatJson<WorksheetJsonTemplate & AiWorksheetPayload>(
         system,
         user +
-          '\n\nКаждое question — полное условие для ученика: текст задачи из source_content (все данные и числа) + вопрос. Не копируй description или user_description («Определить…», «Выберите…» без условия). Не используй готовые решения из файла.',
+          '\n\nКаждое question — полное условие для ученика: текст задачи из source_content (все данные и числа) + вопрос. Не копируй description («Определить…», «Выберите…» без условия). Не используй готовые решения из файла.',
         { temperature: 0.55,
         },
       )
-      tasks = (payload.tasks ?? []).slice(0, prepared.taskCount)
+      templateTasks = templateTasksFromPayload(payload).slice(0, prepared.taskCount)
     }
 
-    if (!tasks.length) throw new AiError('Модель не вернула задания')
+    if (!templateTasks.length) throw new AiError('Модель не вернула задания')
 
-    const aligned = tasks.map((t, i) => ({
-      ...t,
-      type: plan[i]?.taskType ?? normalizeType(t.type),
-    }))
-
-    while (aligned.length < prepared.taskCount) {
-      const i = aligned.length
-      aligned.push({
-        type: plan[i]?.taskType ?? 'short_answer',
+    while (templateTasks.length < prepared.taskCount) {
+      const i = templateTasks.length
+      templateTasks.push({
+        type: (plan[i]?.taskType ? toSpecMechanic(plan[i].taskType!) : null) ?? 'input',
         instruction: '',
         question:
           planBriefs[i] ||
           fallbackPlanExpectation(prepared, i) ||
           `Задание по теме «${draft.topic}»`,
-        difficulty: planDifficultyToStars(plan[i]?.planDifficulty, draft.difficulty, i, prepared.taskCount),
+        difficulty: planDifficultyToStars(
+          plan[i]?.planDifficulty,
+          draft.difficulty,
+          i,
+          prepared.taskCount,
+        ),
       })
     }
 
-    let blocks = aligned.map((t, i) => toBlock(t, i, prepared, plan[i]))
+    let blocks = templateToBlocks(
+      { title: payload.title, intro: payload.intro, tasks: templateTasks },
+      plan,
+      prepared,
+    )
 
     if (!options?.skipTaskRepairs) {
       for (let i = 0; i < blocks.length; i++) {
@@ -671,19 +688,23 @@ export async function generateWorksheetAI(
 
     blocks = ensureWorksheetTaskBlocks(blocks, plan, prepared, refContent, planBriefs)
 
-    return {
-      ...prepared,
-      title: payload.title || draft.topic || draft.title,
-      intro: draft.addIntro ? payload.intro || draft.intro : '',
-      blocks,
-      pages: 1,
-      savedAt: undefined,
-    }
+    return withGenerationBaseline(
+      {
+        ...prepared,
+        title: payload.title || draft.topic || draft.title,
+        intro: draft.addIntro ? payload.intro || draft.intro : '',
+        blocks,
+        pages: 1,
+        savedAt: undefined,
+      },
+      plan,
+    )
   } catch (err) {
     if (isAiUnavailable(err)) return mockGenerate(prepared)
     throw err
   }
 }
+
 
 export async function generateSingleTaskAI(
   draft: WorksheetDraft,

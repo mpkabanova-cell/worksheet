@@ -27,6 +27,8 @@ function planSourceLabel(source: PlanGenerationMeta['source'] | undefined): stri
       return 'AI plan'
     case 'ai_with_validation_warnings':
       return 'AI plan (есть предупреждения валидации)'
+    case 'cached':
+      return 'план актуален (planner не вызывался)'
     case 'fallback_fragment':
       return 'fallback по фрагментам reference (AI недоступен или пустой ответ)'
     case 'fallback_no_api':
@@ -53,7 +55,7 @@ export function formatProbePlan(plan: WorksheetDraft['plan']): string {
   return plan
     .map((p, i) => {
       const parts = [
-        `${i + 1}. ${p.taskType} (${labelForType(p.taskType)})`,
+        `${i + 1}. ${p.taskType ?? '—'} (${p.taskType ? labelForType(p.taskType) : 'тип не выбран'})`,
         p.userExpectation ? `user: ${p.userExpectation}` : null,
         p.description ? `desc: ${p.description}` : null,
         p.planDifficulty ? `diff: ${planItemDifficultyLabel(p.planDifficulty)}` : null,

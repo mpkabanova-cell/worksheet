@@ -145,7 +145,8 @@ export interface WorksheetBlock {
 
 export interface PlanTask {
   id: string
-  taskType: TaskType
+  /** Не выбран — placeholder «—» в UI; planner заполнит при генерации. */
+  taskType?: TaskType
   /** user_description — краткий замысел (учитель или агент планирования). */
   userExpectation: string
   /** Нормализованное описание для агента генерации (заполняет агент планирования). */
@@ -182,6 +183,8 @@ export interface WorksheetDraft {
   contextFileName?: string
   contextFileText?: string
   contextFileNote?: string
+  /** Snapshot globals + task_plan после генерации плана или листа. */
+  generationBaseline?: import('./taskPlanOrchestration').GenerationBaseline | null
   savedAt?: string
 }
 
@@ -286,11 +289,12 @@ export function labelForType(type: TaskType): string {
   return TASK_TYPE_META.find((t) => t.type === type)?.label ?? type
 }
 
-export function createPlan(count: number, seed: TaskType[] = DEFAULT_PLAN_TYPES): PlanTask[] {
+export function createPlan(count: number): PlanTask[] {
   return Array.from({ length: count }, (_, i) => ({
     id: `plan-${Date.now()}-${i}`,
-    taskType: seed[i % seed.length] ?? 'short_answer',
     userExpectation: '',
+    description: null,
+    planDifficulty: null,
   }))
 }
 

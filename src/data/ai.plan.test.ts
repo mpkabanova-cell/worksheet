@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { filledCreateDraft, createPlan } from './worksheet'
 import { generatePlanAI, generatePlanAIWithMeta } from './ai'
 import { prepareReferenceContent } from './contextFilter'
+import { saveGenerationBaseline } from './taskPlanOrchestration'
 
 const CAVE_SAMPLE = `5-6 классы
 
@@ -29,6 +30,56 @@ describe('generatePlanAI task_count safety net', () => {
 
   afterEach(() => {
     vi.clearAllMocks()
+  })
+
+  it('skips planner when all descriptions are filled', async () => {
+    const plan = createPlan(2)
+    plan[0] = {
+      ...plan[0],
+      taskType: 'short_answer',
+      description: 'Описание 1',
+      userExpectation: 'u1',
+    }
+    plan[1] = {
+      ...plan[1],
+      taskType: 'single_choice',
+      description: 'Описание 2',
+      userExpectation: 'u2',
+    }
+
+    const draft = {
+      ...filledCreateDraft(),
+      taskCount: 2,
+      plan,
+      generationBaseline: saveGenerationBaseline(
+        { ...filledCreateDraft(), taskCount: 2, plan },
+        plan,
+      ),
+    }
+
+    const { plan: result, meta } = await generatePlanAIWithMeta(draft)
+    expect(meta.source).toBe('cached')
+    expect(chatJson).not.toHaveBeenCalled()
+    expect(result[0].description).toBe('Описание 1')
+  })
+
+  it('calls planner when any description is null', async () => {
+    vi.mocked(chatJson).mockResolvedValue({
+      task_plan: [
+        {
+          type: 'input',
+          user_description: 'Задача',
+          description: 'Сформулировать задачу с кратким ответом',
+          difficulty: 'basic',
+        },
+      ],
+    })
+
+    const plan = createPlan(1)
+    const draft = { ...filledCreateDraft(), taskCount: 1, plan }
+
+    await generatePlanAIWithMeta(draft)
+    expect(chatJson).toHaveBeenCalled()
   })
 
   it('pads plan to task_count when model returns fewer tasks (legacy tasks format)', async () => {

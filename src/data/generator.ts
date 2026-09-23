@@ -1,5 +1,6 @@
 import type { DifficultyMode, PlanTask, TaskType, WorksheetBlock, WorksheetDraft } from './worksheet'
-import { createPlan, labelForType, uid } from './worksheet'
+import { labelForType, uid } from './worksheet'
+import { resizePlanToTaskCount } from './taskPlanOrchestration'
 import { createDefaultGroupingTableFields, defaultAnswerHeight, defaultAnswerStyle, groupsToTableFields } from './blockUtils'
 import { expectationToQuestion } from './taskContent'
 import { normalizeDifficultyMode, planDifficultyToStars } from './planMechanics'
@@ -174,13 +175,10 @@ export function generateWorksheet(draft: WorksheetDraft): WorksheetDraft {
   const plan: PlanTask[] =
     draft.plan.length === count
       ? draft.plan
-      : createPlan(
-          count,
-          draft.plan.map((p) => p.taskType),
-        )
+      : resizePlanToTaskCount(draft.plan, count)
 
   const blocks = plan.map((p, i) =>
-    blockForType(p.taskType, i, { ...draft, taskCount: count }, p.userExpectation),
+    blockForType(p.taskType ?? 'short_answer', i, { ...draft, taskCount: count }, p.userExpectation),
   )
 
   const intro = draft.addIntro

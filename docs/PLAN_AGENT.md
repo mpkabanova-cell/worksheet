@@ -1,6 +1,6 @@
 # AI-агент планирования рабочего листа
 
-Краткая выжимка product spec (полный текст — в приложенном PDF «AI-агент планирования»).
+Краткая выжимка product spec (полный текст — в приложенном PDF «генерация плана»).
 
 ## Роль
 
@@ -12,6 +12,23 @@
 | `user_description` | Краткий замысел (до 100 символов у AI) |
 | `description` | Нормализованное описание для агента генерации |
 | `difficulty` | `basic` \| `medium` \| `advanced` |
+
+## Инициализация и UI
+
+- Новый лист: `createPlan(count)` — строки с `description: null`, `type` не выбран (placeholder «—»).
+- Изменение `task_count`: `resizePlanToTaskCount` — trim/add с конца, существующие строки сохраняются.
+
+## Snapshot и invalidation
+
+После генерации плана или листа в `WorksheetDraft.generationBaseline` сохраняются globals + `task_plan`.
+
+Перед вызовом Planner/Generator:
+
+1. Если изменился любой global (`subject`, `grade`, `topic`, `plan_difficulty`, `additional_wishes`, `source_content`) → `description = null` у **всех** строк.
+2. Иначе построчно: изменились `type` или `user_description` → `description = null` только у этой строки.
+3. Новая строка без пары в baseline → `description = null`.
+
+Planner вызывается **только** если `planNeedsPlanner` — есть строка с пустым `description`.
 
 ## Вход (user JSON)
 
@@ -41,15 +58,16 @@
 | Spec | Реализация |
 |------|------------|
 | Промпт | [`src/data/planAgentPrompt.ts`](../src/data/planAgentPrompt.ts) → `promptsForPlan` |
-| Парсинг ответа | [`src/data/ai.ts`](../src/data/ai.ts) → `generatePlanAI` |
-| Маппинг механик | [`src/data/planMechanics.ts`](../src/data/planMechanics.ts) (`input`→`short_answer`/`extended_answer`, `table`→`grouping`) |
-| Модель UI | [`PlanTask`](../src/data/worksheet.ts): `userExpectation`, `description`, `planDifficulty` |
-| Генерация листа | [`promptsForWorksheet`](../src/data/aiPrompts.ts) — опирается на `description` |
+| Orchestration | [`src/data/taskPlanOrchestration.ts`](../src/data/taskPlanOrchestration.ts) |
+| Парсинг ответа | [`src/data/ai.ts`](../src/data/ai.ts) → `generatePlanAIWithMeta` |
+| Маппинг механик | [`src/data/planMechanics.ts`](../src/data/planMechanics.ts) |
+| Модель UI | [`PlanTask`](../src/data/worksheet.ts): `userExpectation`, `description`, `planDifficulty`, optional `taskType` |
+| Генерация листа | [`WORKSHEET_GENERATOR.md`](./WORKSHEET_GENERATOR.md) |
 
 ## Ограничения (из spec)
 
 - Не планировать задания, зависящие от изображений.
-- Элементы с заполненным `description` не изменять.
+- Элементы с заполненным `description` не изменять (prompt + pre-check invalidation).
 - Сохранять количество и порядок `task_plan`.
 
 См. также: [`PROMPTS.md`](./PROMPTS.md), [`CONTEXT_FILE.md`](./CONTEXT_FILE.md).

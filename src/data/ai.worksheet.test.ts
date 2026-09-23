@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createPlan, filledCreateDraft } from './worksheet'
-import { countWorksheetTaskBlocks, ensureWorksheetTaskBlocks } from './ai'
+import { countWorksheetTaskBlocks, ensureWorksheetTaskBlocks, templateToBlocks } from './ai'
 import type { WorksheetBlock } from './worksheet'
 
 describe('ensureWorksheetTaskBlocks', () => {
@@ -64,5 +64,38 @@ describe('ensureWorksheetTaskBlocks', () => {
     const result = ensureWorksheetTaskBlocks(blocks, plan, draft, null, [])
     expect(result).toHaveLength(3)
     expect(countWorksheetTaskBlocks(result)).toBe(3)
+  })
+
+  it('parses filled worksheet template into blocks', () => {
+    const draft = { ...filledCreateDraft(), taskCount: 1 }
+    const plan = createPlan(1)
+    plan[0] = {
+      ...plan[0],
+      taskType: 'short_answer',
+      description: 'Краткий числовой ответ',
+    }
+
+    const blocks = templateToBlocks(
+      {
+        title: 'Тест',
+        intro: '',
+        tasks: [
+          {
+            type: 'input',
+            instruction: '',
+            question: 'Сколько будет 2+2?',
+            correct_answers: ['4'],
+            difficulty: 1,
+          },
+        ],
+      },
+      plan,
+      draft,
+    )
+
+    expect(blocks).toHaveLength(1)
+    expect(blocks[0].type).toBe('short_answer')
+    expect(blocks[0].question).toContain('2+2')
+    expect(blocks[0].correctAnswers).toEqual(['4'])
   })
 })

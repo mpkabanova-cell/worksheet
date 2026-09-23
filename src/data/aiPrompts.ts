@@ -10,9 +10,11 @@ import {
 import { PLAN_AGENT_MECHANICS_LIST, PLAN_AGENT_SYSTEM } from './planAgentPrompt'
 import {
   normalizeDifficultyMode,
-  planItemDifficultyLabel,
   toSpecMechanic,
 } from './planMechanics'
+import { trimPlanForGenerator } from './taskPlanOrchestration'
+import { WORKSHEET_GENERATOR_SYSTEM } from './worksheetGeneratorPrompt'
+import { buildWorksheetJsonSchema, buildWorksheetJsonTemplate } from './worksheetJsonTemplate'
 
 const TASK_JSON_FIELDS = `Поля задания (используй только нужные для type):
 {
@@ -221,15 +223,12 @@ function contextPayload(draft: WorksheetDraft) {
 }
 
 function specTaskPlanInput(draft: WorksheetDraft) {
-  return draft.plan.map((p) => {
-    const specType = toSpecMechanic(p.taskType) ?? p.taskType
-    return {
-      type: p.taskType ? specType : null,
-      user_description: p.userExpectation?.trim() || null,
-      description: p.description?.trim() || null,
-      difficulty: p.planDifficulty ?? null,
-    }
-  })
+  return draft.plan.map((p) => ({
+    type: p.taskType ? toSpecMechanic(p.taskType) : null,
+    user_description: p.userExpectation?.trim() || null,
+    description: p.description?.trim() || null,
+    difficulty: p.planDifficulty ?? null,
+  }))
 }
 
 function planAgentPayload(draft: WorksheetDraft) {
@@ -244,17 +243,6 @@ function planAgentPayload(draft: WorksheetDraft) {
   }
 }
 
-function planPayload(draft: WorksheetDraft) {
-  return draft.plan.map((p, i) => ({
-    index: i + 1,
-    type: p.taskType,
-    type_label: labelForType(p.taskType),
-    user_description: p.userExpectation?.trim() || null,
-    description: p.description?.trim() || null,
-    difficulty: p.planDifficulty ?? null,
-    difficulty_label: p.planDifficulty ? planItemDifficultyLabel(p.planDifficulty) : null,
-  }))
-}
 
 function blockBriefText(block: WorksheetBlock): string {
   if (block.type === 'fill_gaps') {
@@ -299,43 +287,16 @@ export function promptsForWorksheet(
 ) {
   const modeBlock =
     mode === 'regenerate'
-      ? `Режим: ПЕРЕГЕНЕРАЦИЯ. Создай НОВЫЕ задания по тому же плану и теме.
-Не копируй формулировки из previous_tasks. Сохрани типы и педагогическую цель, замени содержение.
-Альтернативы — сюжетно близки к previous_tasks и reference_file, но каждое question — самостоятельное полное условие.`
-      : `Режим: ПЕРВИЧНАЯ ГЕНЕРАЦИЯ рабочего листа по плану.`
+      ? `Режим: ПЕРЕГЕНЕРАЦИЯ. Создай НОВЫЕ задания по тому же task_plan.
+Не копируй формулировки из previous_tasks. Сохрани type и педагогическую цель description, замени содержание.
+Альтернативы — сюжетно близки к previous_tasks и source_content, но каждое question — самостоятельное полное условие.`
+      : `Режим: ПЕРВИЧНАЯ ГЕНЕРАЦИЯ рабочего листа по task_plan.`
 
-  const system = `Ты — опытный методист и автор школьных рабочих листов.
+  const system = `${WORKSHEET_GENERATOR_SYSTEM}
+
 ${modeBlock}
 
-${TASK_JSON_FIELDS}
-
-${OUTPUT_FORMAT}
-
-Верни JSON:
-{
-  "title": "краткое название листа",
-  "intro": "1–2 предложения: общая информация по теме без местоимений, без «сегодня/вчера», без напутствий (или пустая строка, если intro не нужен)",
-  "tasks": [ /* ровно столько, сколько в плане / task_count */ ]
-}
-
 ${CONTENT_RULES}
-
-Дополнительно по структуре листа:
-- Строго соблюдай type из плана для каждого задания.
-- Поле instruction у каждого задания — всегда "".
-- Если в task_plan есть description — это основная методическая установка для генерации. Разверни её в question с конкретными числами и данными; не копируй description дословно.
-- user_description — краткий замысел для учителя; не копируй его в question.
-- Если description отсутствует, но есть user_description — используй user_description как установку, но всё равно дай полное условие в question.
-- Если add_intro=false — верни intro как "".
-- question и options с дробями/выражениями — только LaTeX ($\\frac{a}{b}$, $\\cdot$). Не давай заданий вида «Вспомни правило… и запиши».
-- order_items: дай перемешанный порядок; correct_answers — правильная последовательность.
-- matching: right_items перемешай относительно left_items; в correct_answers укажи пары «лево → право». Каждый элемент слева должен иметь ровно одно соответствие с РАЗНЫМ элементом справа (биекция 1:1). Запрещены задания, где два числа слева должны соответствовать одному множеству справа (например «наименьшее множество» для $-15$ и $0$ → «Целые числа»). Не используй в одном matching-задании иерархии числовых множеств (N, Z, Q, R) с числами слева — для этого выбирай другой тип задания.
-- fill_gaps: question — короткая формулировка задания (1 предложение: что сделать). gaps_text — только текст с пропусками ___; не дублируй question и gaps_text. Не помещай в gaps_text и question определения и теорию («Множество … обозначается…») — только строки с пропусками. Пропуски только в обычном тексте: не ставь ___ внутри формул ($...$), не используй \\text{___} и не делай gaps_answers из фрагментов формул. Формулы пиши целиком без пропусков; если нужно проверить знание формулы — вынеси пропуск в обычный текст рядом. Запрещено: gaps_text «(a+b)^2 = a^2 + ___ + b^2» с gaps_answers: ["2ab"] — вместо этого формула целиком, пропуск только в обычном тексте рядом.
-- matching: question обязателен — ясно укажи, что нужно сопоставить (например, «Сопоставьте слова с значениями приставок»). Не оставляй question пустым.
-- grouping: 2–6 групп в groups[].title (названия колонок таблицы); groups[].items — элементы для распределения по колонкам (каждый item — одна ячейка в своей группе). Не добавляй теорию в question. Элементы — короткие слова/числа/формулы без пояснений.
-- Если элемент плана опирается на непригодную иллюстрацию — сгенерируй другое задание того же type и сложности из reference_file, близкое по сюжету к другим заданиям листа.
-
-${ALTERNATIVE_TASK_RULES}
 
 ${STANDALONE_TASK_RULES}
 
@@ -347,7 +308,18 @@ ${REFERENCE_RELEVANCE_RULES}
 
 ${IMAGE_DESCRIPTION_RULES}
 
-${CONTEXT_USAGE_RULES}`
+${CONTEXT_USAGE_RULES}
+
+${OUTPUT_FORMAT}
+
+Дополнительно:
+- Заполни generated_json_template; ответ должен соответствовать generated_json_schema.
+- Строго соблюдай type каждого задания из template / task_plan.
+- Поле instruction у каждого задания — всегда "".
+- order_items: перемешанный порядок; correct_answers — правильная последовательность.
+- matching: right_items перемешай; correct_answers — пары «лево → право», биекция 1:1.
+- fill_gaps: gaps_text с ___; question — короткая формулировка, не дублируй gaps_text.
+- table: 2–6 групп; элементы — короткие слова/числа без теории в question.`
 
   const regenerateAnchors =
     mode === 'regenerate'
@@ -361,10 +333,20 @@ ${CONTEXT_USAGE_RULES}`
         )
       : null
 
+  const template = buildWorksheetJsonTemplate(draft.plan, draft.addIntro)
+  const schema = buildWorksheetJsonSchema(draft.plan, draft.addIntro)
+
   const user = JSON.stringify(
     {
-      ...contextPayload(draft),
-      task_plan: planPayload(draft),
+      subject: draft.subject,
+      grade: `${draft.grade} класс`,
+      topic: draft.topic,
+      additional_wishes: draft.wishes?.trim().slice(0, WISHES_MAX_LENGTH) || null,
+      source_content: sourceContentForDraft(draft),
+      show_intro: draft.addIntro,
+      task_plan: trimPlanForGenerator(draft.plan),
+      generated_json_template: template,
+      generated_json_schema: schema,
       previous_tasks: mode === 'regenerate' ? existingTasksBrief(draft.blocks) : undefined,
       anchor_tasks: regenerateAnchors.length ? regenerateAnchors : undefined,
       alternative_task_guidance: alternativeGuidance || undefined,
