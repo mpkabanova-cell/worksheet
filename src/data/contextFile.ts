@@ -158,7 +158,7 @@ export function referenceFilePayload(draft: {
     name: draft.contextFileName,
     content: prepared?.content || null,
     relevance_note:
-      'В content только условия и учебный материал для заданий. Решения, ответы, ключи, разборы и иллюстрации из них исключены автоматически. Блок файла выбирается по пожеланиям или параллели формы.',
+      'В content только условия и учебный материал для заданий. Решения, ответы, ключи, разборы и иллюстрации из них исключены автоматически. Блок выбирается по пожеланиям или параллели формы; при пожелании «использовать весь материал документа» content содержит все блоки файла.',
     filter_note: prepared?.fallbackReason ?? null,
     selected_block: prepared?.selectedBlock ?? null,
     note: note || null,

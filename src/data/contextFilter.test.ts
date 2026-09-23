@@ -10,6 +10,7 @@ import {
   segmentContextText,
   splitContextBlocks,
   stripIrrelevantSections,
+  wishesUseFullDocument,
 } from './contextFilter'
 import { referenceFilePayload } from './contextFile'
 
@@ -117,6 +118,24 @@ describe('contextFilter', () => {
     })
     expect(filtered).toContain('магазин')
     expect(filtered).not.toContain('преодоления пещеры')
+  })
+
+  it('uses full document when wishes ask for all material despite grade', () => {
+    const gradeOnly = prepareReferenceContent(CAVE_SAMPLE, { grade: '6' })
+    const fullDoc = prepareReferenceContent(CAVE_SAMPLE, {
+      grade: '6',
+      wishes: 'Используй весь материал документа',
+    })
+    expect(gradeOnly).toContain('преодоления пещеры')
+    expect(gradeOnly).not.toContain('магазин')
+    expect(fullDoc).toContain('преодоления пещеры')
+    expect(fullDoc).toContain('магазин')
+    expect(fullDoc.length).toBeGreaterThan(gradeOnly.length)
+  })
+
+  it('detects full-document wishes', () => {
+    expect(wishesUseFullDocument('Используй весь материал документа')).toBe(true)
+    expect(wishesUseFullDocument('Задачи для 5-6 классов')).toBe(false)
   })
 
   it('annotates relevant and irrelevant lines', () => {

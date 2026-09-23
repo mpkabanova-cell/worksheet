@@ -21,6 +21,16 @@ describe('IMAGE_DESCRIPTION_RULES in prompts', () => {
     expect(system).toContain('не показывай [скобки]')
   })
 
+  it('includes full material rules when additional_wishes request entire document', () => {
+    const draft = {
+      ...filledCreateDraft(),
+      additionalWishes: 'Используй весь материал документа',
+    }
+    const { system } = promptsForPlan(draft)
+    expect(system).toContain('весь материал документа')
+    expect(system).toContain('аналогами')
+  })
+
   it('includes standalone task rules in plan prompt', () => {
     const { system } = promptsForPlan(draft)
     expect(system).toContain('План — независимые задания')

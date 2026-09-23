@@ -2,6 +2,7 @@ import type { DifficultyMode, TaskType, WorksheetBlock, WorksheetDraft } from '.
 import { ADDITIONAL_WISHES_MAX_LENGTH, labelForType } from './worksheet'
 import { getGapsSourceText } from './blockUtils'
 import { referenceFilePayload, sourceContentForDraft } from './contextFile'
+import { wishesUseFullDocument } from './contextFilter'
 import {
   buildAlternativeTaskGuidance,
   collectAnchorTasks,
@@ -179,9 +180,16 @@ const ALTERNATIVE_TASK_RULES = `
 const PLAN_STANDALONE_RULES = `
 [План — независимые задания]
 - Каждый пункт плана — отдельная самостоятельная задача, не этап многошагового решения одной и той же задачи.
-- Не планируй серию «найти данные → упорядочить → заполнить пропуски → объяснить» по одному сюжету из reference_file.
-- Если в reference_file несколько блоков — распредели expectation по разным фрагментам файла.
-- Разнообразь expectation: разные сюжеты из content; ответ одного задания не должен быть входом для другого.`.trim()
+- Не планируй серию «найти данные → упорядочить → заполнить пропуски → объяснить» по одному сюжету из source_content, если additional_wishes не просят развернуть одну задачу по шагам.
+- Если additional_wishes требуют использовать весь материал документа — бери задания из разных блоков/фрагментов source_content (все классы и сюжеты файла).
+- Если уникальных фрагментов в source_content меньше, чем task_count — дополняй план аналогами в том же сюжете, с теми же персонажами, числами и правилами файла; не придумывай посторонние шаблоны (магазин, поезд, склад), если их нет в source_content.
+- Разнообразь учебные действия и механики; ответ одного задания не должен быть входом для другого.`.trim()
+
+const PLAN_FULL_MATERIAL_RULES = `
+[Пожелание «использовать весь материал документа»]
+- source_content уже содержит все блоки файла (не только параллель формы).
+- Распредели task_plan по разным фрагментам и сюжетам из source_content.
+- Недостающие пункты плана — новые задания-аналоги по уже взятым сюжетам файла, а не выдуманные темы вне файла.`.trim()
 
 function difficultyHint(mode: DifficultyMode): string {
   switch (normalizeDifficultyMode(mode)) {
@@ -236,11 +244,13 @@ function existingTasksBrief(blocks: WorksheetBlock[]) {
 }
 
 export function promptsForPlan(draft: WorksheetDraft) {
+  const useFullMaterial = Boolean(draft.additionalWishes?.trim() && wishesUseFullDocument(draft.additionalWishes))
   const system = `${PLAN_AGENT_SYSTEM}
 
 ${OUTPUT_FORMAT}
 
 ${PLAN_STANDALONE_RULES}
+${useFullMaterial ? `\n\n${PLAN_FULL_MATERIAL_RULES}` : ''}
 
 ${IMAGE_DESCRIPTION_RULES}
 

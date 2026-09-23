@@ -591,8 +591,22 @@ export function listReferenceTaskHints(text: string, limit = 8): string[] {
   return unique.slice(0, limit)
 }
 
+/** Пожелание использовать весь документ / все блоки — не резать source_content по классу. */
+export function wishesUseFullDocument(wishes: string | null | undefined): boolean {
+  const w = wishes?.trim().toLowerCase() ?? ''
+  if (!w) return false
+  return (
+    /весь\s+(материал|документ|файл|текст|контент|extract)/i.test(w) ||
+    /в(?:с|сё)\s+(?:содержимое|материал|задания|задачи)\s+(?:документа|файла)/i.test(w) ||
+    /используй\s+(?:весь|все|всё)\s+(?:материал|содержимое|задания|задачи|документ|файл)/i.test(w) ||
+    /(?:весь|все|всё)\s+(?:материал|содержимое|задания|задачи)\s+документа/i.test(w)
+  )
+}
+
 /** Ищет заголовок блока, упомянутый в пожеланиях учителя. */
 export function inferBlockFromWishes(wishes: string, text: string): string | null {
+  if (wishesUseFullDocument(wishes)) return null
+
   const query = wishes.trim()
   if (!query) return null
 
@@ -656,6 +670,8 @@ export function resolveSelectedContextBlock(
   options?: ContextFilterOptions,
 ): string | null {
   if (options?.block?.trim()) return options.block.trim()
+
+  if (wishesUseFullDocument(options?.wishes)) return null
 
   if (options?.wishes?.trim()) {
     const fromWishes = inferBlockFromWishes(options.wishes, text)
