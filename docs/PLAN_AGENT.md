@@ -24,7 +24,7 @@
 
 Перед вызовом Planner/Generator:
 
-1. Если изменился любой global (`subject`, `grade`, `topic`, `plan_difficulty`, `additional_wishes`, `source_content`) → `description = null` у **всех** строк.
+1. Если изменился любой global (`subject`, `grade`, `topic`, `difficulty`, `additional_wishes`, `source_content`) → `description = null` у **всех** строк.
 2. Иначе построчно: изменились `type` или `user_description` → `description = null` только у этой строки.
 3. Новая строка без пары в baseline → `description = null`.
 
@@ -32,8 +32,8 @@ Planner вызывается **только** если `planNeedsPlanner` — е
 
 ## Вход (user JSON)
 
-- `subject`, `grade`, `topic`
-- `plan_difficulty` — `basic` \| `medium` \| `advanced` \| `differentiated`
+- `subject`, `grade` (число в JSON), `topic`, `task_count`
+- `difficulty` — `basic` \| `medium` \| `advanced` \| `differentiated`
 - `additional_wishes` — пожелания учителя (в т.ч. выбор блока файла)
 - `source_content` — отфильтрованный текст приложения
 - `task_plan` — текущий план (количество и порядок фиксированы)
@@ -61,7 +61,7 @@ Planner вызывается **только** если `planNeedsPlanner` — е
 | Orchestration | [`src/data/taskPlanOrchestration.ts`](../src/data/taskPlanOrchestration.ts) |
 | Парсинг ответа | [`src/data/ai.ts`](../src/data/ai.ts) → `generatePlanAIWithMeta` |
 | Маппинг механик | [`src/data/planMechanics.ts`](../src/data/planMechanics.ts) |
-| Модель UI | [`PlanTask`](../src/data/worksheet.ts): `userExpectation`, `description`, `planDifficulty`, optional `taskType` |
+| Модель UI | [`PlanTask`](../src/data/worksheet.ts): `type`, `userDescription`, `description`, `difficulty` |
 | Генерация листа | [`WORKSHEET_GENERATOR.md`](./WORKSHEET_GENERATOR.md) |
 
 ## Ограничения (из spec)

@@ -1,11 +1,6 @@
 import type { DifficultyMode, PlanItemDifficulty, PlanTask, WorksheetDraft } from './worksheet'
 import { sourceContentForDraft } from './contextFile'
-import {
-  fromSpecMechanic,
-  normalizeDifficultyMode,
-  type SpecMechanic,
-  toSpecMechanic,
-} from './planMechanics'
+import { normalizeDifficultyMode, type SpecMechanic } from './planMechanics'
 
 export interface SpecTaskPlanRow {
   type: SpecMechanic | null
@@ -18,7 +13,7 @@ export interface GenerationGlobals {
   subject: string
   grade: string
   topic: string
-  plan_difficulty: DifficultyMode
+  difficulty: DifficultyMode
   additional_wishes: string | null
   source_content: string | null
 }
@@ -29,34 +24,34 @@ export interface GenerationBaseline extends GenerationGlobals {
 
 export function planRowToSpec(row: PlanTask): SpecTaskPlanRow {
   return {
-    type: row.taskType ? toSpecMechanic(row.taskType) : null,
-    user_description: row.userExpectation?.trim() || null,
+    type: row.type ?? null,
+    user_description: row.userDescription?.trim() || null,
     description: row.description?.trim() || null,
-    difficulty: row.planDifficulty ?? null,
+    difficulty: row.difficulty ?? null,
   }
 }
 
 export function specRowToPlan(row: SpecTaskPlanRow, existing?: PlanTask): PlanTask {
   return {
     id: existing?.id ?? `plan-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    taskType: row.type ? fromSpecMechanic(row.type, row.description, existing?.taskType) : existing?.taskType,
-    userExpectation: row.user_description ?? '',
+    type: row.type,
+    userDescription: row.user_description ?? '',
     description: row.description,
-    planDifficulty: row.difficulty,
+    difficulty: row.difficulty,
   }
 }
 
 export function createEmptyPlanRow(index = 0): PlanTask {
   return {
     id: `plan-${Date.now()}-${index}`,
-    userExpectation: '',
+    userDescription: '',
     description: null,
-    planDifficulty: null,
+    difficulty: null,
   }
 }
 
 export function resizePlanToTaskCount(plan: PlanTask[], taskCount: number): PlanTask[] {
-  const count = Math.min(15, Math.max(1, taskCount || 1))
+  const count = Math.min(20, Math.max(1, taskCount || 1))
   if (plan.length === count) return plan
   if (plan.length > count) return plan.slice(0, count)
   const appended = Array.from({ length: count - plan.length }, (_, i) =>
@@ -70,8 +65,8 @@ export function extractGenerationGlobals(draft: WorksheetDraft): GenerationGloba
     subject: draft.subject,
     grade: draft.grade,
     topic: draft.topic,
-    plan_difficulty: normalizeDifficultyMode(draft.difficulty),
-    additional_wishes: draft.wishes?.trim() || null,
+    difficulty: normalizeDifficultyMode(draft.difficulty),
+    additional_wishes: draft.additionalWishes?.trim() || null,
     source_content: sourceContentForDraft(draft),
   }
 }
@@ -81,7 +76,7 @@ function globalsChanged(current: GenerationGlobals, baseline: GenerationGlobals)
     current.subject !== baseline.subject ||
     current.grade !== baseline.grade ||
     current.topic !== baseline.topic ||
-    current.plan_difficulty !== baseline.plan_difficulty ||
+    current.difficulty !== baseline.difficulty ||
     current.additional_wishes !== baseline.additional_wishes ||
     current.source_content !== baseline.source_content
   )
@@ -98,7 +93,7 @@ export function invalidateDescriptions(
     subject: baseline.subject,
     grade: baseline.grade,
     topic: baseline.topic,
-    plan_difficulty: baseline.plan_difficulty,
+    difficulty: baseline.difficulty,
     additional_wishes: baseline.additional_wishes,
     source_content: baseline.source_content,
   }
@@ -130,23 +125,6 @@ export function planNeedsPlanner(plan: PlanTask[]): boolean {
   return plan.some((row) => !row.description?.trim())
 }
 
-export function trimPlanForGenerator(
-  plan: PlanTask[],
-): Array<{
-  type: SpecMechanic | null
-  description: string | null
-  difficulty: PlanItemDifficulty | null
-}> {
-  return plan.map((row) => {
-    const spec = planRowToSpec(row)
-    return {
-      type: spec.type,
-      description: spec.description,
-      difficulty: spec.difficulty,
-    }
-  })
-}
-
 export function saveGenerationBaseline(draft: WorksheetDraft, plan: PlanTask[]): GenerationBaseline {
   return {
     ...extractGenerationGlobals(draft),
@@ -160,7 +138,7 @@ export function preparePlanForGeneration(draft: WorksheetDraft): {
   needsPlanner: boolean
 } {
   const globals = extractGenerationGlobals(draft)
-  const resized = resizePlanToTaskCount(draft.plan, draft.taskCount)
+  const resized = resizePlanToTaskCount(draft.taskPlan, draft.taskCount)
   const plan = invalidateDescriptions(resized, draft.generationBaseline, globals)
   return {
     plan,
@@ -175,7 +153,7 @@ export function withGenerationBaseline(
 ): WorksheetDraft {
   return {
     ...draft,
-    plan,
+    taskPlan: plan,
     generationBaseline: saveGenerationBaseline(draft, plan),
   }
 }

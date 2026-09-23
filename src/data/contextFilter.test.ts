@@ -157,7 +157,7 @@ describe('contextFilter', () => {
     const payload = referenceFilePayload({
       contextFileName: 'proba.pdf',
       contextFileText: raw,
-      wishes: '7-8 классы',
+      additionalWishes: '7-8 классы',
     })
     expect(payload?.content).toBe(filtered)
   })

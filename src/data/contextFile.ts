@@ -33,11 +33,11 @@ export interface ContextReferenceResult extends PrepareReferenceResult {
 }
 
 export function contextFilterOptions(draft: {
-  wishes?: string
+  additionalWishes?: string
   grade?: string
 }): ContextFilterOptions {
   return {
-    wishes: draft.wishes?.trim() || null,
+    wishes: draft.additionalWishes?.trim() || null,
     grade: draft.grade?.trim() || null,
   }
 }
@@ -143,7 +143,7 @@ export function referenceFilePayload(draft: {
   contextFileName?: string
   contextFileText?: string
   contextFileNote?: string
-  wishes?: string
+  additionalWishes?: string
   grade?: string
 }) {
   if (!draft.contextFileName?.trim()) return null
@@ -169,7 +169,7 @@ export function referenceFilePayload(draft: {
 export function sourceContentForDraft(draft: {
   contextFileText?: string
   contextFileName?: string
-  wishes?: string
+  additionalWishes?: string
   grade?: string
 }): string | null {
   const raw = draft.contextFileText?.trim()

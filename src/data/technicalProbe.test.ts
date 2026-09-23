@@ -19,7 +19,7 @@ describe('buildTechnicalProbeMarkdown', () => {
       grade: '5',
     }
 
-    const plan = draft.plan.slice(0, 2)
+    const plan = draft.taskPlan.slice(0, 2)
     const sheet = {
       ...draft,
       title: 'Решение задач',

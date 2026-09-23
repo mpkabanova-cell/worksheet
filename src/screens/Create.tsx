@@ -9,16 +9,23 @@ import { MarkdownPreview } from '@/components/MarkdownPreview'
 import { generatePlanAIWithMeta } from '@/data/ai'
 import { extractContextFile } from '@/data/contextFile'
 import { runTechnicalProbe } from '@/data/technicalProbe'
-import { planItemDifficultyLabel, normalizeDifficultyMode } from '@/data/planMechanics'
-import { resizePlanToTaskCount, withGenerationBaseline } from '@/data/taskPlanOrchestration'
-import type { DifficultyMode, TaskType, WorksheetDraft } from '@/data/worksheet'
 import {
+  labelForSpecMechanic,
+  PLAN_SPEC_MECHANICS,
+  planItemDifficultyLabel,
+  normalizeDifficultyMode,
+  type SpecMechanic,
+} from '@/data/planMechanics'
+import { resizePlanToTaskCount, withGenerationBaseline } from '@/data/taskPlanOrchestration'
+import type { DifficultyMode, WorksheetDraft } from '@/data/worksheet'
+import {
+  ADDITIONAL_WISHES_MAX_LENGTH,
   DIFFICULTY_OPTIONS,
   GRADES,
-  PLAN_TASK_TYPES,
   SUBJECTS,
   TASK_COUNTS,
-  WISHES_MAX_LENGTH,
+  TOPIC_MAX_LENGTH,
+  USER_DESCRIPTION_MAX_LENGTH,
 } from '@/data/worksheet'
 import './Create.css'
 
@@ -72,23 +79,23 @@ export function Create({
     onChange((prev) => ({
       ...prev,
       taskCount: count,
-      plan: resizePlanToTaskCount(prev.plan, count),
+      taskPlan: resizePlanToTaskCount(prev.taskPlan, count),
     }))
   }
 
-  const updatePlan = (index: number, patch: Partial<(typeof draft.plan)[number]>) => {
+  const updatePlan = (index: number, patch: Partial<(typeof draft.taskPlan)[number]>) => {
     onChange({
       ...draft,
-      plan: draft.plan.map((row, i) => (i === index ? { ...row, ...patch } : row)),
+      taskPlan: draft.taskPlan.map((row, i) => (i === index ? { ...row, ...patch } : row)),
     })
   }
 
   const reorderPlan = (from: number, to: number) => {
     if (from === to) return
-    const next = [...draft.plan]
+    const next = [...draft.taskPlan]
     const [item] = next.splice(from, 1)
     next.splice(to, 0, item)
-    onChange({ ...draft, plan: next })
+    onChange({ ...draft, taskPlan: next })
   }
 
   const generatePlan = async () => {
@@ -100,7 +107,7 @@ export function Create({
     setPlanError('')
     try {
       const { plan, meta } = await generatePlanAIWithMeta(draft)
-      const next = withGenerationBaseline({ ...draft, plan }, plan)
+      const next = withGenerationBaseline({ ...draft, taskPlan: plan }, plan)
       onChange(next)
       if (meta.source === 'cached') {
         setPlanError('')
@@ -172,7 +179,7 @@ export function Create({
     let workingDraft = {
       ...draft,
       title: draft.topic.trim() || draft.title,
-      plan: resizePlanToTaskCount(draft.plan, draft.taskCount),
+      taskPlan: resizePlanToTaskCount(draft.taskPlan, draft.taskCount),
     }
 
     let extractTruncated: boolean | undefined
@@ -314,6 +321,7 @@ export function Create({
                   <Input
                     placeholder="Например, умножение дробей"
                     value={draft.topic}
+                    maxLength={TOPIC_MAX_LENGTH}
                     onChange={(e) => {
                       const topic = e.target.value
                       onChange({ ...draft, topic, title: topic })
@@ -338,10 +346,10 @@ export function Create({
                     <Textarea
                       className="wishes-textarea"
                       placeholder="Особенности группы, акценты, ограничение по времени, опорный материал…"
-                      value={draft.wishes}
-                      maxLength={WISHES_MAX_LENGTH}
-                      counter={`${draft.wishes.length}/${WISHES_MAX_LENGTH}`}
-                      onChange={(e) => onChange({ ...draft, wishes: e.target.value })}
+                      value={draft.additionalWishes}
+                      maxLength={ADDITIONAL_WISHES_MAX_LENGTH}
+                      counter={`${draft.additionalWishes.length}/${ADDITIONAL_WISHES_MAX_LENGTH}`}
+                      onChange={(e) => onChange({ ...draft, additionalWishes: e.target.value })}
                     />
                   </Field>
 
@@ -421,7 +429,7 @@ export function Create({
                       {planError ? <p className="plan-error">{planError}</p> : null}
 
                       <div className="plan-rows">
-                        {draft.plan.map((row, index) => (
+                        {draft.taskPlan.map((row, index) => (
                           <div key={row.id} className="plan-row-wrap">
                             <div
                               className={`plan-row ${dragPlanIdx === index ? 'dragging' : ''}`}
@@ -435,33 +443,29 @@ export function Create({
                               <Select
                                 className="plan-type"
                                 placeholder="—"
-                                options={PLAN_TASK_TYPES.map((t) => t.label)}
-                                value={
-                                  row.taskType
-                                    ? PLAN_TASK_TYPES.find((t) => t.type === row.taskType)?.label ?? ''
-                                    : ''
-                                }
+                                options={PLAN_SPEC_MECHANICS.map((t) => t.label)}
+                                value={row.type ? labelForSpecMechanic(row.type) : ''}
                                 onChange={(e) => {
                                   if (!e.target.value) {
-                                    updatePlan(index, { taskType: undefined })
+                                    updatePlan(index, { type: null })
                                     return
                                   }
-                                  const found = PLAN_TASK_TYPES.find((t) => t.label === e.target.value)
-                                  if (found) updatePlan(index, { taskType: found.type as TaskType })
+                                  const found = PLAN_SPEC_MECHANICS.find((t) => t.label === e.target.value)
+                                  if (found) updatePlan(index, { type: found.type as SpecMechanic })
                                 }}
                               />
                               <Input
                                 className="plan-hint"
                                 placeholder="Например, записать общую формулу квадратного уравнения"
-                                maxLength={200}
-                                value={row.userExpectation}
+                                maxLength={USER_DESCRIPTION_MAX_LENGTH}
+                                value={row.userDescription}
                                 onChange={(e) =>
-                                  updatePlan(index, { userExpectation: e.target.value })
+                                  updatePlan(index, { userDescription: e.target.value })
                                 }
                               />
-                              {row.planDifficulty && draft.showDifficulty ? (
+                              {row.difficulty && draft.showDifficulty ? (
                                 <span className="plan-difficulty-badge">
-                                  {planItemDifficultyLabel(row.planDifficulty)}
+                                  {planItemDifficultyLabel(row.difficulty)}
                                 </span>
                               ) : null}
                               <span
@@ -518,9 +522,9 @@ export function Create({
                       <button
                         type="button"
                         role="switch"
-                        aria-checked={draft.addIntro}
-                        className={`switch ${draft.addIntro ? 'on' : ''}`}
-                        onClick={() => onChange({ ...draft, addIntro: !draft.addIntro })}
+                        aria-checked={draft.showIntro}
+                        className={`switch ${draft.showIntro ? 'on' : ''}`}
+                        onClick={() => onChange({ ...draft, showIntro: !draft.showIntro })}
                       >
                         <span className="knob" />
                       </button>

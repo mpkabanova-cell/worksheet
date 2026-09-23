@@ -5,13 +5,13 @@ import { buildWorksheetJsonSchema, buildWorksheetJsonTemplate, templateTaskToAiP
 describe('buildWorksheetJsonTemplate', () => {
   it('builds empty skeletons for each spec mechanic', () => {
     const plan = createPlan(7)
-    plan[0] = { ...plan[0], taskType: 'short_answer' }
-    plan[1] = { ...plan[1], taskType: 'single_choice' }
-    plan[2] = { ...plan[2], taskType: 'multiple_choice' }
-    plan[3] = { ...plan[3], taskType: 'matching' }
-    plan[4] = { ...plan[4], taskType: 'grouping' }
-    plan[5] = { ...plan[5], taskType: 'ordering' }
-    plan[6] = { ...plan[6], taskType: 'fill_gaps' }
+    plan[0] = { ...plan[0], type: 'input' }
+    plan[1] = { ...plan[1], type: 'single_choice' }
+    plan[2] = { ...plan[2], type: 'multiple_choice' }
+    plan[3] = { ...plan[3], type: 'matching' }
+    plan[4] = { ...plan[4], type: 'table' }
+    plan[5] = { ...plan[5], type: 'ordering' }
+    plan[6] = { ...plan[6], type: 'fill_gaps' }
 
     const template = buildWorksheetJsonTemplate(plan, true)
 
@@ -27,8 +27,8 @@ describe('buildWorksheetJsonTemplate', () => {
 describe('buildWorksheetJsonSchema', () => {
   it('requires title and tasks with per-row constraints', () => {
     const plan = createPlan(2)
-    plan[0] = { ...plan[0], taskType: 'single_choice' }
-    plan[1] = { ...plan[1], taskType: 'fill_gaps' }
+    plan[0] = { ...plan[0], type: 'single_choice' }
+    plan[1] = { ...plan[1], type: 'fill_gaps' }
 
     const schema = buildWorksheetJsonSchema(plan, false) as {
       required: string[]
@@ -46,7 +46,7 @@ describe('templateTaskToAiPayload', () => {
     const plan = createPlan(1)
     plan[0] = {
       ...plan[0],
-      taskType: 'short_answer',
+      type: 'input',
       description: 'Краткий числовой ответ',
     }
 

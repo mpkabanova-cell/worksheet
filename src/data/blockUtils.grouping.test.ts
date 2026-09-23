@@ -71,12 +71,12 @@ describe('grouping table normalization', () => {
       grade: '7',
       taskCount: 1,
       difficulty: 'basic',
-      wishes: '',
+      additionalWishes: '',
       showDifficulty: true,
       showAnswers: false,
-      addIntro: false,
+      showIntro: false,
       intro: '',
-      plan: [],
+      taskPlan: [],
       blocks: [
         {
           id: 'b1',

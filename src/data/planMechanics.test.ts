@@ -47,8 +47,8 @@ describe('planMechanics', () => {
   it('planGenerationBrief prefers description', () => {
     const plan: PlanTask = {
       id: '1',
-      taskType: 'short_answer',
-      userExpectation: 'Решить пример',
+      type: 'input',
+      userDescription: 'Решить пример',
       description: 'Текстовая задача на проценты с кратким ответом',
     }
     expect(planGenerationBrief(plan)).toBe('Текстовая задача на проценты с кратким ответом')

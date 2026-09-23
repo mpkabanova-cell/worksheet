@@ -1,5 +1,5 @@
 import type { DifficultyMode, TaskType, WorksheetBlock, WorksheetDraft } from './worksheet'
-import { WISHES_MAX_LENGTH, labelForType } from './worksheet'
+import { ADDITIONAL_WISHES_MAX_LENGTH, labelForType } from './worksheet'
 import { getGapsSourceText } from './blockUtils'
 import { referenceFilePayload, sourceContentForDraft } from './contextFile'
 import {
@@ -8,13 +8,9 @@ import {
   type AnchorTask,
 } from './referenceThemes'
 import { PLAN_AGENT_MECHANICS_LIST, PLAN_AGENT_SYSTEM } from './planAgentPrompt'
-import {
-  normalizeDifficultyMode,
-  toSpecMechanic,
-} from './planMechanics'
-import { trimPlanForGenerator } from './taskPlanOrchestration'
+import { normalizeDifficultyMode } from './planMechanics'
 import { WORKSHEET_GENERATOR_SYSTEM } from './worksheetGeneratorPrompt'
-import { buildWorksheetJsonSchema, buildWorksheetJsonTemplate } from './worksheetJsonTemplate'
+import { agent1UserPayload, agent2UserPayload } from './worksheetSpecPayload'
 
 const TASK_JSON_FIELDS = `Поля задания (используй только нужные для type):
 {
@@ -207,13 +203,13 @@ function contextPayload(draft: WorksheetDraft) {
     subject: draft.subject,
     grade: `${draft.grade} класс`,
     topic: draft.topic,
-    teacher_wishes: draft.wishes?.trim().slice(0, WISHES_MAX_LENGTH) || null,
-    additional_wishes: draft.wishes?.trim().slice(0, WISHES_MAX_LENGTH) || null,
+    teacher_wishes: draft.additionalWishes?.trim().slice(0, ADDITIONAL_WISHES_MAX_LENGTH) || null,
+    additional_wishes: draft.additionalWishes?.trim().slice(0, ADDITIONAL_WISHES_MAX_LENGTH) || null,
     task_count: draft.taskCount,
     difficulty_mode: normalizeDifficultyMode(draft.difficulty),
-    plan_difficulty: normalizeDifficultyMode(draft.difficulty),
+    difficulty: normalizeDifficultyMode(draft.difficulty),
     difficulty_guidance: difficultyHint(draft.difficulty),
-    add_intro: draft.addIntro,
+    show_intro: draft.showIntro,
     reference_file: ref,
     source_content: sourceContent,
     reference_usage_hint: sourceContent
@@ -221,28 +217,6 @@ function contextPayload(draft: WorksheetDraft) {
       : null,
   }
 }
-
-function specTaskPlanInput(draft: WorksheetDraft) {
-  return draft.plan.map((p) => ({
-    type: p.taskType ? toSpecMechanic(p.taskType) : null,
-    user_description: p.userExpectation?.trim() || null,
-    description: p.description?.trim() || null,
-    difficulty: p.planDifficulty ?? null,
-  }))
-}
-
-function planAgentPayload(draft: WorksheetDraft) {
-  return {
-    subject: draft.subject,
-    grade: `${draft.grade} класс`,
-    topic: draft.topic,
-    plan_difficulty: normalizeDifficultyMode(draft.difficulty),
-    additional_wishes: draft.wishes?.trim().slice(0, WISHES_MAX_LENGTH) || null,
-    source_content: sourceContentForDraft(draft),
-    task_plan: specTaskPlanInput(draft),
-  }
-}
-
 
 function blockBriefText(block: WorksheetBlock): string {
   if (block.type === 'fill_gaps') {
@@ -277,7 +251,7 @@ ${IMAGE_DESCRIPTION_RULES}
 - Если фрагмент source_content опирается на непригодную иллюстрацию — замени description другим из source_content, близким по сюжету к другим пунктам; count не уменьшай.
 - Не включай CONTENT_RULES для question — ты не генерируешь конкретные задания.`
 
-  const user = JSON.stringify(planAgentPayload(draft), null, 2)
+  const user = JSON.stringify(agent1UserPayload(draft), null, 2)
   return { system, user }
 }
 
@@ -323,7 +297,10 @@ ${OUTPUT_FORMAT}
 
   const regenerateAnchors =
     mode === 'regenerate'
-      ? collectAnchorTasks(draft.blocks, draft.plan?.map((item) => item.description || item.userExpectation))
+      ? collectAnchorTasks(
+          draft.blocks,
+          draft.taskPlan?.map((item) => item.description || item.userDescription),
+        )
       : []
   const alternativeGuidance =
     mode === 'regenerate'
@@ -333,24 +310,12 @@ ${OUTPUT_FORMAT}
         )
       : null
 
-  const template = buildWorksheetJsonTemplate(draft.plan, draft.addIntro)
-  const schema = buildWorksheetJsonSchema(draft.plan, draft.addIntro)
-
   const user = JSON.stringify(
-    {
-      subject: draft.subject,
-      grade: `${draft.grade} класс`,
-      topic: draft.topic,
-      additional_wishes: draft.wishes?.trim().slice(0, WISHES_MAX_LENGTH) || null,
-      source_content: sourceContentForDraft(draft),
-      show_intro: draft.addIntro,
-      task_plan: trimPlanForGenerator(draft.plan),
-      generated_json_template: template,
-      generated_json_schema: schema,
+    agent2UserPayload(draft, {
       previous_tasks: mode === 'regenerate' ? existingTasksBrief(draft.blocks) : undefined,
       anchor_tasks: regenerateAnchors.length ? regenerateAnchors : undefined,
       alternative_task_guidance: alternativeGuidance || undefined,
-    },
+    }),
     null,
     2,
   )
@@ -368,7 +333,7 @@ export function promptsForSingleTask(
 ) {
   const anchors = anchorTasks ?? collectAnchorTasks(
     draft.blocks,
-    draft.plan?.map((item) => item.description || item.userExpectation),
+    draft.taskPlan?.map((item) => item.description || item.userDescription),
   )
   const alternativeGuidance = buildAlternativeTaskGuidance(
     anchors,

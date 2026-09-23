@@ -9,8 +9,8 @@ describe('ensureWorksheetTaskBlocks', () => {
     const plan = createPlan(2)
     plan[1] = {
       ...plan[1],
-      taskType: 'fill_gaps',
-      userExpectation: 'Задача на проценты',
+      type: 'fill_gaps',
+      userDescription: 'Задача на проценты',
       description: 'Решить текстовую задачу на проценты с пропусками',
     }
 
@@ -38,7 +38,7 @@ describe('ensureWorksheetTaskBlocks', () => {
       plan,
       draft,
       null,
-      plan.map((item) => item.description || item.userExpectation),
+      plan.map((item) => item.description || item.userDescription),
     )
 
     expect(result).toHaveLength(2)
@@ -71,7 +71,7 @@ describe('ensureWorksheetTaskBlocks', () => {
     const plan = createPlan(1)
     plan[0] = {
       ...plan[0],
-      taskType: 'short_answer',
+      type: 'input',
       description: 'Краткий числовой ответ',
     }
 

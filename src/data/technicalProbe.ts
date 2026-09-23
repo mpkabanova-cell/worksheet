@@ -2,8 +2,8 @@ import { ensurePlan, generatePlanAIWithMeta, generateWorksheetAI, countWorksheet
 import { annotateExtractRelevance, listContextBlockTitles } from './contextFilter'
 import { buildContextReference, contextFilterOptions, sourceContentForDraft } from './contextFile'
 import { getGapsSourceText } from './blockUtils'
-import { labelForType, type WorksheetDraft } from './worksheet'
-import { planItemDifficultyLabel } from './planMechanics'
+import { labelForType, type PlanTask, type WorksheetDraft } from './worksheet'
+import { labelForSpecMechanic, planItemDifficultyLabel } from './planMechanics'
 
 export interface TechnicalProbeProgress {
   stage: 'extract' | 'plan' | 'worksheet' | 'done' | 'error'
@@ -51,14 +51,14 @@ function itemLabel(o: { text?: string } | string): string {
   return typeof o === 'string' ? o : o.text ?? ''
 }
 
-export function formatProbePlan(plan: WorksheetDraft['plan']): string {
+export function formatProbePlan(plan: PlanTask[]): string {
   return plan
     .map((p, i) => {
       const parts = [
-        `${i + 1}. ${p.taskType ?? '—'} (${p.taskType ? labelForType(p.taskType) : 'тип не выбран'})`,
-        p.userExpectation ? `user: ${p.userExpectation}` : null,
+        `${i + 1}. ${p.type ?? '—'} (${p.type ? labelForSpecMechanic(p.type) : 'тип не выбран'})`,
+        p.userDescription ? `user: ${p.userDescription}` : null,
         p.description ? `desc: ${p.description}` : null,
-        p.planDifficulty ? `diff: ${planItemDifficultyLabel(p.planDifficulty)}` : null,
+        p.difficulty ? `diff: ${planItemDifficultyLabel(p.difficulty)}` : null,
       ].filter(Boolean)
       return parts.join(' — ')
     })
@@ -107,7 +107,7 @@ export function formatProbeWorksheet(draft: WorksheetDraft): string {
 
 export function buildTechnicalProbeMarkdown(
   draft: WorksheetDraft,
-  plan: WorksheetDraft['plan'],
+  plan: PlanTask[],
   sheet: WorksheetDraft,
   meta: TechnicalProbeMeta,
 ): string {
@@ -121,9 +121,9 @@ export function buildTechnicalProbeMarkdown(
   const blockTitles = raw ? listContextBlockTitles(raw) : []
   const selectedBlock = reference?.selectedBlock ?? null
   const blockNote = selectedBlock
-    ? `, блок «${selectedBlock}»${draft.wishes.trim() ? ` (пожелания: «${draft.wishes.trim().slice(0, 60)}${draft.wishes.length > 60 ? '…' : ''}»)` : ` (по ${draft.grade} классу)`}`
-    : draft.wishes.trim()
-      ? `, пожелания: «${draft.wishes.trim().slice(0, 80)}${draft.wishes.length > 80 ? '…' : ''}»`
+    ? `, блок «${selectedBlock}»${draft.additionalWishes.trim() ? ` (пожелания: «${draft.additionalWishes.trim().slice(0, 60)}${draft.additionalWishes.length > 60 ? '…' : ''}»)` : ` (по ${draft.grade} классу)`}`
+    : draft.additionalWishes.trim()
+      ? `, пожелания: «${draft.additionalWishes.trim().slice(0, 80)}${draft.additionalWishes.length > 80 ? '…' : ''}»`
       : ''
 
   const metaParts = [
@@ -150,7 +150,7 @@ export function buildTechnicalProbeMarkdown(
         '',
         blockTitles.map((title) => `- ${title}`).join('\n'),
         selectedBlock
-          ? `\nВыбран для генерации: **${selectedBlock}**${draft.wishes.trim() ? ' (по пожеланиям)' : draft.grade.trim() ? ` (по ${draft.grade} классу)` : ''}`
+          ? `\nВыбран для генерации: **${selectedBlock}**${draft.additionalWishes.trim() ? ' (по пожеланиям)' : draft.grade.trim() ? ` (по ${draft.grade} классу)` : ''}`
           : '\nБлок не выбран — в reference попадёт весь файл.',
         '',
       )
@@ -202,8 +202,8 @@ export function buildTechnicalProbeMarkdown(
     '',
   )
 
-  if (draft.wishes.trim()) {
-    sections.push(`Пожелания: ${draft.wishes.trim()}`, '')
+  if (draft.additionalWishes.trim()) {
+    sections.push(`Пожелания: ${draft.additionalWishes.trim()}`, '')
   }
 
   if (filtered) {
@@ -278,9 +278,9 @@ export async function runTechnicalProbe(
   const workingDraft = {
     ...draft,
     title: draft.topic.trim() || draft.title,
-    plan:
-      draft.plan.length >= draft.taskCount
-        ? draft.plan
+    taskPlan:
+      draft.taskPlan.length >= draft.taskCount
+        ? draft.taskPlan
         : ensurePlan({ ...draft, taskCount: draft.taskCount }),
   }
 
@@ -290,12 +290,12 @@ export async function runTechnicalProbe(
   const t0 = Date.now()
   const planResult = hasReference
     ? await generatePlanAIWithMeta(workingDraft)
-    : { plan: workingDraft.plan, meta: { source: 'ai' as const } }
+    : { plan: workingDraft.taskPlan, meta: { source: 'ai' as const } }
   meta.planSec = (Date.now() - t0) / 1000
   meta.planSource = planResult.meta.source
   meta.planValidationIssues = planResult.meta.validationIssues
 
-  const withPlan = { ...workingDraft, plan: planResult.plan, taskCount: planResult.plan.length }
+  const withPlan = { ...workingDraft, taskPlan: planResult.plan, taskCount: planResult.plan.length }
 
   onProgress?.({ stage: 'worksheet', message: 'Генерация рабочего листа…' })
   const t1 = Date.now()
@@ -309,7 +309,7 @@ export async function runTechnicalProbe(
   onProgress?.({ stage: 'done', message: 'Готово' })
 
   return {
-    markdown: buildTechnicalProbeMarkdown(withPlan, sheet.plan, sheet, meta),
+    markdown: buildTechnicalProbeMarkdown(withPlan, sheet.taskPlan, sheet, meta),
     meta,
   }
 }

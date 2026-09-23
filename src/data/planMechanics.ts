@@ -104,9 +104,23 @@ export function isSpecMechanic(value: string): value is SpecMechanic {
   return SPEC_MECHANICS.has(value.trim().toLowerCase())
 }
 
-/** Основная установка для генерации: description, иначе userExpectation. */
+export const PLAN_SPEC_MECHANICS: { type: SpecMechanic; label: string }[] = [
+  { type: 'input', label: 'Ввод ответа' },
+  { type: 'single_choice', label: 'Один вариант ответа' },
+  { type: 'multiple_choice', label: 'Несколько вариантов' },
+  { type: 'fill_gaps', label: 'Заполнение пропусков' },
+  { type: 'matching', label: 'Сопоставление' },
+  { type: 'table', label: 'Группировка' },
+  { type: 'ordering', label: 'Упорядочивание' },
+]
+
+export function labelForSpecMechanic(type: SpecMechanic): string {
+  return PLAN_SPEC_MECHANICS.find((m) => m.type === type)?.label ?? type
+}
+
+/** Основная установка для генерации: description, иначе userDescription. */
 export function planGenerationBrief(plan: PlanTask): string {
-  return (plan.description?.trim() || plan.userExpectation?.trim() || '').slice(0, 2000)
+  return (plan.description?.trim() || plan.userDescription?.trim() || '').slice(0, 2000)
 }
 
 export function planDifficultyToStars(

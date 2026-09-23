@@ -1,5 +1,5 @@
 import type { PlanTask } from './worksheet'
-import { fromSpecMechanic, planGenerationBrief, toSpecMechanic, type SpecMechanic } from './planMechanics'
+import { fromSpecMechanic, planGenerationBrief, type SpecMechanic } from './planMechanics'
 
 export interface WorksheetTemplateTask {
   type: SpecMechanic | string
@@ -27,7 +27,7 @@ export interface WorksheetJsonTemplate {
 }
 
 function emptyTaskTemplate(specType: SpecMechanic | null, planItem?: PlanTask): WorksheetTemplateTask {
-  const resolvedType = specType ?? (planItem?.taskType ? toSpecMechanic(planItem.taskType) : null) ?? 'input'
+  const resolvedType = specType ?? planItem?.type ?? 'input'
   const base: WorksheetTemplateTask = {
     type: resolvedType,
     instruction: '',
@@ -72,16 +72,16 @@ function emptyTaskTemplate(specType: SpecMechanic | null, planItem?: PlanTask): 
   }
 }
 
-export function buildWorksheetJsonTemplate(plan: PlanTask[], addIntro: boolean): WorksheetJsonTemplate {
+export function buildWorksheetJsonTemplate(plan: PlanTask[], showIntro: boolean): WorksheetJsonTemplate {
   return {
     title: '',
-    intro: addIntro ? '' : '',
+    intro: showIntro ? '' : '',
     tasks: plan.map((row) => emptyTaskTemplate(planRowSpecType(row), row)),
   }
 }
 
 function planRowSpecType(row: PlanTask): SpecMechanic | null {
-  return row.taskType ? toSpecMechanic(row.taskType) : null
+  return row.type ?? null
 }
 
 const SPEC_MECHANIC_ENUM = [
@@ -224,7 +224,7 @@ function taskSchemaForType(type: SpecMechanic | string): Record<string, unknown>
   }
 }
 
-export function buildWorksheetJsonSchema(plan: PlanTask[], addIntro: boolean): Record<string, unknown> {
+export function buildWorksheetJsonSchema(plan: PlanTask[], showIntro: boolean): Record<string, unknown> {
   const taskSchemas = plan.map((row) => {
     const specType = planRowSpecType(row) ?? 'input'
     return taskSchemaForType(specType)
@@ -232,7 +232,7 @@ export function buildWorksheetJsonSchema(plan: PlanTask[], addIntro: boolean): R
 
   return {
     type: 'object',
-    required: addIntro ? ['title', 'intro', 'tasks'] : ['title', 'tasks'],
+    required: showIntro ? ['title', 'intro', 'tasks'] : ['title', 'tasks'],
     properties: {
       title: { type: 'string', maxLength: 200 },
       intro: { type: 'string' },
@@ -272,7 +272,7 @@ export function templateTaskToAiPayload(
   const internalType = fromSpecMechanic(
     specType,
     planItem?.description ?? task.question,
-    planItem?.taskType ?? 'short_answer',
+    planItem?.type ? fromSpecMechanic(planItem.type, planItem.description) : 'short_answer',
   )
 
   return {

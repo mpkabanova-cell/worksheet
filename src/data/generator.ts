@@ -3,7 +3,7 @@ import { labelForType, uid } from './worksheet'
 import { resizePlanToTaskCount } from './taskPlanOrchestration'
 import { createDefaultGroupingTableFields, defaultAnswerHeight, defaultAnswerStyle, groupsToTableFields } from './blockUtils'
 import { expectationToQuestion } from './taskContent'
-import { normalizeDifficultyMode, planDifficultyToStars } from './planMechanics'
+import { fromSpecMechanic, normalizeDifficultyMode, planDifficultyToStars } from './planMechanics'
 
 function starsForIndex(i: number, mode: DifficultyMode, total: number): 1 | 2 | 3 {
   return planDifficultyToStars(null, normalizeDifficultyMode(mode), i, total)
@@ -171,17 +171,22 @@ function blockForType(
 }
 
 export function generateWorksheet(draft: WorksheetDraft): WorksheetDraft {
-  const count = Math.min(15, Math.max(1, draft.taskCount || draft.plan.length || 5))
+  const count = Math.min(15, Math.max(1, draft.taskCount || draft.taskPlan.length || 5))
   const plan: PlanTask[] =
-    draft.plan.length === count
-      ? draft.plan
-      : resizePlanToTaskCount(draft.plan, count)
+    draft.taskPlan.length === count
+      ? draft.taskPlan
+      : resizePlanToTaskCount(draft.taskPlan, count)
 
   const blocks = plan.map((p, i) =>
-    blockForType(p.taskType ?? 'short_answer', i, { ...draft, taskCount: count }, p.userExpectation),
+    blockForType(
+      fromSpecMechanic(p.type ?? 'input', p.description),
+      i,
+      { ...draft, taskCount: count },
+      p.userDescription,
+    ),
   )
 
-  const intro = draft.addIntro
+  const intro = draft.showIntro
     ? draft.intro ||
       `Тема «${draft.topic}» (${draft.subject}, ${draft.grade} класс). Задания расположены от простых к более сложным.`
     : ''
@@ -190,7 +195,7 @@ export function generateWorksheet(draft: WorksheetDraft): WorksheetDraft {
     ...draft,
     id: draft.id || uid('ws'),
     taskCount: count,
-    plan,
+    taskPlan: plan,
     title: draft.topic.trim() || draft.title.trim() || 'Без названия',
     intro,
     blocks,

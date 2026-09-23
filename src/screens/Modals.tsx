@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button, Field, Icon, Input, ModalShell, Select, Textarea } from '@/components/ui'
-import { GRADES, PLAN_TASK_TYPES, SUBJECTS, labelForType, WISHES_MAX_LENGTH, worksheetDisplayName } from '@/data/worksheet'
+import { ADDITIONAL_WISHES_MAX_LENGTH, GRADES, PLAN_TASK_TYPES, SUBJECTS, labelForType, worksheetDisplayName } from '@/data/worksheet'
 import type { Modal, TaskType, WorksheetDraft } from '@/data/worksheet'
 import './Modals.css'
 
@@ -377,11 +377,11 @@ export function Modals({
           </Field>
           <Field label="Пожелания">
             <Textarea
-              value={draft.wishes}
+              value={draft.additionalWishes}
               placeholder="Что изменить: сложность, типы заданий, акценты..."
-              maxLength={WISHES_MAX_LENGTH}
-              counter={`${draft.wishes.length}/${WISHES_MAX_LENGTH}`}
-              onChange={(e) => onChangeDraft({ ...draft, wishes: e.target.value })}
+              maxLength={ADDITIONAL_WISHES_MAX_LENGTH}
+              counter={`${draft.additionalWishes.length}/${ADDITIONAL_WISHES_MAX_LENGTH}`}
+              onChange={(e) => onChangeDraft({ ...draft, additionalWishes: e.target.value })}
             />
           </Field>
           {!draft.topic.trim() ? (

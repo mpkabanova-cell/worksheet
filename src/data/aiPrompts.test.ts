@@ -11,7 +11,7 @@ describe('IMAGE_DESCRIPTION_RULES in prompts', () => {
     expect(system).toContain('task_plan')
     expect(system).not.toContain('[Поле question]')
     expect(user).toContain('task_plan')
-    expect(user).toContain('plan_difficulty')
+    expect(user).toContain('difficulty')
     expect(user).toContain('additional_wishes')
   })
 

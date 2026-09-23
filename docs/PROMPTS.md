@@ -78,6 +78,30 @@ flowchart LR
 
 ---
 
+## Соответствие PDF «описание логики РЛ»
+
+Единая сериализация user JSON для агентов 1–2: [`worksheetSpecPayload.ts`](../src/data/worksheetSpecPayload.ts). Миграция старых черновиков из localStorage: `migrateWorksheetDraft` в [`worksheet.ts`](../src/data/worksheet.ts).
+
+| UI (`WorksheetDraft` / `PlanTask`) | JSON (агенты) | Примечание |
+|-----------------------------------|---------------|------------|
+| `subject` | `subject` | |
+| `grade` (строка «6») | `grade` (число `6`) | `gradeForAgent()` |
+| `topic` | `topic` | max 300 символов |
+| `taskCount` | `task_count` | 1–20 |
+| `difficulty` | `difficulty` | режим листа |
+| `additionalWishes` | `additional_wishes` | |
+| `contextFileText` (+ фильтр) | `source_content` | не `reference_file` в user JSON |
+| `showIntro` | `show_intro` | только Agent 2 |
+| `taskPlan[]` | `task_plan[]` | полный массив |
+| `PlanTask.type` | `task_plan[].type` | `SpecMechanic \| null` |
+| `PlanTask.userDescription` | `task_plan[].user_description` | max 100 в UI |
+| `PlanTask.description` | `task_plan[].description` | |
+| `PlanTask.difficulty` | `task_plan[].difficulty` | уровень строки |
+
+Legacy → новое: `wishes` → `additionalWishes`, `addIntro` → `showIntro`, `plan` → `taskPlan`, `userExpectation` → `userDescription`, `planDifficulty` → `difficulty`, `taskType` → `type`, baseline `plan_difficulty` → `difficulty`.
+
+---
+
 ## Логика фронта и бэка — поток генерации
 
 ### 1. promptsForPlan — агент планирования
@@ -85,7 +109,7 @@ flowchart LR
 1. **UI:** на экране create учитель нажимает «Сгенерировать план».
 2. **Фронт:** `generatePlanAIWithMeta(draft)` → `preparePlanForGeneration` (resize + invalidation).
 3. **Условный вызов:** если все `description` заполнены → `meta.source: cached`, Planner не вызывается.
-4. **User JSON:** `subject`, `grade`, `topic`, `plan_difficulty`, `additional_wishes`, `source_content`, `task_plan`.
+4. **User JSON:** `subject`, `grade`, `topic`, `task_count`, `difficulty`, `additional_wishes`, `source_content`, `task_plan` — builders в [`worksheetSpecPayload.ts`](../src/data/worksheetSpecPayload.ts).
 5. **Фронт:** `chatJson` → `/api/chat`, temperature **0.55**.
 6. **Фронт:** парсит `{ task_plan: [{ type, user_description, description, difficulty }] }` → `PlanTask[]`; `generationBaseline` сохраняется в draft.
 7. **Fallback:** при `503` / отсутствии ключа — `createPlan()` без ИИ.
@@ -96,7 +120,7 @@ flowchart LR
 
 1. **UI:** «Создать» или «Перегенерировать» → экран loader.
 2. **Фронт:** `generateWorksheetAI(draft, mode)` → orchestration (resize, invalidation, Planner при необходимости).
-3. **User JSON:** `subject`, `grade`, `topic`, `additional_wishes`, `source_content`, `show_intro`, `task_plan` (trimmed), `generated_json_template`, `generated_json_schema`.
+3. **User JSON:** `subject`, `grade`, `topic`, `task_count`, `difficulty`, `additional_wishes`, `source_content`, `show_intro`, `task_plan` (полный, с `user_description`), `generated_json_template`, `generated_json_schema`.
 4. **System:** [`worksheetGeneratorPrompt.ts`](../src/data/worksheetGeneratorPrompt.ts).
 5. **Фронт:** парсит заполненный template → `templateToBlocks()` → `blocks[]`.
 6. **Результат:** `generationBaseline` обновляется после успеха.

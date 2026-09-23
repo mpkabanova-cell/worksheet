@@ -1,3 +1,7 @@
+import type { SpecMechanic } from './planMechanics'
+import { toSpecMechanic } from './planMechanics'
+import type { GenerationBaseline, SpecTaskPlanRow } from './taskPlanOrchestration'
+
 export type NavId =
   | 'desk'
   | 'ai'
@@ -145,14 +149,14 @@ export interface WorksheetBlock {
 
 export interface PlanTask {
   id: string
-  /** Не выбран — placeholder «—» в UI; planner заполнит при генерации. */
-  taskType?: TaskType
+  /** Spec mechanic; null/undefined — placeholder «—» в UI. */
+  type?: SpecMechanic | null
   /** user_description — краткий замысел (учитель или агент планирования). */
-  userExpectation: string
+  userDescription: string
   /** Нормализованное описание для агента генерации (заполняет агент планирования). */
   description?: string | null
-  /** Индивидуальная сложность элемента плана. */
-  planDifficulty?: PlanItemDifficulty | null
+  /** Индивидуальная сложность элемента плана (basic | medium | advanced). */
+  difficulty?: PlanItemDifficulty | null
 }
 
 export interface PrintSettings {
@@ -167,16 +171,16 @@ export interface WorksheetDraft {
   grade: string
   taskCount: number
   topic: string
-  wishes: string
+  additionalWishes: string
   title: string
   intro: string
   difficulty: DifficultyMode
   showDifficulty: boolean
   showAnswers: boolean
-  addIntro: boolean
+  showIntro: boolean
   /** Лист создан вручную (без генерации) — минимальная шапка на листе. */
   createdManually?: boolean
-  plan: PlanTask[]
+  taskPlan: PlanTask[]
   blocks: WorksheetBlock[]
   pages: number
   print: PrintSettings
@@ -184,7 +188,7 @@ export interface WorksheetDraft {
   contextFileText?: string
   contextFileNote?: string
   /** Snapshot globals + task_plan после генерации плана или листа. */
-  generationBaseline?: import('./taskPlanOrchestration').GenerationBaseline | null
+  generationBaseline?: GenerationBaseline | null
   savedAt?: string
 }
 
@@ -232,10 +236,19 @@ export const SUBJECTS = [
 
 export const GRADES = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', 'Другое']
 
-export const TASK_COUNTS = Array.from({ length: 15 }, (_, i) => String(i + 1))
+export const TASK_COUNTS = Array.from({ length: 20 }, (_, i) => String(i + 1))
+
+/** Максимальная длина темы рабочего листа (spec). */
+export const TOPIC_MAX_LENGTH = 300
 
 /** Максимальная длина поля «Пожелания» (Create, перегенерация, промпты). */
-export const WISHES_MAX_LENGTH = 2000
+export const ADDITIONAL_WISHES_MAX_LENGTH = 2000
+
+/** @deprecated use ADDITIONAL_WISHES_MAX_LENGTH */
+export const WISHES_MAX_LENGTH = ADDITIONAL_WISHES_MAX_LENGTH
+
+/** Максимальная длина user_description в строке плана. */
+export const USER_DESCRIPTION_MAX_LENGTH = 100
 
 export const TASK_TYPE_META: {
   type: TaskType
@@ -292,9 +305,9 @@ export function labelForType(type: TaskType): string {
 export function createPlan(count: number): PlanTask[] {
   return Array.from({ length: count }, (_, i) => ({
     id: `plan-${Date.now()}-${i}`,
-    userExpectation: '',
+    userDescription: '',
     description: null,
-    planDifficulty: null,
+    difficulty: null,
   }))
 }
 
@@ -320,15 +333,15 @@ export function emptyDraft(): WorksheetDraft {
     grade: '',
     taskCount: 5,
     topic: '',
-    wishes: '',
+    additionalWishes: '',
     title: '',
     intro: '',
     difficulty: 'differentiated',
     showDifficulty: true,
     showAnswers: false,
-    addIntro: true,
+    showIntro: true,
     createdManually: false,
-    plan: createPlan(5),
+    taskPlan: createPlan(5),
     blocks: [],
     pages: 1,
     print: { answersSeparate: false, copies: 1, orientation: 'portrait' },
@@ -343,9 +356,66 @@ export function filledCreateDraft(): WorksheetDraft {
     taskCount: 5,
     topic: 'Закрепление материалов',
     title: 'Закрепление материалов',
-    plan: createPlan(5),
+    taskPlan: createPlan(5),
   }
 }
+
+
+export function planTaskTypeToSpec(taskType: TaskType | undefined): SpecMechanic | null {
+  if (!taskType) return null
+  return toSpecMechanic(taskType)
+}
+
+function migratePlanTaskRow(raw: Record<string, unknown>, index: number): PlanTask {
+  const legacyType = raw.taskType as TaskType | undefined
+  const specType =
+    (raw.type as SpecMechanic | null | undefined) ??
+    (legacyType ? planTaskTypeToSpec(legacyType) : null)
+
+  return {
+    id: String(raw.id ?? `plan-${Date.now()}-${index}`),
+    type: specType ?? null,
+    userDescription: String(raw.userDescription ?? raw.userExpectation ?? ''),
+    description: (raw.description as string | null | undefined) ?? null,
+    difficulty: (raw.difficulty as PlanItemDifficulty | null | undefined) ??
+      (raw.planDifficulty as PlanItemDifficulty | null | undefined) ??
+      null,
+  }
+}
+
+/** Миграция черновиков из localStorage (legacy field names). */
+export function migrateWorksheetDraft(raw: Record<string, unknown>): WorksheetDraft {
+  const legacyPlan = (raw.plan ?? raw.taskPlan) as unknown
+  const taskPlan = Array.isArray(legacyPlan)
+    ? legacyPlan.map((row, i) => migratePlanTaskRow(row as Record<string, unknown>, i))
+    : createPlan(Number(raw.taskCount) || 5)
+
+  const baselineRaw = raw.generationBaseline as Record<string, unknown> | null | undefined
+  let generationBaseline: GenerationBaseline | null | undefined = undefined
+  if (baselineRaw) {
+    generationBaseline = {
+      subject: String(baselineRaw.subject ?? ''),
+      grade: String(baselineRaw.grade ?? ''),
+      topic: String(baselineRaw.topic ?? ''),
+      difficulty: (baselineRaw.difficulty ?? baselineRaw.plan_difficulty ?? 'differentiated') as DifficultyMode,
+      additional_wishes: (baselineRaw.additional_wishes as string | null | undefined) ?? null,
+      source_content: (baselineRaw.source_content as string | null | undefined) ?? null,
+      task_plan: Array.isArray(baselineRaw.task_plan)
+        ? (baselineRaw.task_plan as SpecTaskPlanRow[])
+        : [],
+    }
+  }
+
+  const draft = raw as unknown as WorksheetDraft
+  return {
+    ...draft,
+    additionalWishes: String(raw.additionalWishes ?? raw.wishes ?? ''),
+    showIntro: Boolean(raw.showIntro ?? raw.addIntro ?? true),
+    taskPlan,
+    generationBaseline: generationBaseline ?? draft.generationBaseline,
+  }
+}
+
 
 export function uid(prefix = 'b'): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
@@ -386,7 +456,7 @@ export function loadWorksheet(id: string): WorksheetDraft | null {
   try {
     const raw = localStorage.getItem(`worksheet:${id}`)
     if (!raw) return null
-    return JSON.parse(raw) as WorksheetDraft
+    return migrateWorksheetDraft(JSON.parse(raw) as Record<string, unknown>)
   } catch {
     return null
   }

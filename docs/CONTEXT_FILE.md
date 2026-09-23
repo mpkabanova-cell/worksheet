@@ -68,7 +68,7 @@
 
 | Вход (из черновика) | Поле в user JSON | Выход |
 |---------------------|------------------|-------|
-| `contextFileText` + `wishes` + `grade` | `source_content` | `string \| null` — отфильтрованный текст для планировщика и генератора |
+| `contextFileText` + `additionalWishes` + `grade` | `source_content` | `string \| null` — отфильтрованный текст для планировщика и генератора |
 | `contextFileName` + `contextFileText` + … | `reference_file` | объект или `null` (см. ниже) |
 
 **`reference_file`** (если файл приложен):

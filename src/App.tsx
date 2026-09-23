@@ -36,7 +36,7 @@ function demoDraft(): WorksheetDraft {
     ...filledCreateDraft(),
     topic: 'Закрепление материалов',
     title: 'Закрепление материалов',
-    wishes: 'Класс только начал тему',
+    additionalWishes: 'Класс только начал тему',
   })
 }
 
@@ -210,7 +210,7 @@ export default function App() {
       blocks: createMode === 'manual' ? [] : d.blocks,
       intro: createMode === 'manual' ? '' : d.intro,
       createdManually: createMode === 'manual',
-      addIntro: createMode === 'manual' ? false : d.addIntro,
+      showIntro: createMode === 'manual' ? false : d.showIntro,
       ...(createMode === 'manual' ? { subject: '', grade: '' } : {}),
     }))
     if (createMode === 'manual') {

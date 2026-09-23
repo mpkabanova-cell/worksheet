@@ -183,20 +183,19 @@ async function main() {
     grade: '5',
     taskCount: 5,
     topic: 'решение задач',
-    wishes: '',
+    additionalWishes: CONTEXT_BLOCK ? `Использовать только блок «${CONTEXT_BLOCK}» из файла` : '',
     title: '',
     intro: '',
     difficulty: 'basic',
     showDifficulty: false,
     showAnswers: false,
-    addIntro: true,
-    plan: [],
+    showIntro: true,
+    taskPlan: [],
     blocks: [],
     pages: 1,
     print: { answersSeparate: false, copies: 1, orientation: 'portrait' },
     contextFileName: path.basename(DOCX_PATH),
     contextFileText: text,
-    wishes: CONTEXT_BLOCK ? `Использовать только блок «${CONTEXT_BLOCK}» из файла` : '',
   }
 
   const ref = referenceFilePayload(draft)

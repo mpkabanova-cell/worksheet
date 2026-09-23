@@ -28,10 +28,12 @@ import {
 } from './referenceThemes'
 import {
   fromSpecMechanic,
+  isSpecMechanic,
   normalizePlanItemDifficulty,
   planDifficultyToStars,
   planGenerationBrief,
   resolveInputType,
+  type SpecMechanic,
   toSpecMechanic,
 } from './planMechanics'
 import {
@@ -143,13 +145,13 @@ function planItemFromHint(
   hint: string | undefined,
   existing?: PlanTask,
 ): PlanTask {
-  const userExpectation = (hint ?? fallbackPlanExpectation(draft, index)).slice(0, 100)
+  const userDescription = (hint ?? fallbackPlanExpectation(draft, index)).slice(0, 100)
   return {
     id: existing?.id ?? `plan-${Date.now()}-${index}`,
-    taskType: existing?.taskType ?? 'short_answer',
-    userExpectation,
+    type: existing?.type ?? 'input',
+    userDescription,
     description: fallbackPlanDescription(draft, index, hint),
-    planDifficulty: null,
+    difficulty: null,
   }
 }
 
@@ -163,24 +165,24 @@ function fallbackDocumentPlan(draft: WorksheetDraft): PlanTask[] {
       draft,
       i,
       hints[i % Math.max(hints.length, 1)],
-      basePlan[i] ?? draft.plan[i],
+      basePlan[i] ?? draft.taskPlan[i],
     ),
   )
 }
 
 function padPlanToCount(plan: PlanTask[], draft: WorksheetDraft): PlanTask[] {
   const hints = referenceHintsForDraft(draft)
-  const types = plan.map((p) => p.taskType).filter(Boolean) as TaskType[]
+  const types = plan.map((p) => p.type).filter(Boolean) as SpecMechanic[]
   const padded = [...plan]
   while (padded.length < draft.taskCount) {
     const i = padded.length
     const hint = hints[i % Math.max(hints.length, 1)]
     padded.push({
       id: `plan-${Date.now()}-${i}`,
-      taskType: types[i % Math.max(types.length, 1)] ?? undefined,
-      userExpectation: (hint ?? fallbackPlanExpectation(draft, i)).slice(0, 100),
+      type: types[i % Math.max(types.length, 1)] ?? undefined,
+      userDescription: (hint ?? fallbackPlanExpectation(draft, i)).slice(0, 100),
       description: fallbackPlanDescription(draft, i, hint),
-      planDifficulty: null,
+      difficulty: null,
     })
   }
   return padded
@@ -206,9 +208,11 @@ function normalizeType(raw: string, fallback: TaskType = 'short_answer'): TaskTy
   return fromSpecMechanic(raw, null, fallback)
 }
 
-function resolvePlanTaskType(row: AiPlanTaskRow, existing?: PlanTask): TaskType {
-  if (existing?.taskType && !row.type) return existing.taskType
-  return fromSpecMechanic(row.type || existing?.taskType || 'short_answer', row.description)
+function resolvePlanSpecType(row: AiPlanTaskRow, existing?: PlanTask): SpecMechanic | null {
+  if (existing?.type && !row.type) return existing.type
+  const raw = row.type ?? existing?.type
+  if (!raw) return null
+  return isSpecMechanic(raw) ? raw : null
 }
 
 const NON_TASK_BLOCK_TYPES = new Set<WorksheetBlock['type']>([
@@ -236,8 +240,8 @@ function mockBlockForPlanIndex(
 ): WorksheetBlock {
   return mockSingle(
     { ...draft, blocks: blocksSoFar, taskCount: draft.taskCount },
-    planItem.taskType ?? 'short_answer',
-    planItem.userExpectation || brief,
+    fromSpecMechanic(planItem.type ?? 'input', planItem.description),
+    planItem.userDescription || brief,
   )
 }
 
@@ -259,7 +263,7 @@ export function ensureWorksheetTaskBlocks(
 
     if (!block || !isWorksheetTaskBlock(block)) {
       block = mockBlockForPlanIndex(draft, result, planItem, brief)
-    } else if (planItem.taskType === 'fill_gaps' && block.type !== 'fill_gaps') {
+    } else if (planItem.type === 'fill_gaps' && block.type !== 'fill_gaps') {
       const recovered: WorksheetBlock = {
         ...block,
         type: 'fill_gaps',
@@ -290,7 +294,7 @@ export function ensureWorksheetTaskBlocks(
       title: sourceBlock?.title ?? block.title ?? `Задание ${i + 1}`,
     })
 
-    if (planItem.taskType === 'fill_gaps' && sanitized.type !== 'fill_gaps') {
+    if (planItem.type === 'fill_gaps' && sanitized.type !== 'fill_gaps') {
       sanitized = sanitizeBlock({
         ...mockBlockForPlanIndex(draft, result, planItem, brief),
         id: sourceBlock?.id ?? block.id,
@@ -310,9 +314,12 @@ function toBlock(
   draft: WorksheetDraft,
   planItem?: PlanTask,
 ): WorksheetBlock {
-  let type = normalizeType(task.type, planItem?.taskType ?? 'short_answer')
-  if (planItem && (planItem.taskType === 'short_answer' || planItem.taskType === 'extended_answer')) {
-    type = planItem.taskType
+  const planTaskType = planItem?.type
+    ? fromSpecMechanic(planItem.type, planItem.description)
+    : 'short_answer'
+  let type = normalizeType(task.type, planTaskType)
+  if (planItem?.type === 'input' && resolveInputType(planItem.description) === 'extended_answer') {
+    type = 'extended_answer'
   } else if (type === 'short_answer' && planItem?.description && resolveInputType(planItem.description) === 'extended_answer') {
     type = 'extended_answer'
   }
@@ -394,27 +401,27 @@ function toBlock(
     orderItems: task.order_items?.map(sanitizeAiText),
     difficulty:
       task.difficulty ??
-      planDifficultyToStars(planItem?.planDifficulty, draft.difficulty, index, draft.taskCount),
+      planDifficultyToStars(planItem?.difficulty, draft.difficulty, index, draft.taskCount),
   })
 }
 
 export function ensurePlan(draft: WorksheetDraft): PlanTask[] {
-  return resizePlanToTaskCount(draft.plan, draft.taskCount)
+  return resizePlanToTaskCount(draft.taskPlan, draft.taskCount)
 }
 
 function rowsToPlan(rows: AiPlanTaskRow[], draft: WorksheetDraft): PlanTask[] {
   const plan: PlanTask[] = rows.map((row, i) => {
-    const existing = draft.plan[i]
-    const teacherInput = existing?.userExpectation?.trim()
-    const userDescription = (row.user_description || teacherInput || '').slice(0, 200)
+    const existing = draft.taskPlan[i]
+    const teacherInput = existing?.userDescription?.trim()
+    const userDescription = (row.user_description || teacherInput || row.expectation || '').slice(0, 100)
     const description = (row.description || '').slice(0, 2000) || null
 
     return {
       id: existing?.id ?? `plan-${Date.now()}-${i}`,
-      taskType: resolvePlanTaskType(row, existing),
-      userExpectation: userDescription || (row.expectation || '').slice(0, 200),
+      type: resolvePlanSpecType(row, existing),
+      userDescription,
       description,
-      planDifficulty: normalizePlanItemDifficulty(row.difficulty) ?? existing?.planDifficulty ?? null,
+      difficulty: normalizePlanItemDifficulty(row.difficulty) ?? existing?.difficulty ?? null,
     }
   })
 
@@ -425,7 +432,7 @@ export async function generatePlanAIWithMeta(
   draft: WorksheetDraft,
 ): Promise<{ plan: PlanTask[]; meta: PlanGenerationMeta }> {
   const { plan: preparedPlan, needsPlanner } = preparePlanForGeneration(draft)
-  const workingDraft = { ...draft, plan: preparedPlan, taskCount: preparedPlan.length }
+  const workingDraft = { ...draft, taskPlan: preparedPlan, taskCount: preparedPlan.length }
 
   if (!needsPlanner) {
     return { plan: preparedPlan, meta: { source: 'cached' } }
@@ -537,12 +544,12 @@ export async function generateWorksheetAI(
   options?: WorksheetGenerationOptions,
 ): Promise<WorksheetDraft> {
   let { plan, needsPlanner } = preparePlanForGeneration(draft)
-  let prepared = { ...draft, plan, taskCount: plan.length }
+  let prepared = { ...draft, taskPlan: plan, taskCount: plan.length }
 
   if (needsPlanner) {
     const { plan: planned, meta } = await generatePlanAIWithMeta(prepared)
     plan = planned
-    prepared = withGenerationBaseline({ ...prepared, plan, taskCount: plan.length }, plan)
+    prepared = withGenerationBaseline({ ...prepared, taskPlan: plan, taskCount: plan.length }, plan)
     if (meta.source === 'fallback_no_api' || meta.source === 'fallback_fragment') {
       // keep going with fallback plan
     }
@@ -591,14 +598,14 @@ export async function generateWorksheetAI(
     while (templateTasks.length < prepared.taskCount) {
       const i = templateTasks.length
       templateTasks.push({
-        type: (plan[i]?.taskType ? toSpecMechanic(plan[i].taskType!) : null) ?? 'input',
+        type: plan[i]?.type ?? 'input',
         instruction: '',
         question:
           planBriefs[i] ||
           fallbackPlanExpectation(prepared, i) ||
           `Задание по теме «${draft.topic}»`,
         difficulty: planDifficultyToStars(
-          plan[i]?.planDifficulty,
+          plan[i]?.difficulty,
           draft.difficulty,
           i,
           prepared.taskCount,
@@ -623,8 +630,8 @@ export async function generateWorksheetAI(
           try {
             blocks[i] = await generateSingleTaskAI(
               prepared,
-              plan[i]?.taskType ?? blocks[i].type,
-              plan[i]?.userExpectation ?? '',
+              fromSpecMechanic(plan[i]?.type ?? 'input', plan[i]?.description, blocks[i].type),
+              plan[i]?.userDescription ?? '',
               repairTaskExpectation(planBrief),
               anchorTasks,
               plan[i]?.description,
@@ -692,7 +699,7 @@ export async function generateWorksheetAI(
       {
         ...prepared,
         title: payload.title || draft.topic || draft.title,
-        intro: draft.addIntro ? payload.intro || draft.intro : '',
+        intro: draft.showIntro ? payload.intro || draft.intro : '',
         blocks,
         pages: 1,
         savedAt: undefined,
@@ -730,8 +737,8 @@ export async function generateSingleTaskAI(
     const index = draft.blocks.filter((b) => b.type !== 'page_break' && b.type !== 'text').length
     const planItem: PlanTask = {
       id: `plan-single-${index}`,
-      taskType,
-      userExpectation: expectation,
+      type: toSpecMechanic(taskType),
+      userDescription: expectation,
       description: planDescription,
     }
     return toBlock({ ...payload.task, type: taskType }, index, draft, planItem)

@@ -3,6 +3,7 @@ import { filledCreateDraft, createPlan } from './worksheet'
 import { generatePlanAI, generatePlanAIWithMeta } from './ai'
 import { prepareReferenceContent } from './contextFilter'
 import { saveGenerationBaseline } from './taskPlanOrchestration'
+import { fromSpecMechanic } from './planMechanics'
 
 const CAVE_SAMPLE = `5-6 классы
 
@@ -33,27 +34,27 @@ describe('generatePlanAI task_count safety net', () => {
   })
 
   it('skips planner when all descriptions are filled', async () => {
-    const plan = createPlan(2)
-    plan[0] = {
-      ...plan[0],
-      taskType: 'short_answer',
+    const taskPlan = createPlan(2)
+    taskPlan[0] = {
+      ...taskPlan[0],
+      type: 'input',
       description: 'Описание 1',
-      userExpectation: 'u1',
+      userDescription: 'u1',
     }
-    plan[1] = {
-      ...plan[1],
-      taskType: 'single_choice',
+    taskPlan[1] = {
+      ...taskPlan[1],
+      type: 'single_choice',
       description: 'Описание 2',
-      userExpectation: 'u2',
+      userDescription: 'u2',
     }
 
     const draft = {
       ...filledCreateDraft(),
       taskCount: 2,
-      plan,
+      taskPlan,
       generationBaseline: saveGenerationBaseline(
-        { ...filledCreateDraft(), taskCount: 2, plan },
-        plan,
+        { ...filledCreateDraft(), taskCount: 2, taskPlan },
+        taskPlan,
       ),
     }
 
@@ -75,8 +76,8 @@ describe('generatePlanAI task_count safety net', () => {
       ],
     })
 
-    const plan = createPlan(1)
-    const draft = { ...filledCreateDraft(), taskCount: 1, plan }
+    const taskPlan = createPlan(1)
+    const draft = { ...filledCreateDraft(), taskCount: 1, taskPlan }
 
     await generatePlanAIWithMeta(draft)
     expect(chatJson).toHaveBeenCalled()
@@ -87,13 +88,13 @@ describe('generatePlanAI task_count safety net', () => {
       tasks: [{ type: 'short_answer', expectation: 'Решить пример' }],
     })
 
-    const draft = { ...filledCreateDraft(), taskCount: 3, plan: [] }
+    const draft = { ...filledCreateDraft(), taskCount: 3, taskPlan: [] }
 
     const plan = await generatePlanAI(draft)
     expect(plan).toHaveLength(3)
-    expect(plan[0].userExpectation).toBe('Решить пример')
-    expect(plan[1].userExpectation.length).toBeGreaterThan(0)
-    expect(plan[2].userExpectation.length).toBeGreaterThan(0)
+    expect(plan[0].userDescription).toBe('Решить пример')
+    expect(plan[1].userDescription.length).toBeGreaterThan(0)
+    expect(plan[2].userDescription.length).toBeGreaterThan(0)
   })
 
   it('parses task_plan with description and difficulty', async () => {
@@ -114,15 +115,15 @@ describe('generatePlanAI task_count safety net', () => {
       ],
     })
 
-    const draft = { ...filledCreateDraft(), taskCount: 2, plan: createPlan(2) }
+    const draft = { ...filledCreateDraft(), taskCount: 2, taskPlan: createPlan(2) }
 
     const plan = await generatePlanAI(draft)
     expect(plan).toHaveLength(2)
-    expect(plan[0].taskType).toBe('short_answer')
+    expect(fromSpecMechanic(plan[0].type ?? 'input', plan[0].description)).toBe('short_answer')
     expect(plan[0].description).toContain('процента')
-    expect(plan[0].planDifficulty).toBe('basic')
-    expect(plan[1].taskType).toBe('grouping')
-    expect(plan[1].planDifficulty).toBe('medium')
+    expect(plan[0].difficulty).toBe('basic')
+    expect(fromSpecMechanic(plan[1].type ?? 'table', plan[1].description)).toBe('grouping')
+    expect(plan[1].difficulty).toBe('medium')
   })
 
   it('does not replace AI plan with grade-block template after validation failures', async () => {
@@ -186,15 +187,15 @@ describe('generatePlanAI task_count safety net', () => {
       ...filledCreateDraft(),
       taskCount: 5,
       grade: '6',
-      plan: createPlan(5),
+      taskPlan: createPlan(5),
       contextFileName: 'Задачи пробы.docx',
       contextFileText: CAVE_SAMPLE,
     }
 
     const { plan, meta } = await generatePlanAIWithMeta(draft)
     expect(plan).toHaveLength(5)
-    expect(plan.some((item) => /5-6 классы|7-8 классы/i.test(item.userExpectation))).toBe(false)
-    expect(plan.some((item) => /Составить задание по материалу/i.test(item.userExpectation))).toBe(
+    expect(plan.some((item) => /5-6 классы|7-8 классы/i.test(item.userDescription))).toBe(false)
+    expect(plan.some((item) => /Составить задание по материалу/i.test(item.userDescription))).toBe(
       false,
     )
     expect(meta.source).toBe('ai')
@@ -208,7 +209,7 @@ describe('generatePlanAI task_count safety net', () => {
       ...filledCreateDraft(),
       taskCount: 2,
       grade: '6',
-      plan: createPlan(2),
+      taskPlan: createPlan(2),
       contextFileName: 'Задачи пробы.docx',
       contextFileText: CAVE_SAMPLE,
     }
@@ -216,8 +217,8 @@ describe('generatePlanAI task_count safety net', () => {
     const { plan, meta } = await generatePlanAIWithMeta(draft)
     expect(meta.source).toBe('fallback_fragment')
     expect(plan).toHaveLength(2)
-    expect(plan[0].userExpectation.length).toBeGreaterThan(10)
-    expect(plan[0].userExpectation).not.toContain('5-6 классы')
+    expect(plan[0].userDescription.length).toBeGreaterThan(10)
+    expect(plan[0].userDescription).not.toContain('5-6 классы')
     expect(prepareReferenceContent(CAVE_SAMPLE, { grade: '6' })).toContain('пещер')
   })
 })

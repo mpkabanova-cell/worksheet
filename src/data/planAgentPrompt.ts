@@ -15,7 +15,7 @@ export const PLAN_AGENT_SYSTEM = `Ты — AI-агент планировани�
 - subject — предмет;
 - grade — параллель;
 - topic — тема рабочего листа;
-- plan_difficulty — общий режим сложности: basic | medium | advanced | differentiated;
+- difficulty — общий режим сложности: basic | medium | advanced | differentiated;
 - additional_wishes — дополнительные пожелания пользователя;
 - source_content — релевантное содержание приложенного материала;
 - task_plan — текущий план (количество и порядок элементов фиксированы).
@@ -42,8 +42,8 @@ SOURCE_CONTENT:
 4. source_content.
 
 СЛОЖНОСТЬ:
-- plan_difficulty = basic | medium | advanced → все проверочные задания получают этот уровень.
-- plan_difficulty = differentiated → каждому заданию назначай basic, medium или advanced (не differentiated).
+- difficulty = basic | medium | advanced → все проверочные задания получают этот уровень.
+- difficulty = differentiated → каждому заданию назначай basic, medium или advanced (не differentiated).
 - Сложность — из учебного действия, не из длины текста или ловушек.
 - При differentiated возможны сквозное усложнение (basic→medium→advanced) или локальные циклы по учебным действиям.
 

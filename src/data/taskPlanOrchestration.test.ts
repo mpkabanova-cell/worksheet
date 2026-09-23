@@ -12,20 +12,20 @@ import {
 describe('resizePlanToTaskCount', () => {
   it('trims rows from the end without changing surviving rows', () => {
     const plan = createPlan(4)
-    plan[0] = { ...plan[0], taskType: 'single_choice', description: 'A', userExpectation: 'u0' }
-    plan[2] = { ...plan[2], taskType: 'fill_gaps', description: 'C', userExpectation: 'u2' }
+    plan[0] = { ...plan[0], type: 'single_choice', description: 'A', userDescription: 'u0' }
+    plan[2] = { ...plan[2], type: 'fill_gaps', description: 'C', userDescription: 'u2' }
 
     const resized = resizePlanToTaskCount(plan, 2)
 
     expect(resized).toHaveLength(2)
     expect(resized[0].description).toBe('A')
     expect(resized[1].description).toBeNull()
-    expect(resized[1].userExpectation).toBe('')
+    expect(resized[1].userDescription).toBe('')
   })
 
   it('appends empty null rows when count increases', () => {
     const plan = createPlan(2)
-    plan[0] = { ...plan[0], description: 'Keep me', userExpectation: 'x' }
+    plan[0] = { ...plan[0], description: 'Keep me', userDescription: 'x' }
 
     const resized = resizePlanToTaskCount(plan, 4)
 
@@ -41,7 +41,7 @@ describe('invalidateDescriptions', () => {
     subject: 'Математика',
     grade: '6',
     topic: 'Дроби',
-    plan_difficulty: 'differentiated' as const,
+    difficulty: 'differentiated' as const,
     additional_wishes: null,
     source_content: null,
   }
@@ -55,8 +55,8 @@ describe('invalidateDescriptions', () => {
 
   it('nulls all descriptions when a global field changes', () => {
     const plan = createPlan(2)
-    plan[0] = { ...plan[0], taskType: 'short_answer', description: 'd0', userExpectation: 'u0' }
-    plan[1] = { ...plan[1], taskType: 'single_choice', description: 'd1', userExpectation: 'u1' }
+    plan[0] = { ...plan[0], type: 'input', description: 'd0', userDescription: 'u0' }
+    plan[1] = { ...plan[1], type: 'single_choice', description: 'd1', userDescription: 'u1' }
 
     const invalidated = invalidateDescriptions(plan, baselineFromPlan(plan), {
       ...globals,
@@ -64,18 +64,18 @@ describe('invalidateDescriptions', () => {
     })
 
     expect(invalidated.every((row) => row.description === null)).toBe(true)
-    expect(invalidated[0].userExpectation).toBe('u0')
-    expect(invalidated[0].taskType).toBe('short_answer')
+    expect(invalidated[0].userDescription).toBe('u0')
+    expect(invalidated[0].type).toBe('input')
   })
 
   it('nulls description only for changed row type or user_description', () => {
     const plan = createPlan(2)
-    plan[0] = { ...plan[0], taskType: 'short_answer', description: 'd0', userExpectation: 'u0' }
-    plan[1] = { ...plan[1], taskType: 'single_choice', description: 'd1', userExpectation: 'u1' }
+    plan[0] = { ...plan[0], type: 'input', description: 'd0', userDescription: 'u0' }
+    plan[1] = { ...plan[1], type: 'single_choice', description: 'd1', userDescription: 'u1' }
 
     const baseline = baselineFromPlan(plan)
     const edited = [
-      { ...plan[0], userExpectation: 'changed' },
+      { ...plan[0], userDescription: 'changed' },
       { ...plan[1] },
     ]
 
@@ -87,7 +87,7 @@ describe('invalidateDescriptions', () => {
 
   it('nulls description for new rows without baseline pair', () => {
     const plan = createPlan(1)
-    plan[0] = { ...plan[0], taskType: 'short_answer', description: 'd0', userExpectation: 'u0' }
+    plan[0] = { ...plan[0], type: 'input', description: 'd0', userDescription: 'u0' }
     const baseline = baselineFromPlan(plan)
 
     const extended = resizePlanToTaskCount(plan, 2)
@@ -99,8 +99,8 @@ describe('invalidateDescriptions', () => {
 
   it('does not invalidate when only task_count grows via resize', () => {
     const plan = createPlan(2)
-    plan[0] = { ...plan[0], taskType: 'short_answer', description: 'd0', userExpectation: 'u0' }
-    plan[1] = { ...plan[1], taskType: 'single_choice', description: 'd1', userExpectation: 'u1' }
+    plan[0] = { ...plan[0], type: 'input', description: 'd0', userDescription: 'u0' }
+    plan[1] = { ...plan[1], type: 'single_choice', description: 'd1', userDescription: 'u1' }
 
     const baseline = saveGenerationBaseline(
       {
@@ -109,14 +109,14 @@ describe('invalidateDescriptions', () => {
         grade: globals.grade,
         topic: globals.topic,
         taskCount: 2,
-        wishes: '',
+        additionalWishes: '',
         title: '',
         intro: '',
         difficulty: 'differentiated',
         showDifficulty: true,
         showAnswers: false,
-        addIntro: true,
-        plan,
+        showIntro: true,
+        taskPlan: plan,
         blocks: [],
         pages: 1,
         print: { answersSeparate: false, copies: 1, orientation: 'portrait' },

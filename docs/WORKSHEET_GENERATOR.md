@@ -10,15 +10,16 @@
 
 | Поле | Смысл |
 |------|--------|
-| `subject`, `grade`, `topic` | Параметры листа |
+| `subject`, `grade`, `topic`, `task_count` | Параметры листа (`grade` — число в JSON) |
+| `difficulty` | Режим сложности листа |
 | `additional_wishes` | Пожелания учителя |
 | `source_content` | Отфильтрованный текст приложения |
 | `show_intro` | Нужна ли вводная часть |
-| `task_plan` | Сокращённый план: `{ type, description, difficulty }` |
+| `task_plan` | **Полный** план: `{ type, user_description, description, difficulty }` |
 | `generated_json_template` | Пустой каркас JSON по механикам |
 | `generated_json_schema` | JSON Schema для ответа |
 
-Без `user_description`, без `generation_rules`, без `reference_file` — только `source_content`.
+Без `reference_file` в user JSON — только `source_content`. Сериализация: [`worksheetSpecPayload.ts`](../src/data/worksheetSpecPayload.ts).
 
 ## Выход
 
@@ -37,7 +38,7 @@
 1. `resizePlanToTaskCount` — сохранить строки при изменении `task_count`
 2. `invalidateDescriptions` — сброс `description` по diff globals/строк
 3. Planner — только если есть `description: null`
-4. Generator — `trimPlanForGenerator` + template + schema
+4. Generator — `taskPlanForAgent` + template + schema
 5. `saveGenerationBaseline` — snapshot после успешной генерации листа
 
 ## Связь с кодом
