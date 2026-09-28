@@ -70,34 +70,11 @@
 
 | Вход (из черновика) | Поле в user JSON | Выход |
 |---------------------|------------------|-------|
-| `contextFileText` + `additionalWishes` + `grade` | `source_content` | `string \| null` — отфильтрованный текст для планировщика и генератора |
-| `contextFileName` + `contextFileText` + … | `reference_file` | объект или `null` (см. ниже) |
+| `contextFileText` + `grade` + `additionalWishes` (после фильтра) | **`source_content`** | `string \| null` — релевантный текст: условия и данные без решений/ответов, с `[описаниями]` иллюстраций из extract |
 
-#### Поле `reference_file`
+Имя файла, `filter_note`, `selected_block` и прочие метаданные фильтра **в промпт не передаются** — только строка `source_content`. Служебный объект `referenceFilePayload()` используется в технической пробе и логах.
 
-Если файл приложен:
-
-```json
-{
-  "name": "задачи.pdf",
-  "content": "…условия и данные без решений…",
-  "relevance_note": "…",
-  "filter_note": null,
-  "selected_block": "5-6 классы",
-  "note": null
-}
-```
-
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `name` | `string` | Имя файла |
-| `content` | `string \| null` | То же, что логически в `source_content` |
-| `relevance_note` | `string` | Фиксированная подсказка модели о составе content |
-| `filter_note` | `string \| null` | Причина fallback-фильтрации |
-| `selected_block` | `string \| null` | Выбранный блок («5-6 классы» и т.п.) |
-| `note` | `string \| null` | Если extract пуст — служебное пояснение |
-
-**Модули:** `src/data/contextFile.ts` → `buildContextReference`, `sourceContentForDraft`, `referenceFilePayload`; фильтрация — `src/data/contextFilter.ts`.
+**Модули:** `src/data/contextFile.ts` → `buildContextReference`, `sourceContentForDraft`; фильтрация — `src/data/contextFilter.ts`.
 
 **Выбор блока для `source_content`:** по умолчанию — параллель формы или явный блок в пожеланиях. Если в `additional_wishes` указано использовать **весь материал документа** (и близкие формулировки), фильтр по классу **не применяется**: в `source_content` попадают все блоки extract (решения и ответы по-прежнему вырезаются). Агент 1 при этом распределяет задания по разным фрагментам файла; недостающие пункты дополняет аналогами в том же сюжете, а не посторонними темами.
 

@@ -51,8 +51,21 @@ describe('IMAGE_DESCRIPTION_RULES in prompts', () => {
 
   it('includes reference material rules in worksheet prompt', () => {
     const { system } = promptsForWorksheet(draft, 'create')
-    expect(system).toContain('Опора на reference_file')
+    expect(system).toContain('Опора на source_content')
     expect(system).toContain('главный источник задач')
+  })
+
+  it('single task user JSON uses source_content only', () => {
+    const withFile = {
+      ...filledCreateDraft(),
+      contextFileName: 'задачи.pdf',
+      contextFileText: '5-6 классы\n\nУсловие задачи.',
+    }
+    const { user } = promptsForSingleTask(withFile, 'short_answer', 'Решить')
+    const parsed = JSON.parse(user)
+    expect(parsed).not.toHaveProperty('reference_file')
+    expect(parsed).not.toHaveProperty('reference_usage_hint')
+    expect(parsed.source_content).toContain('Условие')
   })
 
   it('includes standalone task rules in worksheet prompt', () => {

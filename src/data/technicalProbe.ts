@@ -167,7 +167,7 @@ export function buildTechnicalProbeMarkdown(
       annotateExtractRelevance(raw, { ...contextOptions, fullExtract: true }),
       '</div>',
       '',
-      `## Отфильтрованный reference_file (${filtered.length.toLocaleString('ru-RU')} симв.)`,
+      `## source_content для промптов (${filtered.length.toLocaleString('ru-RU')} симв.)`,
       '',
     )
 
@@ -198,7 +198,7 @@ export function buildTechnicalProbeMarkdown(
     '',
     '## Генерация листа',
     '',
-    `Вход: ${draft.subject}, ${draft.grade} класс, ${draft.taskCount} заданий, тема «${draft.topic}»${raw ? `, reference_file = extract выше (без решений${blockNote}, ${filtered.length.toLocaleString('ru-RU')} симв.)` : ''}.`,
+    `Вход: ${draft.subject}, ${draft.grade} класс, ${draft.taskCount} заданий, тема «${draft.topic}»${raw ? `, source_content = extract выше (без решений${blockNote}, ${filtered.length.toLocaleString('ru-RU')} симв.)` : ''}.`,
     '',
   )
 
@@ -208,7 +208,7 @@ export function buildTechnicalProbeMarkdown(
 
   if (filtered) {
     sections.push(
-      '**reference_file.content (preview):**',
+      '**source_content (preview):**',
       '',
       '```',
       filtered.slice(0, 600) + (filtered.length > 600 ? '…' : ''),

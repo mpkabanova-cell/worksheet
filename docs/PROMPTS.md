@@ -139,14 +139,15 @@ Legacy → новое: `wishes` → `additionalWishes`, `addIntro` → `showIntr
 - **Делает:** проверка ключа, прокси, проброс `temperature` и `messages`, лог ошибок upstream.
 - **Не делает:** не хранит черновики, не собирает промпты, не постобрабатывает контент — вся логика на фронте.
 
-### 5. Приложенный файл (reference_file)
+### 5. Приложенный файл (`source_content`)
 
 Подробное описание технологии извлечения текста (DOCX-парсинг, PDF, vision OCR): [`CONTEXT_FILE.md`](./CONTEXT_FILE.md).
 
 1. **UI:** учитель прикрепляет DOCX / PDF / изображение на create-форме (имя файла и «Обработка…»; распознанный текст не показывается).
 2. **Фронт:** `extractContextFile()` (`contextFile.ts`) отправляет файл на `POST /api/extract-context`, сохраняет полный `contextFileText` в черновике.
 3. **Сервер:** Qwen-VL vision для всех форматов (`extractContext.js`, `docxVision.js`, `pdfExtract.js`, `visionOcr.js`). Картинки → `[описания в скобках]`.
-4. **Промпт:** `reference_file.content` → модель учитывает при **плане**, **листе** и **одном задании** по `CONTEXT_USAGE_RULES` и `IMAGE_DESCRIPTION_RULES`.
+4. **Фильтр:** из extract — `source_content` (релевантный фрагмент, без решений).
+5. **Промпт (план, лист, одно задание):** в user JSON только **`source_content`** (`string | null`); правила использования — `CONTEXT_USAGE_RULES` и `IMAGE_DESCRIPTION_RULES` в system.
 
 **IMAGE_DESCRIPTION_RULES:** модель сама решает, можно ли задание выполнить без иллюстрации. Если нет и описание в `[скобках]` громоздкое — заменяет другим заданием по теме (ровно `task_count`, не меньше).
 
@@ -333,12 +334,11 @@ extended_answer — Развёрнутый ответ (Объяснение и �
 [Контекст учителя и сложность]
 - Если teacher_wishes не null — обязательно учитывай акценты, ограничения и пожелания из этого поля.
 - Поле difficulty у каждого задания выставляй строго по difficulty_guidance из user JSON.
-- Если reference_file.content не пустой — опорный материал; фрагменты в [скобках] — описания иллюстраций (не показывать ученику).
-- Если reference_file.content null, но reference_file.note не null — учитывай note только когда content недоступен.
+- Если source_content не пустой — опорный материал; фрагменты в [скобках] — описания иллюстраций (не показывать ученику).
 
 ### IMAGE_DESCRIPTION_RULES — иллюстрации и отбор заданий
 
-- [Скобки] в reference_file — замена картинок из файла.
+- [Скобки] в source_content — замена картинок из файла.
 - Если задание можно сформулировать без визуала — включай.
 - Если нужен график/схема и [описание] громоздкое или недостаточное — замени другим заданием по теме.
 - В плане и листе — ровно task_count элементов (замена, не пропуск).
@@ -353,8 +353,8 @@ extended_answer — Развёрнутый ответ (Объяснение и �
   "task_count": 5,
   "difficulty_mode": "differentiated",
   "difficulty_guidance": "Дифференцированная сложность: от 1 к 3 по ходу листа.",
-  "add_intro": true,
-  "reference_file": null
+  "show_intro": true,
+  "source_content": null
 }
 
 **`difficulty_guidance` по `difficulty_mode`:**
@@ -366,13 +366,7 @@ extended_answer — Развёрнутый ответ (Объяснение и �
 | advanced | Все задания сложности advanced (уровень 3). |
 | differentiated | Дифференцированная: basic → medium → advanced по task_plan. |
 
-**`reference_file`:**
-
-{
-  "name": "конспект.docx",
-  "content": "полный отфильтрованный текст",
-  "note": null
-}
+**`source_content`:** `string | null` — отфильтрованный текст приложенного файла (см. [`CONTEXT_FILE.md`](./CONTEXT_FILE.md)). Без объекта `reference_file` в user JSON.
 
 ---
 
@@ -459,7 +453,7 @@ extended_answer — Развёрнутый ответ (Объяснение и �
   "difficulty_mode": "…",
   "difficulty_guidance": "…",
   "add_intro": true,
-  "reference_file": null,
+  "source_content": null,
   "task_plan": [
     {
       "index": 1,
@@ -535,7 +529,7 @@ extended_answer — Развёрнутый ответ (Объяснение и �
   "difficulty_mode": "…",
   "difficulty_guidance": "…",
   "add_intro": true,
-  "reference_file": null,
+  "source_content": null,
   "requested_type": "matching",
   "teacher_expectation": "Сопоставить уравнение и вид",
   "existing_tasks": [

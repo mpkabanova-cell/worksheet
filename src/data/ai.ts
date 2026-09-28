@@ -22,7 +22,7 @@ import {
   planFragmentAssignmentNote,
 } from './taskIndependence'
 import { listReferenceTaskHints, wishesUseFullDocument } from './contextFilter'
-import { referenceFilePayload, sourceContentForDraft } from './contextFile'
+import { sourceContentForDraft } from './contextFile'
 import { enrichBlockFromReference, trimReferenceDumpFromBlock } from './referenceEnrich'
 import {
   buildFillGapsFallbackBlock,
@@ -673,7 +673,7 @@ export async function generateWorksheetAI(
     if (
       !options?.skipExtraIndependencePass &&
       validateTaskIndependence(templateTasksToAiPayloads(templateTasks, plan), planBriefs).length &&
-      referenceFilePayload(prepared)?.content
+      sourceContentForDraft(prepared)
     ) {
       payload = await chatJson<WorksheetJsonTemplate & AiWorksheetPayload>(
         system,
@@ -736,7 +736,7 @@ export async function generateWorksheetAI(
       }
     }
 
-    const refContent = referenceFilePayload(prepared)?.content
+    const refContent = sourceContentForDraft(prepared)
     if (refContent) {
       for (let i = 0; i < blocks.length; i++) {
         blocks[i] = enrichBlockFromReference(blocks[i], refContent, planBriefs[i])
