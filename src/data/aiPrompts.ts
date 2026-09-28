@@ -1,7 +1,7 @@
 import type { DifficultyMode, TaskType, WorksheetBlock, WorksheetDraft } from './worksheet'
 import { ADDITIONAL_WISHES_MAX_LENGTH, labelForType } from './worksheet'
 import { getGapsSourceText } from './blockUtils'
-import { referenceFilePayload, sourceContentForDraft } from './contextFile'
+import { sourceContentForDraft } from './contextFile'
 import { wishesUseFullDocument } from './contextFilter'
 import {
   buildAlternativeTaskGuidance,
@@ -117,16 +117,15 @@ const CONTEXT_USAGE_RULES = `
 [Контекст учителя и сложность]
 - Если additional_wishes / teacher_wishes не null — обязательно учитывай акценты, ограничения и пожелания из этого поля.
 - Поле difficulty у каждого задания выставляй строго по difficulty_guidance или по difficulty элемента task_plan.
-- Если reference_file / source_content не null и content не пустой — используй его как основной опорный материал. Не копируй дословно большие фрагменты; адаптируй под класс и тему.
-- Фрагменты в [квадратных скобках] в reference_file.content — описания иллюстраций из файла. Используй их смысл при планировании и генерации, но не показывай [скобки] ученику в question/options.
-- Если reference_file.content null, но reference_file.note не null — учитывай note только когда content недоступен.
-- Из content уже убраны решения, ответы, ключи — не восстанавливай их. Если в additional_wishes указан раздел или блок файла — используй только его.`
+- Если source_content не null и не пустой — используй его как основной опорный материал. Не копируй дословно большие фрагменты; адаптируй под класс и тему.
+- Фрагменты в [квадратных скobках] в source_content — описания иллюстраций из файла. Используй их смысл при планировании и генерации, но не показывай [скобки] ученику в question/options.
+- В source_content уже убраны решения, ответы, ключи — не восстанавливай их.`
 
 const REFERENCE_MATERIAL_RULES = `
-[Опора на reference_file — обязательно, если content не пустой]
-- reference_file.content — главный источник задач: бери разные фрагменты, блоки и сюжеты из файла (разные задачи, разделы, классы).
-- Минимум половина заданий листа должна явно опираться на материал файла (условия, персонажи, числа, сюжеты из content).
-- Не придумывай посторонние задачи про магазин, склад, поезд и т.п., если их нет в reference_file.
+[Опора на source_content — обязательно, если не пустой]
+- source_content — главный источник задач: бери разные фрагменты, блоки и сюжеты из файла (разные задачи, разделы, классы).
+- Минимум половина заданий листа должна явно опираться на материал файла (условия, персонажи, числа, сюжеты из source_content).
+- Не придумывай посторонние задачи про магазин, склад, поезд и т.п., если их нет в source_content.
 - Каждое задание — самостоятельное: полное условие в question, без отсылок к другим заданиям листа.
 - Не дроби одну задачу из файла на несколько заданий (найти → упорядочить → объяснить); одна задача файла = одно задание листа с полным условием.
 - Решения и ответы из файла не используй — только условия и постановки.`.trim()

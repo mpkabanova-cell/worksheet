@@ -139,6 +139,7 @@ export async function extractContextFile(file: File): Promise<ContextFileResult>
   }
 }
 
+/** Служебный снимок фильтра (проба, логи). В промпты агентов 1–2 не передаётся — только `source_content`. */
 export function referenceFilePayload(draft: {
   contextFileName?: string
   contextFileText?: string
