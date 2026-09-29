@@ -53,7 +53,6 @@ export function Modals({
   onOpen,
   onExportDocx,
   onExportPdf,
-  onSoon,
 }: ModalsProps) {
   const [convertTitle, setConvertTitle] = useState('')
   const [convertGrade, setConvertGrade] = useState('')

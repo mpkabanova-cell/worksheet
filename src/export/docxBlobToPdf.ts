@@ -1,7 +1,6 @@
 import { renderAsync } from 'docx-preview'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
-import 'docx-preview/dist/docx-preview.css'
 
 export async function docxBlobToPdf(
   docxBlob: Blob,

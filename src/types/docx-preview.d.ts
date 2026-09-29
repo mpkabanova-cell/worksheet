@@ -1,5 +1,3 @@
-declare module 'docx-preview/dist/docx-preview.css'
-
 declare module 'docx-preview' {
   export interface DocxPreviewOptions {
     className?: string
