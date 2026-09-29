@@ -70,7 +70,7 @@ export function PrintScreen({ draft, onChangeDraft, onBack, onPrint, onPdf }: Pr
       </div>
 
       <div className="print-preview-note">
-        <p>PDF собирается из того же DOCX, что Word; конвертация выполняется в браузере.</p>
+        <p>PDF собирается тем же растером, что экспорт в Word (формулы, варианты, виджеты).</p>
       </div>
 
       <div className="print-actions">
