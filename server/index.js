@@ -9,10 +9,12 @@ import { getVisionConfig } from './visionOcr.js'
 import {
   authHintForKey,
   AUTH_ERROR_USER_MESSAGE,
+  DEFAULT_CHAT_MODEL,
   isLikelyOpenRouterKey,
   isUpstreamAuthFailure,
   resolveApiKey,
   resolveBaseUrl,
+  resolveChatResponseFormat,
 } from './openrouterEnv.js'
 
 dotenv.config()
@@ -24,7 +26,7 @@ const dist = path.join(root, 'dist')
 const PORT = Number(process.env.PORT) || 3001
 const OPENAI_API_KEY = resolveApiKey()
 const OPENAI_BASE_URL = resolveBaseUrl()
-const OPENAI_MODEL = process.env.OPENAI_MODEL || 'google/gemini-2.5-flash'
+const OPENAI_MODEL = process.env.OPENAI_MODEL || DEFAULT_CHAT_MODEL
 const visionConfig = getVisionConfig()
 
 const app = express()
@@ -79,10 +81,9 @@ app.post('/api/chat', async (req, res) => {
     messages,
   }
 
-  if (response_format) {
-    body.response_format = response_format
-  } else {
-    body.response_format = { type: 'json_object' }
+  const responseFormat = resolveChatResponseFormat(OPENAI_MODEL, response_format)
+  if (responseFormat) {
+    body.response_format = responseFormat
   }
 
   try {
@@ -102,16 +103,24 @@ app.post('/api/chat', async (req, res) => {
       let message = text.slice(0, 500)
       try {
         const parsed = JSON.parse(text)
-        if (typeof parsed.message === 'string') message = parsed.message
-        else if (typeof parsed.error === 'string') message = parsed.error
-        else if (parsed.error && typeof parsed.error === 'object' && parsed.error.message) {
+        if (parsed.error && typeof parsed.error === 'object' && parsed.error.message) {
           message = parsed.error.message
-        }
+        } else if (typeof parsed.message === 'string') message = parsed.message
+        else if (typeof parsed.error === 'string') message = parsed.error
       } catch {
         /* keep raw */
       }
       if (!message.trim()) message = `Upstream HTTP ${upstream.status}`
       console.error('[api/chat] upstream error', upstream.status, message)
+      if (upstream.status === 402) {
+        res.status(402).json({
+          error: 'INSUFFICIENT_CREDITS',
+          message:
+            'На OpenRouter недостаточно кредитов. Пополните баланс на openrouter.ai и повторите запрос.',
+          detail: message.slice(0, 500),
+        })
+        return
+      }
       if (isUpstreamAuthFailure(upstream.status)) {
         res.status(upstream.status).json({
           error: 'AUTH_ERROR',
@@ -172,6 +181,22 @@ if (fs.existsSync(dist)) {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Worksheet server on http://0.0.0.0:${PORT}`)
   console.log(`Chat model: ${OPENAI_MODEL}; OCR model: ${visionConfig.model}; key: ${OPENAI_API_KEY ? 'set' : 'MISSING'}`)
+  if (OPENAI_API_KEY) {
+    fetch(`${OPENAI_BASE_URL}/auth/key`, {
+      headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
+    })
+      .then(async (res) => {
+        if (res.ok) {
+          console.log('[startup] OpenRouter key: verified')
+          return
+        }
+        const body = (await res.text()).slice(0, 300)
+        console.error('[startup] OpenRouter key check failed', res.status, body)
+      })
+      .catch((err) => {
+        console.warn('[startup] OpenRouter key check error', err instanceof Error ? err.message : err)
+      })
+  }
 })
 
 import('pdf-parse/worker')

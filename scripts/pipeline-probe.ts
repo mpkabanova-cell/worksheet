@@ -14,7 +14,7 @@ import { formatProbePlan, formatProbeWorksheet } from '../src/data/technicalProb
 import { labelForType } from '../src/data/worksheet'
 import { prepareReferenceContent } from '../src/data/contextFilter'
 import { referenceFilePayload } from '../src/data/contextFile'
-import { resolveApiKey, resolveBaseUrl } from '../server/openrouterEnv.js'
+import { resolveApiKey, resolveBaseUrl, DEFAULT_CHAT_MODEL } from '../server/openrouterEnv.js'
 
 dotenv.config()
 
@@ -27,7 +27,7 @@ const CONTEXT_BLOCK = process.env.PROBE_BLOCK?.trim() || undefined
 
 const OPENAI_API_KEY = resolveApiKey()
 const OPENAI_BASE_URL = resolveBaseUrl()
-const OPENAI_MODEL = process.env.OPENAI_MODEL || 'google/gemini-2.5-flash'
+const OPENAI_MODEL = process.env.OPENAI_MODEL || DEFAULT_CHAT_MODEL
 
 async function extractDocx(): Promise<{ text: string; truncated: boolean; sec: number; sizeMb: string }> {
   const { extractContextFromFile } = await import('../server/extractContext.js')

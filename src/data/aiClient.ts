@@ -100,13 +100,18 @@ export async function chatJson<T>(
   user: string,
   options?: { temperature?: number },
 ): Promise<T> {
+  const modelHint = (import.meta.env.VITE_OPENAI_MODEL as string | undefined)?.trim() || ''
+  const skipJsonFormat = modelHint.toLowerCase().includes('gemini')
+
   const payload: Record<string, unknown> = {
     temperature: options?.temperature ?? 0.5,
-    response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: system },
       { role: 'user', content: user },
     ],
+  }
+  if (!skipJsonFormat) {
+    payload.response_format = { type: 'json_object' }
   }
 
   let lastParseError: unknown
@@ -143,12 +148,15 @@ export async function chatJson<T>(
     if (!res.ok) {
       let detail = ''
       let errorCode = ''
+      let upstreamDetail = ''
       try {
         const err = JSON.parse(raw) as {
           message?: string
+          detail?: string
           error?: string | { message?: string }
         }
         if (typeof err.error === 'string') errorCode = err.error
+        if (typeof err.detail === 'string' && err.detail.trim()) upstreamDetail = err.detail.trim()
         if (typeof err.message === 'string' && err.message.trim()) detail = err.message
         else if (typeof err.error === 'string' && err.error !== 'UPSTREAM_ERROR') detail = err.error
         else if (err.error && typeof err.error === 'object' && err.error.message) {
@@ -158,8 +166,20 @@ export async function chatJson<T>(
         detail = raw.trim()
       }
 
+      if (res.status === 402 || errorCode === 'INSUFFICIENT_CREDITS') {
+        throw new AiError(
+          detail ||
+            'На OpenRouter недостаточно кредитов. Пополните баланс на openrouter.ai и повторите запрос.',
+        )
+      }
+
       if (res.status === 401 || res.status === 403 || errorCode === 'AUTH_ERROR') {
-        throw new AiError(AUTH_ERROR_USER_MESSAGE)
+        const hint = upstreamDetail || (detail && detail !== AUTH_ERROR_USER_MESSAGE ? detail : '')
+        throw new AiError(
+          hint
+            ? `${AUTH_ERROR_USER_MESSAGE} (${hint.slice(0, 160)})`
+            : AUTH_ERROR_USER_MESSAGE,
+        )
       }
 
       if (!detail) {

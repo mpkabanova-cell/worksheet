@@ -4,6 +4,7 @@ import {
   isLikelyOpenRouterKey,
   resolveApiKey,
   resolveBaseUrl,
+  resolveChatResponseFormat,
 } from './openrouterEnv.js'
 
 describe('resolveApiKey', () => {
@@ -46,5 +47,18 @@ describe('key hints', () => {
   it('authHint warns on odd format', () => {
     expect(authHintForKey('not-a-key')).toMatch(/формат/)
     expect(authHintForKey('sk-or-ok')).toBeUndefined()
+  })
+})
+
+describe('resolveChatResponseFormat', () => {
+  it('omits json_object for Gemini', () => {
+    expect(resolveChatResponseFormat('google/gemini-2.0-flash-001', undefined)).toBeUndefined()
+    expect(
+      resolveChatResponseFormat('google/gemini-2.0-flash-001', { type: 'json_object' }),
+    ).toBeUndefined()
+  })
+
+  it('uses json_object for other models', () => {
+    expect(resolveChatResponseFormat('openai/gpt-4o-mini', undefined)).toEqual({ type: 'json_object' })
   })
 })

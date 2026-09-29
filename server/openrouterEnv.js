@@ -4,6 +4,9 @@
 
 const DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1'
 
+/** Модель генерации plan/worksheet по умолчанию (OpenRouter slug). */
+export const DEFAULT_CHAT_MODEL = 'google/gemini-2.0-flash-001'
+
 function stripWrappingQuotes(value) {
   if (
     (value.startsWith('"') && value.endsWith('"')) ||
@@ -69,4 +72,23 @@ export function isUpstreamAuthFailure(status) {
  */
 export function messageLooksLikeAuthFailure(message) {
   return /\bHTTP\s+401\b/i.test(message) || /\bHTTP\s+403\b/i.test(message)
+}
+
+/**
+ * Gemini на OpenRouter часто без response_format; JSON добираем промптом + extractJson.
+ * @param {string} model
+ */
+export function chatModelPrefersPromptJson(model) {
+  return String(model || '').toLowerCase().includes('gemini')
+}
+
+/**
+ * @param {string} model
+ * @param {unknown} [clientResponseFormat]
+ * @returns {Record<string, unknown> | undefined}
+ */
+export function resolveChatResponseFormat(model, clientResponseFormat) {
+  if (chatModelPrefersPromptJson(model)) return undefined
+  if (clientResponseFormat) return clientResponseFormat
+  return { type: 'json_object' }
 }
