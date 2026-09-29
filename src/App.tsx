@@ -22,6 +22,7 @@ import {
 } from '@/data/worksheet'
 import { cloneBlock, isPageEmpty, normalizeWorksheetDraft, removePageFromDraft, syncPagesFromBreaks } from '@/data/blockUtils'
 import { exportWorksheetDocx } from '@/export/word/exportWorksheetDocx'
+import { exportWorksheetPdf } from '@/export/exportWorksheetPdf'
 import { Home } from '@/screens/Home'
 import { Create } from '@/screens/Create'
 import { Loader } from '@/screens/Loader'
@@ -388,6 +389,17 @@ export default function App() {
     }
   }
 
+  const handleExportPdf = async () => {
+    setModal(null)
+    showToast('Формируем PDF…')
+    try {
+      await exportWorksheetPdf(draft)
+      showToast('PDF сохранён')
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Ошибка экспорта PDF')
+    }
+  }
+
   const handlePrint = () => {
     setModal(null)
     const prevAnswers = draft.showAnswers
@@ -591,7 +603,7 @@ export default function App() {
           onChangeDraft={setDraft}
           onBack={() => setScreen('preview')}
           onPrint={handlePrint}
-          onPdf={() => showToast('PDF в разработке')}
+          onPdf={handleExportPdf}
         />
       ) : null}
 
@@ -643,6 +655,7 @@ export default function App() {
         onConfirmGenerateTask={confirmGenerateTask}
         onPrint={handlePrint}
         onExportDocx={handleExportDocx}
+        onExportPdf={handleExportPdf}
         onSave={handleSave}
         onSoon={showToast}
       />

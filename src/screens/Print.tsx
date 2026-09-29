@@ -70,7 +70,7 @@ export function PrintScreen({ draft, onChangeDraft, onBack, onPrint, onPdf }: Pr
       </div>
 
       <div className="print-preview-note">
-        <p>Предпросмотр соответствует макету «Печать». PDF-экспорт пока недоступен.</p>
+        <p>PDF собирается из того же файла, что и Word: содержание совпадает с DOCX.</p>
       </div>
 
       <div className="print-actions">

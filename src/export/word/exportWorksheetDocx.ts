@@ -21,16 +21,7 @@ function sanitizeFileName(name: string): string {
   return name.replace(/[\\/:*?"<>|]/g, '_').trim() || 'worksheet'
 }
 
-function downloadBlob(blob: Blob, fileName: string): void {
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = fileName
-  anchor.click()
-  URL.revokeObjectURL(url)
-}
-
-export async function exportWorksheetDocxBlob(
+import { downloadBlob } from '@/export/downloadBlob'
   draft: WorksheetDraft,
 ): Promise<ExportWorksheetDocxResult> {
   const normalizedDraft = normalizeWorksheetDraft(draft)

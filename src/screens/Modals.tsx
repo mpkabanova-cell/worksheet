@@ -26,6 +26,7 @@ interface ModalsProps {
   onSave: () => void
   onOpen: (modal: Modal) => void
   onExportDocx?: () => void
+  onExportPdf?: () => void
   onSoon?: (message: string) => void
 }
 
@@ -51,6 +52,7 @@ export function Modals({
   onSave,
   onOpen,
   onExportDocx,
+  onExportPdf,
   onSoon,
 }: ModalsProps) {
   const [convertTitle, setConvertTitle] = useState('')
@@ -257,7 +259,7 @@ export function Modals({
           </div>
 
           <div className="modal-actions">
-            <Button variant="secondary" size="lg" onClick={() => onSoon?.('PDF в разработке')}>
+            <Button variant="secondary" size="lg" onClick={() => onExportPdf?.()}>
               PDF
             </Button>
             <Button variant="secondary" size="lg" onClick={() => onExportDocx?.()}>

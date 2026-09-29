@@ -27,6 +27,8 @@ export async function convertDocxToPdf(docxBuffer) {
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'worksheet-docx-'))
   const inputPath = path.join(tmpDir, 'input.docx')
   const outputPath = path.join(tmpDir, 'input.pdf')
+  const loHome = path.join(tmpDir, 'lo-home')
+  await fs.mkdir(loHome, { recursive: true })
 
   try {
     await fs.writeFile(inputPath, docxBuffer)
@@ -36,7 +38,10 @@ export async function convertDocxToPdf(docxBuffer) {
         await execFileAsync(
           soffice,
           ['--headless', '--convert-to', 'pdf', '--outdir', tmpDir, inputPath],
-          { timeout: 120_000 },
+          {
+            timeout: 120_000,
+            env: { ...process.env, HOME: loHome },
+          },
         )
         const pdf = await fs.readFile(outputPath)
         return pdf
@@ -48,4 +53,19 @@ export async function convertDocxToPdf(docxBuffer) {
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
   }
+}
+
+/**
+ * @returns {Promise<boolean>}
+ */
+export async function isPdfConverterAvailable() {
+  for (const soffice of SOFFICE_CANDIDATES) {
+    try {
+      await execFileAsync(soffice, ['--version'], { timeout: 8000 })
+      return true
+    } catch {
+      /* try next */
+    }
+  }
+  return false
 }

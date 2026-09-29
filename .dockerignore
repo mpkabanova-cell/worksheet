@@ -1,0 +1,6 @@
+node_modules
+dist
+.git
+.env
+*.md
+ocr_to_doc_project-main

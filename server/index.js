@@ -3,6 +3,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import dotenv from 'dotenv'
+import { convertDocxToPdf, isPdfConverterAvailable } from './docxToPdf.js'
 import { extractContextFromFile, ContextExtractError, MAX_UPLOAD_BYTES } from './extractContext.js'
 import { parseSingleFileUpload, UploadError } from './upload.js'
 import { getVisionConfig } from './visionOcr.js'
@@ -57,6 +58,22 @@ async function refreshOpenRouterAuthState() {
   }
 }
 
+const MAX_EXPORT_DOCX_BYTES = 20 * 1024 * 1024
+
+/** @type {boolean | null} */
+let pdfConverterAvailable = null
+
+async function refreshPdfConverterState() {
+  pdfConverterAvailable = await isPdfConverterAvailable()
+  if (pdfConverterAvailable) {
+    console.log('[startup] PDF export: LibreOffice converter ready')
+  } else {
+    console.warn(
+      '[startup] PDF export: LibreOffice (soffice) not found — POST /api/export/pdf will return 503',
+    )
+  }
+}
+
 const app = express()
 app.disable('x-powered-by')
 app.use(express.json({ limit: '1mb' }))
@@ -74,6 +91,7 @@ app.get('/health', (_req, res) => {
     ...(openRouterAuthState.hint ? { openRouterAuthHint: openRouterAuthState.hint } : {}),
     ...(openRouterAuthState.checkedAt ? { openRouterAuthCheckedAt: openRouterAuthState.checkedAt } : {}),
     ...(openRouterAuthState.credits ? { openRouterCredits: openRouterAuthState.credits } : {}),
+    pdfExportAvailable: pdfConverterAvailable,
     model: OPENAI_MODEL,
     ocrModel: visionConfig.model,
   })
@@ -92,6 +110,44 @@ app.post('/api/extract-context', async (req, res) => {
     const message = err instanceof Error ? err.message : 'Ошибка извлечения контекста'
     console.error('[api/extract-context]', message)
     res.status(502).json({ error: 'EXTRACT_ERROR', message })
+  }
+})
+
+app.post('/api/export/pdf', async (req, res) => {
+  try {
+    const { buffer, filename } = await parseSingleFileUpload(req, MAX_EXPORT_DOCX_BYTES)
+    const lower = filename.toLowerCase()
+    if (!lower.endsWith('.docx') && buffer.length >= 2 && buffer[0] !== 0x50 && buffer[1] !== 0x4b) {
+      res.status(400).json({
+        error: 'BAD_REQUEST',
+        message: 'Нужен файл Word (.docx), собранный экспортом листа',
+      })
+      return
+    }
+
+    const pdf = await convertDocxToPdf(buffer)
+    if (!pdf) {
+      res.status(503).json({
+        error: 'PDF_CONVERTER_UNAVAILABLE',
+        message:
+          'На сервере нет LibreOffice для конвертации. Установите LibreOffice или скачайте DOCX.',
+      })
+      return
+    }
+
+    const baseName = filename.replace(/\.docx$/i, '') || 'worksheet'
+    const outName = `${baseName}.pdf`
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(outName)}`)
+    res.send(pdf)
+  } catch (err) {
+    if (err instanceof UploadError) {
+      res.status(err.status).json({ error: err.code, message: err.message })
+      return
+    }
+    const message = err instanceof Error ? err.message : 'Ошибка конвертации PDF'
+    console.error('[api/export/pdf]', message)
+    res.status(502).json({ error: 'PDF_EXPORT_ERROR', message })
   }
 })
 
@@ -216,6 +272,9 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`Chat model: ${OPENAI_MODEL}; OCR model: ${visionConfig.model}; key: ${OPENAI_API_KEY ? 'set' : 'MISSING'}`)
   refreshOpenRouterAuthState().catch((err) => {
     console.warn('[startup] OpenRouter auth refresh failed', err instanceof Error ? err.message : err)
+  })
+  refreshPdfConverterState().catch((err) => {
+    console.warn('[startup] PDF converter check failed', err instanceof Error ? err.message : err)
   })
 })
 
