@@ -4,10 +4,11 @@
 services:
   - type: web
     name: worksheet
-    runtime: docker
-    dockerfilePath: ./Dockerfile
+    runtime: node
     plan: free
     region: frankfurt
+    buildCommand: npm install && npm run build
+    startCommand: npm start
     healthCheckPath: /health
     envVars:
       - key: NODE_VERSION

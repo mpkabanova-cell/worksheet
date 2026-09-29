@@ -6,6 +6,7 @@ import { PAGE_MARGIN_TWIPS } from '@/export/word/build/buildHeader'
 import { ensureExportFontsLoaded } from '@/export/word/loadExportFonts'
 import { runFont } from '@/export/word/layoutTokens'
 import type { ExportContext, ExportOptions } from '@/export/word/types'
+import { downloadBlob } from '@/export/downloadBlob'
 import {
   Document,
   Packer,
@@ -21,7 +22,7 @@ function sanitizeFileName(name: string): string {
   return name.replace(/[\\/:*?"<>|]/g, '_').trim() || 'worksheet'
 }
 
-import { downloadBlob } from '@/export/downloadBlob'
+export async function exportWorksheetDocxBlob(
   draft: WorksheetDraft,
 ): Promise<ExportWorksheetDocxResult> {
   const normalizedDraft = normalizeWorksheetDraft(draft)

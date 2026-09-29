@@ -395,16 +395,10 @@ const blob = await Packer.toBlob(doc)
 
 ## Экспорт PDF (1:1 с Word)
 
-Кнопки **PDF** в «Скачать / печать» и на экране печати делают не отдельную вёрстку, а **тот же `.docx`**, что и кнопка DOCX:
+Кнопки **PDF** собирают **тот же `.docx`**, что и кнопка DOCX, и конвертируют его **в браузере** (без LibreOffice и без сервера):
 
-1. Браузер собирает документ (`exportWorksheetDocxBlob` — те же `buildWorksheetDocumentChildren`, шрифты, кэши).
-2. Файл отправляется на сервер: `POST /api/export/pdf` (`multipart/form-data`, поле `file`).
-3. Сервер конвертирует DOCX → PDF через **LibreOffice** (`soffice --headless --convert-to pdf`), отдаёт бинарный PDF.
+1. `exportWorksheetDocxBlob` — та же сборка docx.
+2. `docx-preview` отрисовывает файл в скрытый контейнер.
+3. Страницы снимаются через `html2canvas` и складываются в PDF (`jspdf`).
 
-Содержание PDF совпадает с Word, потому что это конвертация одного и того же файла.
-
-**Локально:** нужен установленный LibreOffice (на macOS путь по умолчанию в `Applications/LibreOffice.app/.../soffice`). Без него API вернёт `503 PDF_CONVERTER_UNAVAILABLE`.
-
-**Render:** образ собирается из `Dockerfile` (Node + `libreoffice-writer`). В `GET /health` поле `pdfExportAvailable` показывает, видит ли сервер конвертер.
-
-Опционально: `LIBREOFFICE_PATH` — явный путь к `soffice`.
+Содержание совпадает с Word-экспортом, потому что источник один и тот же `.docx`. Сервер не участвует.

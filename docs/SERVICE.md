@@ -81,7 +81,7 @@ flowchart LR
 | `APP_URL` | Referer для OpenRouter | — |
 | `PORT` | порт | `3001` |
 
-Эндпоинты: `GET /health` (`hasKey`, `keyPrefixOk`, опционально `authHint`, `pdfExportAvailable`; `model` — генерация, `ocrModel` — распознавание файлов), `POST /api/chat`, `POST /api/extract-context`, `POST /api/export/pdf`.
+Эндпоинты: `GET /health` (`hasKey`, `keyPrefixOk`, опционально `authHint`; `model` — генерация, `ocrModel` — распознавание файлов), `POST /api/chat`, `POST /api/extract-context`.
 
 **Ошибка 401 / AUTH_ERROR:** OpenRouter отклонил ключ. На Render задайте секрет `OPENAI_API_KEY` (или alias `OPENROUTER_API_KEY`) — актуальный `sk-or-...` с [openrouter.ai/keys](https://openrouter.ai/keys). Если `/health` показывает `hasKey: true`, но генерация падает с 401, ключ устарел или отозван, а не «отсутствует» (отсутствие ключа даёт **503** `NO_API_KEY`).
 
