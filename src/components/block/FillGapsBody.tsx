@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { WorksheetBlock } from '@/data/worksheet'
 import {
   gapWordOccursOutsideMath,
@@ -13,6 +13,31 @@ import { Button } from '@/components/ui'
 
 const FILL_GAPS_INVALID_MESSAGE =
   'Пропуски в формулах не поддерживаются. Исправьте текст или смените тип задания.'
+
+type GapEditorToken = { kind: 'space' | 'word'; value: string }
+
+function tokenizeGapEditorText(text: string): GapEditorToken[] {
+  const tokens: GapEditorToken[] = []
+  const re = /(\s+|[^\s]+)/gu
+  let match: RegExpExecArray | null
+  while ((match = re.exec(text)) !== null) {
+    const value = match[1]!
+    tokens.push({ value, kind: /^\s+$/.test(value) ? 'space' : 'word' })
+  }
+  return tokens
+}
+
+function gapTokenLemma(token: string): string {
+  return token.replace(/^[^\p{L}\p{N}_]+|[^\p{L}\p{N}_]+$/gu, '').trim()
+}
+
+function isGapLemma(lemma: string, gapWords: string[]): boolean {
+  return lemma.length > 0 && gapWords.includes(lemma)
+}
+
+function sourceUsesMathDelimiters(sourceText: string): boolean {
+  return /\$/.test(sourceText)
+}
 
 function isValidFillGapsContent(sourceText: string, gapWords: string[]): boolean {
   return isValidFillGapsBlock({
@@ -97,6 +122,59 @@ export function FillGapsEditor({
     })
   }
 
+  const [selectedLemma, setSelectedLemma] = useState<string | null>(null)
+  const showInteractive = !sourceUsesMathDelimiters(sourceText) && !invalid
+  const useMathPreview = sourceUsesMathDelimiters(sourceText)
+
+  const interactiveTokens = showInteractive ? (
+    <div
+      className="gaps-interactive"
+      aria-label="Отметка пропусков в тексте"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {tokenizeGapEditorText(sourceText).map((token, index) => {
+        if (token.kind === 'space') {
+          return <span key={`s-${index}`}>{token.value}</span>
+        }
+        const lemma = gapTokenLemma(token.value)
+        const isGap = isGapLemma(lemma, validGapWords)
+        const selected = lemma.length > 0 && selectedLemma === lemma
+        return (
+          <span
+            key={`w-${index}-${token.value}`}
+            className={`gaps-word-token${isGap ? ' is-gap' : ''}${selected ? ' selected' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (!lemma) return
+              setSelectedLemma((prev) => (prev === lemma ? null : lemma))
+            }}
+          >
+            {token.value}
+            {selected && lemma ? (
+              <span className={`gaps-token-popup${isGap ? ' gaps-token-popup--below' : ''}`}>
+                <button
+                  type="button"
+                  className="gaps-action-btn"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (isGap) {
+                      removeGap(lemma)
+                    } else {
+                      addGapWord(lemma)
+                    }
+                    setSelectedLemma(null)
+                  }}
+                >
+                  {isGap ? 'Убрать пропуск' : 'Сделать пропуском'}
+                </button>
+              </span>
+            ) : null}
+          </span>
+        )
+      })}
+    </div>
+  ) : null
+
   return (
     <div className="gaps-editor">
       <WysiwygTextarea
@@ -106,10 +184,12 @@ export function FillGapsEditor({
         placeholder="Текст с пропусками"
         inputRef={textareaRef}
         floatingToolbar
-        mathPreview
+        mathPreview={useMathPreview}
         onChange={syncSource}
         onClick={(e) => e.stopPropagation()}
       />
+
+      {interactiveTokens}
 
       {invalid ? null : validGapWords.length > 0 ? (
         <div className="gaps-words-bank" aria-label="Пропущенные слова">
@@ -136,7 +216,7 @@ export function FillGapsEditor({
 
       {!invalid ? (
         <Button variant="secondary" size="sm" type="button" onClick={addGapFromSelection}>
-          Добавить в пропуски
+          Сделать пропуском
         </Button>
       ) : null}
 

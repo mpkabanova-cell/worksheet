@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   gapWordOccursOutsideMath,
+  gapsTextHasBlankMarkers,
   hasForbiddenGapsInFormulas,
   hasGapMarkersInMath,
   migrateGapsTextToSource,
+  normalizeGapPlaceholders,
   sanitizeGapsSourceText,
   stripGapMarkersFromMathTex,
 } from '@/data/mathTextUtils'
@@ -52,6 +54,17 @@ describe('gapWordOccursOutsideMath', () => {
     const source = '$(a+b)^2 = a^2 + 2ab + b^2$ и слово ___'
     expect(gapWordOccursOutsideMath(source, '2ab')).toBe(false)
     expect(gapWordOccursOutsideMath(source, 'слово')).toBe(true)
+  })
+})
+
+describe('normalizeGapPlaceholders', () => {
+  it('converts __N__ and digit glued between letters', () => {
+    const raw =
+      'Чтобы сложить дроби, сложить их числители1без изменения, знаменатель __2__.'
+    const normalized = normalizeGapPlaceholders(raw)
+    expect(normalized).toContain('числители ___')
+    expect(normalized).not.toContain('__2__')
+    expect(gapsTextHasBlankMarkers(normalized)).toBe(true)
   })
 })
 

@@ -5,6 +5,7 @@ import {
   validateTaskIndependence,
   validateTaskSelfSufficiency,
   validateWorksheetPipeline,
+  taskSelfSufficiencyIssues,
 } from './taskIndependence'
 
 describe('validatePlanIndependence', () => {
@@ -63,6 +64,17 @@ describe('validateTaskIndependence', () => {
       },
     ])
     expect(issues.some((i) => i.includes('gaps_text'))).toBe(true)
+  })
+
+  it('does not require ___ in migrated fill_gaps source when answers are set', () => {
+    const issues = taskSelfSufficiencyIssues({
+      type: 'fill_gaps',
+      question: 'Заполните пропуски в тексте.',
+      gaps_text:
+        'Чтобы сложить дроби, нужно сложить их числители, а знаменатель оставить без изменения.',
+      gaps_answers: ['числители', 'без изменения'],
+    })
+    expect(issues.some((i) => i.includes('gaps_text с пропусками'))).toBe(false)
   })
 
   it('flags fill_gaps about cave without story context', () => {

@@ -451,11 +451,12 @@ export function isSelectionInsideForbiddenGapRegion(
 /** Replace ___ with answers only in usable plain-text segments. */
 export function migrateGapsTextToSource(gapsText: string, gapAnswers: string[]): string {
   let answerIndex = 0
+  const normalized = normalizeGapPlaceholders(gapsText)
 
   const countGapMarkers = (text: string): number =>
     (text.match(/\\text\{_+\}|_{3,}/g) ?? []).length
 
-  return splitMathSegments(gapsText)
+  return splitMathSegments(normalized)
     .map((segment) => {
       if (segment.kind === 'math') {
         answerIndex += countGapMarkers(segment.value)
@@ -498,6 +499,24 @@ export function looksLikeMathPlainText(text: string): boolean {
 function stripGapMarkersFromPlainSegment(text: string): string {
   if (!looksLikeMathPlainText(text)) return text
   return stripGapMarkersFromMathTex(text)
+}
+
+/**
+ * Приводит маркеры пропусков от LLM/Word к ___ (например __2__, [1], буква+цифра+буква).
+ */
+export function normalizeGapPlaceholders(text: string): string {
+  if (!text.trim()) return text
+
+  let next = text.replace(/__\d+__/g, '___')
+  next = next.replace(/\[\s*\d+\s*\]/g, '___')
+  next = next.replace(/\{\s*\d+\s*\}/g, '___')
+  // «числители1без» → «числители ___ без»
+  next = next.replace(/([\p{L}]{2,})(\d{1,2})(?=[\p{L}])/gu, '$1 ___ ')
+  return next.replace(/\s{2,}/g, ' ').replace(/\s+([,.;:!?])/g, '$1')
+}
+
+export function gapsTextHasBlankMarkers(text: string): boolean {
+  return /_{3,}/.test(text) || /__\d+__/.test(text)
 }
 
 /** Remove gap markers from $...$ / $$...$$ and from math-like plain fragments. */

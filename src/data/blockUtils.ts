@@ -13,8 +13,10 @@ import {
   hasForbiddenGapsInFormulas,
   looksLikeMathPlainText,
   migrateGapsTextToSource,
+  normalizeGapPlaceholders,
   sanitizeGapsSourceText,
   splitMathSegments,
+  gapsTextHasBlankMarkers,
 } from '@/data/mathTextUtils'
 import { getBlockQuestion, stripLeadingTheoryFromGaps, stripTheoryFromField } from '@/data/taskContent'
 
@@ -423,14 +425,17 @@ export function sanitizeBlock(block: WorksheetBlock): WorksheetBlock {
   }
 
   if (sanitized.type === 'fill_gaps' && Array.isArray(sanitized.gapsAnswers)) {
+    const rawGapsText = sanitized.gapsText?.trim()
+      ? normalizeGapPlaceholders(asText(sanitized.gapsText) ?? sanitized.gapsText)
+      : ''
     const rawSource = sanitized.gapsSourceText?.trim()
       ? sanitized.gapsSourceText
-      : sanitized.gapsText?.trim()
-        ? migrateGapsTextToSource(sanitized.gapsText, sanitized.gapsAnswers ?? [])
+      : rawGapsText
+        ? migrateGapsTextToSource(rawGapsText, sanitized.gapsAnswers ?? [])
         : ''
     const source = sanitizeGapsSourceText(rawSource)
     sanitized.gapsSourceText = source
-    sanitized.gapsText = undefined
+    sanitized.gapsText = rawGapsText || undefined
     sanitized.gapsAnswers = sanitizeGapAnswers(source, sanitized.gapsAnswers)
     return resolveBlockQuestion(rejectInvalidFillGapsBlock(sanitized))
   }
@@ -727,9 +732,11 @@ export function stableShuffle<T>(items: T[], seed: string): T[] {
   return next
 }
 
-export function gapUnderscore(word: string): string {
-  const len = Math.max(7, word.length + 3)
-  return '_'.repeat(len)
+/** Единая линия пропуска в тексте для ученика (без цифр и без слова в тексте). */
+export const GAP_BLANK_LINE = '______'
+
+export function gapUnderscore(_word?: string): string {
+  return GAP_BLANK_LINE
 }
 
 function isGapWordChar(ch: string): boolean {
@@ -800,7 +807,11 @@ export function markGapAnswersInText(sourceText: string, gapWords: string[]): st
 
 export function renderGapsStudentText(sourceText: string, gapWords: string[]): string {
   if (!sourceText.trim()) return ''
-  return mapEditablePlainSegments(sourceText, gapWords, (plain, validGapWords) => {
+  const normalized = normalizeGapPlaceholders(sourceText)
+  if (gapsTextHasBlankMarkers(normalized) && gapWords.length === 0) {
+    return normalized.replace(/_{3,}/g, (m) => gapUnderscore(m))
+  }
+  return mapEditablePlainSegments(normalized, gapWords, (plain, validGapWords) => {
     let next = plain
     for (const word of gapWordsByLengthDesc(validGapWords)) {
       next = replaceFirstGapWordOccurrence(next, word, gapUnderscore(word))

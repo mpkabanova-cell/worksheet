@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   getGapsSourceText,
+  getGapsStudentText,
   getValidGapAnswers,
   isValidFillGapsBlock,
   markGapAnswersInText,
@@ -108,7 +109,27 @@ describe('gapsText migration', () => {
     expect(source).toContain('основа')
   })
 
-  it('sanitizeBlock converts invalid fill_gaps to text', () => {
+  it('renders student text when words are glued with blank numbers', () => {
+    const gapsText =
+      'Чтобы сложить дроби, нужно сложить их числители1без изменения, а знаменатель оставить __2__.'
+    const block = sanitizeBlock({
+      id: 'g1',
+      type: 'fill_gaps',
+      page: 0,
+      title: 'Задание',
+      question: 'Заполните пропуски в тексте.',
+      gapsText,
+      gapsAnswers: ['числители', 'без изменения'],
+    })
+    const student = getGapsStudentText(block)
+    expect(student).not.toContain('1без')
+    expect(student).not.toContain('__2__')
+    expect(student).toMatch(/_+/)
+  })
+})
+
+describe('sanitizeBlock fill_gaps', () => {
+  it('converts invalid fill_gaps to text', () => {
     const block: WorksheetBlock = {
       id: 'b5',
       type: 'fill_gaps',

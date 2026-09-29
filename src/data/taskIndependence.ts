@@ -1,4 +1,5 @@
 import type { AiTaskPayload } from './ai'
+import { gapsTextHasBlankMarkers } from './mathTextUtils'
 import type { TaskType, WorksheetBlock } from './worksheet'
 import { looksLikeBareTaskInstruction, normalizeWs, containsMetaTaskDescription, looksLikeAuthorPlanDescription, isGenericTopicFillGaps } from './taskContent'
 import { planExpectsStoryContext, looksLikeReferenceDump } from './referenceEnrich'
@@ -224,7 +225,11 @@ export function taskQuestionIssues(
 
   if (type === 'fill_gaps') {
     const gaps = (task.gaps_text || '').trim()
-    if (!gaps.includes('___')) {
+    const answers = (task.gaps_answers ?? []).map((a) => a.trim()).filter(Boolean)
+    const hasBlanks = gapsTextHasBlankMarkers(gaps)
+    if (!hasBlanks && answers.length === 0) {
+      issues.push('fill_gaps без gaps_text с пропусками ___')
+    } else if (!hasBlanks && answers.length > 0 && gaps.length < 12) {
       issues.push('fill_gaps без gaps_text с пропусками ___')
     }
     if (isGenericTopicFillGaps(gaps, task.gaps_answers)) {
@@ -338,7 +343,7 @@ export function taskSelfSufficiencyIssues(
   if (type === 'fill_gaps') {
     const gaps = (task.gaps_text || '').trim()
     const combined = `${question}\n${gaps}`
-    if (/пещер|персонаж/i.test(combined) && !hasCaveNarrativeInQuestion(question) && !gaps.includes('___')) {
+    if (/пещер|персонаж/i.test(combined) && !hasCaveNarrativeInQuestion(question) && !gapsTextHasBlankMarkers(gaps)) {
       issues.push('fill_gaps: данные без пропусков и без сюжета в question — не самодостаточное задание')
     }
   }

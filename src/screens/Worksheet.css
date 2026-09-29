@@ -1593,16 +1593,16 @@
 
 .gaps-interactive {
   line-height: 1.8;
-  padding: 12px;
-  border: 1px dashed var(--border-secondary);
-  border-radius: 8px;
+  padding: 0;
   margin-bottom: 8px;
 }
 
 .gaps-word-token {
   cursor: pointer;
   border-radius: 4px;
-  padding: 0 2px;
+  padding: 0 1px;
+  position: relative;
+  display: inline;
 }
 
 .gaps-word-token.selected {
@@ -1610,8 +1610,23 @@
 }
 
 .gaps-word-token.is-gap {
-  background: rgba(79, 70, 229, 0.2);
-  text-decoration: underline dotted;
+  background: transparent;
+  text-decoration: none;
+  border: 1px solid rgba(99, 102, 241, 0.55);
+}
+
+.gaps-token-popup {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(100% + 4px);
+  z-index: 3;
+  white-space: nowrap;
+}
+
+.gaps-token-popup--below {
+  bottom: auto;
+  top: calc(100% + 4px);
 }
 
 .gaps-word-actions {

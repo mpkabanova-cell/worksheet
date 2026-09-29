@@ -1,4 +1,5 @@
 import type { TaskType, WorksheetBlock } from './worksheet'
+import { normalizeGapPlaceholders } from './mathTextUtils'
 
 export interface AiTaskFields {
   type?: TaskType | string
@@ -247,7 +248,7 @@ function sanitizeTaskTextFields<T extends AiTaskFields>(task: T): T {
   }
 
   if (next.gaps_text != null) {
-    next.gaps_text = stripLeadingTheoryFromGaps(next.gaps_text)
+    next.gaps_text = stripLeadingTheoryFromGaps(normalizeGapPlaceholders(next.gaps_text))
   }
 
   return next

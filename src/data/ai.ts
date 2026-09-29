@@ -588,10 +588,16 @@ function blockNeedsRepair(block: WorksheetBlock, planBrief?: string): boolean {
 }
 
 function blockToAiPayload(block: WorksheetBlock): AiTaskPayload {
+  const gapsText =
+    block.gapsText?.trim() ||
+    (block.gapsSourceText?.trim() && gapsTextHasBlankMarkers(block.gapsSourceText)
+      ? block.gapsSourceText
+      : getGapsSourceText(block))
   return {
     type: block.type,
     question: block.question,
-    gaps_text: getGapsSourceText(block),
+    gaps_text: gapsText,
+    gaps_answers: block.gapsAnswers,
     options: block.options?.map((o) => o.text),
     left_items: block.leftItems?.map((i) => i.text),
     right_items: block.rightItems?.map((i) => i.text),
