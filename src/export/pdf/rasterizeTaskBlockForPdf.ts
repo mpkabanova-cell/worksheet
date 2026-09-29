@@ -20,6 +20,7 @@ import {
   getStarFilledPng,
 } from '@/export/word/assets/uiAssets'
 import { getGroupingLayoutSpec, getMatchingLayoutSpec, getOrderingLayoutSpec } from '@/export/word/layoutSpec'
+import { fetchImageBytes } from '@/export/word/imageUtils'
 import {
   COLORS,
   FONT_CSS,
@@ -58,9 +59,102 @@ async function appendMarkerImg(
   img.height = sizePx
   img.style.width = `${sizePx}px`
   img.style.height = `${sizePx}px`
+  img.style.maxWidth = `${sizePx}px`
+  img.style.maxHeight = `${sizePx}px`
   img.style.flexShrink = '0'
   img.alt = ''
   parent.appendChild(img)
+}
+
+const CHOICE_IMAGE_PX = 120
+
+function bytesToDataUrl(bytes: Uint8Array): string {
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += 1) {
+    binary += String.fromCharCode(bytes[i]!)
+  }
+  const mime = bytes[0] === 0xff && bytes[1] === 0xd8 ? 'jpeg' : 'png'
+  return `data:image/${mime};base64,${btoa(binary)}`
+}
+
+async function appendChoiceImageOptions(
+  body: HTMLDivElement,
+  block: WorksheetBlock,
+  showAnswer: boolean,
+  ctx: ExportContext,
+): Promise<void> {
+  const format = block.choiceOptionFormat ?? 'text'
+  let options = getChoiceDisplayOptions(block, false, false)
+  if (options.length === 0) {
+    options = Array.from({ length: 4 }, (_, index) => ({
+      id: `fallback_${index}`,
+      text: `Ответ ${index + 1}`,
+    }))
+  }
+
+  const grid = document.createElement('div')
+  grid.style.display = 'grid'
+  grid.style.gridTemplateColumns = `repeat(${Math.min(4, options.length)}, minmax(0, 1fr))`
+  grid.style.gap = '8px'
+
+  for (const opt of options) {
+    const correct = isOptionCorrect(block, opt.id) && showAnswer
+    const cell = document.createElement('div')
+    cell.style.boxSizing = 'border-box'
+    cell.style.padding = '8px'
+    cell.style.border = `1px solid #${correct ? COLORS.borderPositive : COLORS.borderSecondary}`
+    cell.style.borderRadius = '4px'
+    cell.style.background = correct ? `#${COLORS.bgPositiveSoft}` : '#ffffff'
+
+    const imageSource = opt.imageData ?? ''
+    const imageBytes = imageSource ? await fetchImageBytes(imageSource, ctx) : null
+    if (imageBytes) {
+      const img = document.createElement('img')
+      img.src = bytesToDataUrl(imageBytes)
+      img.width = CHOICE_IMAGE_PX
+      img.height = CHOICE_IMAGE_PX
+      img.style.width = `${CHOICE_IMAGE_PX}px`
+      img.style.height = `${CHOICE_IMAGE_PX}px`
+      img.style.maxWidth = `${CHOICE_IMAGE_PX}px`
+      img.style.maxHeight = `${CHOICE_IMAGE_PX}px`
+      img.style.objectFit = 'contain'
+      img.style.display = 'block'
+      img.style.marginBottom = '6px'
+      img.alt = ''
+      cell.appendChild(img)
+    }
+
+    const captionRow = document.createElement('div')
+    captionRow.style.display = 'flex'
+    captionRow.style.alignItems = 'flex-start'
+    captionRow.style.gap = `${LAYOUT.choiceMarkerTextGapPx}px`
+    await appendMarkerImg(
+      captionRow,
+      await choiceMarkerPng(block, showAnswer, isOptionCorrect(block, opt.id), ctx),
+      LAYOUT.choiceMarkerSize,
+    )
+    if (format === 'text_image' && opt.text) {
+      const textWrap = document.createElement('div')
+      textWrap.style.flex = '1'
+      appendMathText(textWrap, opt.text, {
+        fontSize: TYPO.option.sizePx,
+        lineHeight: TYPO.option.linePx,
+      })
+      captionRow.appendChild(textWrap)
+    } else if (!imageBytes) {
+      const textWrap = document.createElement('div')
+      textWrap.style.flex = '1'
+      appendMathText(textWrap, opt.text || 'Ответ', {
+        fontSize: TYPO.option.sizePx,
+        lineHeight: TYPO.option.linePx,
+      })
+      captionRow.appendChild(textWrap)
+    }
+    cell.appendChild(captionRow)
+    grid.appendChild(cell)
+  }
+
+  body.appendChild(grid)
 }
 
 async function choiceMarkerPng(
@@ -124,10 +218,15 @@ function appendEmbeddedPng(
   image: DomImageResult,
   displayWidthPx: number,
 ): void {
+  const displayHeightPx = Math.max(1, Math.round(image.height * (displayWidthPx / image.width)))
   const img = document.createElement('img')
   img.src = pngBytesToDataUrl(image.data)
+  img.width = displayWidthPx
+  img.height = displayHeightPx
   img.style.width = `${displayWidthPx}px`
-  img.style.height = `${Math.max(1, Math.round(image.height * (displayWidthPx / image.width)))}px`
+  img.style.height = `${displayHeightPx}px`
+  img.style.maxWidth = `${displayWidthPx}px`
+  img.style.maxHeight = `${displayHeightPx}px`
   img.style.display = 'block'
   img.alt = ''
   parent.appendChild(img)
@@ -215,6 +314,8 @@ export async function rasterizeTaskBlockForPdf(
       row.appendChild(textWrap)
       body.appendChild(row)
     }
+  } else if (isChoiceBlock(block)) {
+    await appendChoiceImageOptions(body, block, showAnswer, ctx)
   }
 
   if (block.type === 'matching') {
@@ -258,6 +359,6 @@ export async function rasterizeTaskBlockForPdf(
   root.appendChild(gap)
 
   return captureDomToPng(root, `pdf-task-${block.id}-${showAnswer ? 'a' : 's'}`, ctx, undefined, {
-    fitContent: true,
+    fitContent: false,
   })
 }

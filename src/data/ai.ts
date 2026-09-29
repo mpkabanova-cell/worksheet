@@ -6,7 +6,7 @@ import {
   generateSingleTask as mockSingle,
 } from './generator'
 import { promptsForPlan, promptsForSingleTask, promptsForWorksheet } from './aiPrompts'
-import { sanitizeBlock, clampAnswerHeight, defaultAnswerHeight, defaultAnswerStyle, groupsToTableFields, createDefaultGroupingTableFields, getGapsSourceText, isValidFillGapsBlock } from './blockUtils'
+import { sanitizeBlock, clampAnswerHeight, defaultAnswerHeight, defaultAnswerStyle, groupsToTableFields, createDefaultGroupingTableFields, getGapsSourceText, getGapsStudentText, isValidFillGapsBlock } from './blockUtils'
 import { expectationToQuestion, looksLikeAuthorPlanDescription, isGenericTopicFillGaps, normalizeAiTask } from './taskContent'
 import { gapsTextHasBlankMarkers, repairJsonLatexEscapes } from './mathTextUtils'
 import {
@@ -19,6 +19,7 @@ import {
   validateTaskIndependence,
   validateTaskSelfSufficiency,
   validateWorksheetPipeline,
+  blockingSelfSufficiencyIssues,
   planFragmentAssignmentNote,
 } from './taskIndependence'
 import { listReferenceTaskHints, wishesUseFullDocument } from './contextFilter'
@@ -589,10 +590,12 @@ function blockNeedsRepair(block: WorksheetBlock, planBrief?: string): boolean {
 
 function blockToAiPayload(block: WorksheetBlock): AiTaskPayload {
   const gapsText =
-    block.gapsText?.trim() ||
-    (block.gapsSourceText?.trim() && gapsTextHasBlankMarkers(block.gapsSourceText)
-      ? block.gapsSourceText
-      : getGapsSourceText(block))
+    block.type === 'fill_gaps'
+      ? getGapsStudentText(block).trim() || getGapsSourceText(block).trim() || block.gapsText?.trim()
+      : block.gapsText?.trim() ||
+        (block.gapsSourceText?.trim() && gapsTextHasBlankMarkers(block.gapsSourceText)
+          ? block.gapsSourceText
+          : getGapsSourceText(block))
   return {
     type: block.type,
     question: block.question,
@@ -831,10 +834,14 @@ export async function generateWorksheetAI(
         }
         blocks = ensureWorksheetTaskBlocks(blocks, plan, prepared, refContent, planBriefs)
         finalIssues = collectWorksheetValidationIssues(blocks, planBriefs)
-        if (finalIssues.length) {
+        const blocking = blockingSelfSufficiencyIssues(finalIssues)
+        if (blocking.length) {
           throw new AiError(
-            `Лист не прошёл проверку самодостаточности заданий: ${finalIssues.slice(0, 4).join('; ')}`,
+            `Лист не прошёл проверку самодостаточности заданий: ${blocking.slice(0, 4).join('; ')}`,
           )
+        }
+        if (finalIssues.length) {
+          console.warn('[generateWorksheetAI] некритичные замечания самодостоятельности:', finalIssues.slice(0, 6))
         }
       }
     }

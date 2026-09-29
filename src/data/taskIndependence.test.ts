@@ -155,6 +155,29 @@ describe('validateTaskIndependence', () => {
     expect(issues).toEqual([])
   })
 
+  it('does not treat several money word problems as one pipeline story', () => {
+    const tasks: AiTaskPayload[] = [
+      {
+        type: 'short_answer',
+        question: 'Яблоки стоят 120 руб. за 2 кг. Сколько стоят 5 кг?',
+      },
+      {
+        type: 'short_answer',
+        question: 'Булка стоит 45 руб., а батон — 60 руб. На 300 руб. сколько булок можно купить?',
+      },
+      {
+        type: 'single_choice',
+        question: 'Какая дробь больше: $\\frac{3}{4}$ или $\\frac{2}{3}$?',
+        options: ['$\\frac{3}{4}$', '$\\frac{2}{3}$', 'Равны'],
+      },
+      {
+        type: 'short_answer',
+        question: 'Найдите $\\frac{1}{2}$ от 56.',
+      },
+    ]
+    expect(validateWorksheetPipeline(tasks)).toEqual([])
+  })
+
   it('flags fill_gaps with minute blanks but no times in question', () => {
     const issues = validateTaskIndependence([
       {

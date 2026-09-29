@@ -75,7 +75,7 @@ export async function rasterizeExportHeader(ctx: ExportContext): Promise<DomImag
   spacer.style.height = `${LAYOUT.sheetContentPaddingX}px`
   root.appendChild(spacer)
 
-  return captureDomToPng(root, `pdf-header-${draft.id}`, ctx, undefined, { fitContent: true })
+  return captureDomToPng(root, `pdf-header-${draft.id}`, ctx, undefined, { fitContent: false })
 }
 
 export async function rasterizeRichTextBlock(
@@ -97,5 +97,5 @@ export async function rasterizeRichTextBlock(
     color: resolveTextColorCss({ secondary: style.secondary }),
   })
   root.appendChild(body)
-  return captureDomToPng(root, cacheKey, ctx, undefined, { fitContent: true })
+  return captureDomToPng(root, cacheKey, ctx, undefined, { fitContent: false })
 }

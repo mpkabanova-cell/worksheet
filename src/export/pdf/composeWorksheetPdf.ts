@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf'
 import { pngBytesToDataUrl } from '@/export/pdf/pngDataUrl'
 import type { PdfSlice } from '@/export/pdf/pdfSlice'
+import { SHEET_CONTENT_WIDTH_PX } from '@/export/word/layoutTokens'
 import { PAGE_MARGIN_TWIPS } from '@/export/word/build/buildHeader'
 
 /** twips → mm (1 twip = 1/567 inch × 25.4). */
@@ -41,7 +42,8 @@ export async function composeWorksheetPdf(
     }
 
     const { image, gapAfterPx = 0 } = slice
-    const imgHeightMm = contentWidthMm * (image.height / Math.max(1, image.width))
+    const imgWidthMm = (image.width / SHEET_CONTENT_WIDTH_PX) * contentWidthMm
+    const imgHeightMm = imgWidthMm * (image.height / Math.max(1, image.width))
     const gapMm = gapAfterPx * PX_TO_MM
 
     if (y + imgHeightMm > pageHeight - MARGIN_MM) {
@@ -49,7 +51,7 @@ export async function composeWorksheetPdf(
     }
 
     const imgData = pngBytesToDataUrl(image.data)
-    pdf.addImage(imgData, 'PNG', MARGIN_MM, y, contentWidthMm, imgHeightMm, undefined, 'FAST')
+    pdf.addImage(imgData, 'PNG', MARGIN_MM, y, imgWidthMm, imgHeightMm, undefined, 'FAST')
     y += imgHeightMm + gapMm
   }
 

@@ -42,6 +42,60 @@ async function waitForImages(root: HTMLElement): Promise<void> {
   )
 }
 
+function readIntPx(value: string): number | null {
+  const parsed = parseInt(value, 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
+/** html-to-image can paint img at intrinsic PNG size; match layout width/height before capture. */
+async function normalizeImagesForCapture(root: HTMLElement): Promise<void> {
+  const images = Array.from(root.querySelectorAll('img'))
+  await Promise.all(
+    images.map(async (img) => {
+      if (!img.complete || img.naturalWidth <= 0 || img.naturalHeight <= 0) return
+
+      const styleW = readIntPx(img.style.width)
+      const styleH = readIntPx(img.style.height)
+      const attrW = img.width > 0 ? img.width : null
+      const attrH = img.height > 0 ? img.height : null
+      const layoutW = styleW ?? attrW ?? (img.clientWidth > 0 ? img.clientWidth : null)
+      let layoutH = styleH ?? attrH ?? (img.clientHeight > 0 ? img.clientHeight : null)
+
+      if (layoutW == null) return
+      if (layoutH == null) {
+        layoutH = Math.max(1, Math.round((layoutW / img.naturalWidth) * img.naturalHeight))
+      }
+
+      if (img.naturalWidth === layoutW && img.naturalHeight === layoutH) {
+        img.width = layoutW
+        img.height = layoutH
+        return
+      }
+
+      const canvas = document.createElement('canvas')
+      canvas.width = layoutW
+      canvas.height = layoutH
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+      ctx.imageSmoothingEnabled = true
+      ctx.imageSmoothingQuality = 'high'
+      ctx.drawImage(img, 0, 0, layoutW, layoutH)
+
+      await new Promise<void>((resolve) => {
+        img.onload = () => resolve()
+        img.onerror = () => resolve()
+        img.src = canvas.toDataURL('image/png')
+      })
+      img.width = layoutW
+      img.height = layoutH
+      img.style.width = `${layoutW}px`
+      img.style.height = `${layoutH}px`
+      img.style.maxWidth = `${layoutW}px`
+      img.style.maxHeight = `${layoutH}px`
+    }),
+  )
+}
+
 export type CaptureDomToPngOptions = {
   /** Capture full scroll width instead of clipping to declared width. */
   fitContent?: boolean
@@ -102,6 +156,7 @@ export async function captureDomToPng(
   }
 
   await waitForLayout()
+  await normalizeImagesForCapture(captureRoot)
 
   const dataUrl = await toPng(captureRoot, {
     pixelRatio: 2,

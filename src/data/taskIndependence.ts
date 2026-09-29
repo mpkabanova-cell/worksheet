@@ -31,8 +31,11 @@ const TOPIC_SIGNATURES: { id: string; patterns: RegExp[] }[] = [
     id: 'milk_routes',
     patterns: [/молок/i, /комбинат/i, /торгов/i, /разгруз/i, /маршрут/i],
   },
-  { id: 'shop', patterns: [/магазин/i, /яблок/i, /стоим/i, /рубл/i] },
+  { id: 'shop', patterns: [/магазин/i, /яблок/i, /стоим/i] },
 ]
+
+/** Темы, по которым проверяем «один сюжет на весь лист» (не обычные задачи с рублями). */
+const PIPELINE_STORY_TOPIC_IDS = new Set(['cave', 'logic_cities', 'milk_routes'])
 
 function taskText(task: AiTaskPayload): string {
   return [task.question, task.gaps_text, task.body].filter(Boolean).join('\n')
@@ -49,11 +52,13 @@ function dominantTopic(text: string): string | null {
   return null
 }
 
-function maxTopicCount(texts: string[]): number {
+function maxTopicCountForPipeline(texts: string[]): number {
   const counts = new Map<string, number>()
   for (const text of texts) {
     const topic = dominantTopic(text)
-    if (topic) counts.set(topic, (counts.get(topic) ?? 0) + 1)
+    if (topic && PIPELINE_STORY_TOPIC_IDS.has(topic)) {
+      counts.set(topic, (counts.get(topic) ?? 0) + 1)
+    }
   }
   return Math.max(0, ...counts.values())
 }
@@ -188,7 +193,12 @@ export function taskQuestionIssues(
     }
   }
 
-  if (planExpectation && questionMatchesExpectation(question, planExpectation)) {
+  if (
+    planExpectation &&
+    questionMatchesExpectation(question, planExpectation) &&
+    question.length < 90 &&
+    !/\d/.test(question)
+  ) {
     issues.push('question повторяет description — нужно полное условие задачи')
   }
 
@@ -227,9 +237,10 @@ export function taskQuestionIssues(
     const gaps = (task.gaps_text || '').trim()
     const answers = (task.gaps_answers ?? []).map((a) => a.trim()).filter(Boolean)
     const hasBlanks = gapsTextHasBlankMarkers(gaps)
+    const substantiveText = gaps.length >= 12
     if (!hasBlanks && answers.length === 0) {
       issues.push('fill_gaps без gaps_text с пропусками ___')
-    } else if (!hasBlanks && answers.length > 0 && gaps.length < 12) {
+    } else if (!hasBlanks && answers.length > 0 && !substantiveText) {
       issues.push('fill_gaps без gaps_text с пропусками ___')
     }
     if (isGenericTopicFillGaps(gaps, task.gaps_answers)) {
@@ -280,7 +291,11 @@ export function taskQuestionIssues(
       issues.push('выбор ответа про пещеру без полного набора времён — задание не самостоятельное')
     }
     if (question.length < 50 && looksLikeBareTaskInstruction(question)) {
-      issues.push('question слишком короткий для выбора ответа')
+      const opts = choiceOptionsText(task)
+      const hasDataInTask = /\d/.test(combined) || /\$|\\frac/.test(combined) || opts.trim().length >= 30
+      if (!hasDataInTask) {
+        issues.push('question слишком короткий для выбора ответа')
+      }
     }
   } else if (type === 'grouping') {
     if (containsMetaTaskDescription(question)) {
@@ -294,10 +309,11 @@ export function taskQuestionIssues(
     }
   } else {
     const hasNumbers = /\d/.test(question)
-    const minLen = hasNumbers ? 70 : 120
+    const hasMath = /\$|\\frac/.test(question)
+    const minLen = hasNumbers || hasMath ? 45 : 90
     if (looksLikeAuthorPlanDescription(question)) {
       issues.push('question — описание задания, а не условие с данными')
-    } else if (question.length < minLen) {
+    } else if (question.length < minLen && looksLikeBareTaskInstruction(question)) {
       issues.push('question слишком короткое — нет полного условия с данными')
     }
   }
@@ -383,14 +399,18 @@ export function validateWorksheetPipeline(
     }
   }
 
-  if (maxTopicCount(texts) >= 3 && texts.length >= 4) {
+  if (maxTopicCountForPipeline(texts) >= 3 && texts.length >= 4) {
     issues.push(
       'Несколько заданий повторяют один сюжет — распредели разные фрагменты source_content, не более одной задачи про пещеру без явного пожелания',
     )
   }
 
   const pipelineTexts = texts.filter(isPipelineStep)
-  if (pipelineTexts.length >= 3 && maxTopicCount(pipelineTexts) >= 3) {
+  const pipelineStoryTexts = pipelineTexts.filter((text) => {
+    const topic = dominantTopic(text)
+    return topic != null && PIPELINE_STORY_TOPIC_IDS.has(topic)
+  })
+  if (pipelineStoryTexts.length >= 3 && maxTopicCountForPipeline(pipelineStoryTexts) >= 3) {
     issues.push(
       'Лист выглядит как этапы одной задачи (найти → выбрать → заполнить → сопоставить), а не независимые задания',
     )
@@ -432,8 +452,8 @@ export function validatePlanIndependence(
   }
 
   if (
-    (maxTopicCount(texts) >= 3 && maxTopicCount(pipelineTexts) >= 2) ||
-    (cavePipeline.length >= 2 && texts.length >= 3 && maxTopicCount(cavePipeline) >= 2)
+    (maxTopicCountForPipeline(texts) >= 3 && maxTopicCountForPipeline(pipelineTexts) >= 2) ||
+    (cavePipeline.length >= 2 && texts.length >= 3 && maxTopicCountForPipeline(cavePipeline) >= 2)
   ) {
     issues.push(
       'Несколько пунктов плана повторяют один сюжет (пещера/персонажи) — каждый пункт должен опираться на свой фрагмент файла',
@@ -441,7 +461,7 @@ export function validatePlanIndependence(
   }
 
   if (
-    (pipelineTexts.length >= 3 && maxTopicCount(pipelineTexts) >= 3) ||
+    (pipelineTexts.length >= 3 && maxTopicCountForPipeline(pipelineTexts) >= 3) ||
     (pipelineTexts.length >= 2 && cavePipeline.length >= 2)
   ) {
     issues.push(
@@ -491,6 +511,28 @@ export function validateTaskIndependence(
   })
 
   return [...new Set(issues)]
+}
+
+/** Нарушения, при которых лист нельзя отдавать ученику (остальные — предупреждения). */
+export function blockingSelfSufficiencyIssues(issues: string[]): string[] {
+  return issues.filter((issue) => {
+    if (/отсылка к другим|reference_file|из задания\s*\d|как в задании|из условия выше|из текста листа/i.test(issue)) {
+      return true
+    }
+    if (/дробит одну задачу|этапы одной задачи|выглядит как этапы/i.test(issue)) {
+      return true
+    }
+    if (/служебн|задача на выбор персонажа|question содержит description/i.test(issue)) {
+      return true
+    }
+    if (/fill_gaps без gaps_text|шаблон «правило/i.test(issue)) {
+      return true
+    }
+    if (/question — описание задания для автора|скопирован из description плана/i.test(issue)) {
+      return true
+    }
+    return false
+  })
 }
 
 export function repairTaskExpectation(baseDescription: string): string {
