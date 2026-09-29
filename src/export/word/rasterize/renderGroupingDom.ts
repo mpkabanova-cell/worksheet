@@ -69,7 +69,7 @@ function createAnswerItem(text: string): HTMLSpanElement {
   item.style.fontSize = '14px'
   item.style.lineHeight = '20px'
   item.style.color = TEXT_DEFAULT
-  appendMathText(item, text, { fontSize: 14, lineHeight: 20, cellsLayout: true, cellSize: 20 })
+  appendMathText(item, text, { fontSize: 14, lineHeight: 20 })
   return item
 }
 
@@ -80,26 +80,51 @@ export async function rasterizeGrouping(
 ): Promise<DomImageResult> {
   const rows = block.tableRows ?? TABLE_ROWS_DEFAULT
   const cols = block.tableCols ?? TABLE_COLS_DEFAULT
-  const cells = block.tableCells ?? []
-  const headers = block.tableHeaders ?? []
-  const bank = !showAnswer ? getTableAnswerBank(block, false, false) : []
   const spec = getGroupingLayoutSpec()
-
   const cacheKey = [
     'grouping',
     block.id,
     showAnswer,
     rows,
     cols,
-    headers.slice(0, cols).join('|'),
-    cells
+    (block.tableHeaders ?? []).slice(0, cols).join('|'),
+    (block.tableCells ?? [])
       .slice(0, rows)
       .map((row) => row.slice(0, cols).join('|'))
       .join(';'),
-    bank.join('|'),
+    (!showAnswer ? getTableAnswerBank(block, false, false) : []).join('|'),
   ].join(':')
 
   ensureKatexStyles(document.body)
+
+  const board = buildGroupingBoard(block, showAnswer, spec)
+
+  return captureDomToPng(board, cacheKey, ctx, undefined, {
+    fitContent: false,
+    contentPaddingPx: 0,
+  })
+}
+
+/** Mount grouping/table widget as live DOM (PDF — single capture pass). */
+export function appendGroupingWidget(
+  parent: HTMLElement,
+  block: WorksheetBlock,
+  showAnswer: boolean,
+): void {
+  ensureKatexStyles(parent)
+  parent.appendChild(buildGroupingBoard(block, showAnswer, getGroupingLayoutSpec()))
+}
+
+function buildGroupingBoard(
+  block: WorksheetBlock,
+  showAnswer: boolean,
+  spec: ReturnType<typeof getGroupingLayoutSpec>,
+): HTMLDivElement {
+  const rows = block.tableRows ?? TABLE_ROWS_DEFAULT
+  const cols = block.tableCols ?? TABLE_COLS_DEFAULT
+  const cells = block.tableCells ?? []
+  const headers = block.tableHeaders ?? []
+  const bank = !showAnswer ? getTableAnswerBank(block, false, false) : []
 
   const widget = document.createElement('div')
   widget.style.width = `${spec.contentWidthPx}px`
@@ -165,8 +190,5 @@ export async function rasterizeGrouping(
   board.style.background = BG_WHITE
   board.appendChild(widget)
 
-  return captureDomToPng(board, cacheKey, ctx, undefined, {
-    fitContent: false,
-    contentPaddingPx: 0,
-  })
+  return board
 }

@@ -51,7 +51,7 @@ export async function composeWorksheetPdf(
     }
 
     const imgData = pngBytesToDataUrl(image.data)
-    pdf.addImage(imgData, 'PNG', MARGIN_MM, y, imgWidthMm, imgHeightMm, undefined, 'FAST')
+    pdf.addImage(imgData, 'PNG', MARGIN_MM, y, imgWidthMm, imgHeightMm, undefined, 'SLOW')
     y += imgHeightMm + gapMm
   }
 

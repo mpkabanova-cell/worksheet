@@ -19,23 +19,21 @@ import {
   getStarEmptyPng,
   getStarFilledPng,
 } from '@/export/word/assets/uiAssets'
-import { getGroupingLayoutSpec, getMatchingLayoutSpec, getOrderingLayoutSpec } from '@/export/word/layoutSpec'
 import { fetchImageBytes } from '@/export/word/imageUtils'
 import {
   COLORS,
   FONT_CSS,
   LAYOUT,
   SHEET_CONTENT_WIDTH_PX,
-  SLOT_CONTENT_WIDTH_PX,
   TYPO,
 } from '@/export/word/layoutTokens'
 import { pngBytesToDataUrl } from '@/export/pdf/pngDataUrl'
-import { captureDomToPng } from '@/export/word/rasterize/domToPng'
-import { rasterizeAnswerArea } from '@/export/word/rasterize/renderAnswerAreaDom'
+import { captureDomToPng, PDF_DOM_CAPTURE_PIXEL_RATIO } from '@/export/word/rasterize/domToPng'
+import { appendAnswerAreaWidget } from '@/export/word/rasterize/renderAnswerAreaDom'
 import { appendGapsText, appendMathText, ensureKatexStyles } from '@/export/word/rasterize/renderMathHtml'
-import { rasterizeGrouping } from '@/export/word/rasterize/renderGroupingDom'
-import { rasterizeMatching } from '@/export/word/rasterize/renderMatchingDom'
-import { rasterizeOrdering } from '@/export/word/rasterize/renderOrderingDom'
+import { appendGroupingWidget } from '@/export/word/rasterize/renderGroupingDom'
+import { appendMatchingWidget } from '@/export/word/rasterize/renderMatchingDom'
+import { appendOrderingWidget } from '@/export/word/rasterize/renderOrderingDom'
 import type { DomImageResult, ExportContext } from '@/export/word/types'
 
 function createTaskRoot(): HTMLDivElement {
@@ -225,25 +223,6 @@ async function appendDifficultyRow(
   parent.appendChild(row)
 }
 
-function appendEmbeddedPng(
-  parent: HTMLElement,
-  image: DomImageResult,
-  displayWidthPx: number,
-): void {
-  const displayHeightPx = Math.max(1, Math.round(image.height * (displayWidthPx / image.width)))
-  const img = document.createElement('img')
-  img.src = pngBytesToDataUrl(image.data)
-  img.width = displayWidthPx
-  img.height = displayHeightPx
-  img.style.width = `${displayWidthPx}px`
-  img.style.height = `${displayHeightPx}px`
-  img.style.maxWidth = `${displayWidthPx}px`
-  img.style.maxHeight = `${displayHeightPx}px`
-  img.style.display = 'block'
-  img.alt = ''
-  parent.appendChild(img)
-}
-
 export async function rasterizeTaskBlockForPdf(
   block: WorksheetBlock,
   taskNumber: number | null,
@@ -334,20 +313,16 @@ export async function rasterizeTaskBlockForPdf(
   }
 
   if (block.type === 'matching') {
-    const image = await rasterizeMatching(block, showAnswer, ctx)
-    appendEmbeddedPng(slot, image, getMatchingLayoutSpec().contentWidthPx)
+    appendMatchingWidget(slot, block, showAnswer)
   } else if (block.type === 'ordering') {
-    const image = await rasterizeOrdering(block, showAnswer, ctx)
-    appendEmbeddedPng(slot, image, getOrderingLayoutSpec().contentWidthPx)
+    appendOrderingWidget(slot, block, showAnswer)
   } else if (block.type === 'grouping') {
-    const image = await rasterizeGrouping(block, showAnswer, ctx)
-    appendEmbeddedPng(slot, image, getGroupingLayoutSpec().contentWidthPx)
+    appendGroupingWidget(slot, block, showAnswer)
   }
 
   if (isAnswerBlock) {
     const style = getBlockAnswerStyle(block, ctx.subject)
-    const image = await rasterizeAnswerArea(block, style, ctx.subject, showAnswer, ctx)
-    appendEmbeddedPng(slot, image, SLOT_CONTENT_WIDTH_PX)
+    appendAnswerAreaWidget(slot, block, style, ctx.subject, showAnswer)
   }
 
   if (block.type === 'fill_gaps') {
@@ -371,5 +346,6 @@ export async function rasterizeTaskBlockForPdf(
 
   return captureDomToPng(root, `pdf-task-${block.id}-${showAnswer ? 'a' : 's'}`, ctx, undefined, {
     fitContent: false,
+    pixelRatio: PDF_DOM_CAPTURE_PIXEL_RATIO,
   })
 }

@@ -100,7 +100,12 @@ export type CaptureDomToPngOptions = {
   /** Capture full scroll width instead of clipping to declared width. */
   fitContent?: boolean
   contentPaddingPx?: number
+  /** Device pixel ratio for html-to-image (PDF export uses higher values). */
+  pixelRatio?: number
 }
+
+/** Default 2×; PDF task slices use 3× for sharper print output. */
+export const PDF_DOM_CAPTURE_PIXEL_RATIO = 3
 
 export async function captureDomToPng(
   node: HTMLElement,
@@ -159,7 +164,7 @@ export async function captureDomToPng(
   await normalizeImagesForCapture(captureRoot)
 
   const dataUrl = await toPng(captureRoot, {
-    pixelRatio: 2,
+    pixelRatio: options.pixelRatio ?? 2,
     backgroundColor: '#ffffff',
     cacheBust: true,
   })
@@ -176,8 +181,8 @@ export async function captureDomToPng(
 
   const result: DomImageResult = {
     data: buffer,
-    width: Math.max(1, Math.round(img.width / 2)),
-    height: Math.max(1, Math.round(img.height / 2)),
+    width: Math.max(1, Math.round(img.width / (options.pixelRatio ?? 2))),
+    height: Math.max(1, Math.round(img.height / (options.pixelRatio ?? 2))),
   }
 
   ctx.domImageCache.set(cacheKey, result)

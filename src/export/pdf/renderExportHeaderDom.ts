@@ -6,7 +6,7 @@ import {
   TYPO,
   resolveTextColorCss,
 } from '@/export/word/layoutTokens'
-import { captureDomToPng } from '@/export/word/rasterize/domToPng'
+import { captureDomToPng, PDF_DOM_CAPTURE_PIXEL_RATIO } from '@/export/word/rasterize/domToPng'
 import { appendMathText, ensureKatexStyles } from '@/export/word/rasterize/renderMathHtml'
 import type { DomImageResult, ExportContext } from '@/export/word/types'
 
@@ -76,7 +76,10 @@ export async function rasterizeExportHeader(ctx: ExportContext): Promise<DomImag
   spacer.style.height = '8px'
   root.appendChild(spacer)
 
-  return captureDomToPng(root, `pdf-header-${draft.id}`, ctx, undefined, { fitContent: false })
+  return captureDomToPng(root, `pdf-header-${draft.id}`, ctx, undefined, {
+    fitContent: false,
+    pixelRatio: PDF_DOM_CAPTURE_PIXEL_RATIO,
+  })
 }
 
 export async function rasterizeRichTextBlock(
@@ -98,5 +101,8 @@ export async function rasterizeRichTextBlock(
     color: resolveTextColorCss({ secondary: style.secondary }),
   })
   root.appendChild(body)
-  return captureDomToPng(root, cacheKey, ctx, undefined, { fitContent: false })
+  return captureDomToPng(root, cacheKey, ctx, undefined, {
+    fitContent: false,
+    pixelRatio: PDF_DOM_CAPTURE_PIXEL_RATIO,
+  })
 }

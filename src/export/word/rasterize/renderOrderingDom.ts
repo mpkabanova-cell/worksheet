@@ -26,6 +26,33 @@ export async function rasterizeOrdering(
 
   ensureKatexStyles(document.body)
 
+  const board = buildOrderingBoard(block, showAnswer, spec)
+
+  return captureDomToPng(board, cacheKey, ctx, undefined, {
+    fitContent: false,
+    contentPaddingPx: 0,
+  })
+}
+
+/** Mount ordering widget as live DOM (PDF — avoids double PNG rasterization). */
+export function appendOrderingWidget(
+  parent: HTMLElement,
+  block: WorksheetBlock,
+  showAnswer: boolean,
+): void {
+  ensureKatexStyles(parent)
+  const spec = getOrderingLayoutSpec()
+  parent.appendChild(buildOrderingBoard(block, showAnswer, spec))
+}
+
+function buildOrderingBoard(
+  block: WorksheetBlock,
+  showAnswer: boolean,
+  spec: ReturnType<typeof getOrderingLayoutSpec>,
+): HTMLDivElement {
+  const items = getOrderDisplayItems(block, false, false)
+  const answerNumbers = showAnswer ? getOrderAnswerNumbers(block) : []
+
   const stack = document.createElement('div')
   stack.style.display = 'flex'
   stack.style.flexDirection = 'column'
@@ -98,8 +125,5 @@ export async function rasterizeOrdering(
   board.style.background = BG_WHITE
   board.appendChild(stack)
 
-  return captureDomToPng(board, cacheKey, ctx, undefined, {
-    fitContent: false,
-    contentPaddingPx: 0,
-  })
+  return board
 }

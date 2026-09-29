@@ -292,14 +292,44 @@ export async function rasterizeAnswerArea(
 
   ensureKatexStyles(document.body)
 
-  let dom: HTMLDivElement
-  if (style === 'block') {
-    dom = buildBlockDom(lines, showAnswer, answerText || undefined)
-  } else if (style === 'cells' || style === 'axes' || style === 'number_line' || style === 'ray') {
-    dom = buildCellsDom(lines, cols, overlay, answerText || undefined)
-  } else {
-    dom = buildLinesDom(lines, showAnswer, answerText || undefined)
-  }
+  const dom = buildAnswerAreaDom(block, style, subject, showAnswer, lines, cols, overlay, answerText)
 
   return captureDomToPng(dom, cacheKey, ctx)
+}
+
+/** Mount answer field as live DOM (PDF — single capture pass). */
+export function appendAnswerAreaWidget(
+  parent: HTMLElement,
+  block: WorksheetBlock,
+  style: AnswerAreaStyle,
+  subject: string,
+  showAnswer: boolean,
+): void {
+  ensureKatexStyles(parent)
+  const lines = getEffectiveAnswerLines(block, subject, showAnswer)
+  const answerText = showAnswer ? getDisplayAnswerText(block) : undefined
+  const cols = answerCellsColumnCount(SLOT_CONTENT_WIDTH_PX)
+  const overlay = overlayForStyle(style)
+  parent.appendChild(
+    buildAnswerAreaDom(block, style, subject, showAnswer, lines, cols, overlay, answerText),
+  )
+}
+
+function buildAnswerAreaDom(
+  _block: WorksheetBlock,
+  style: AnswerAreaStyle,
+  _subject: string,
+  showAnswer: boolean,
+  lines: number,
+  cols: number,
+  overlay: GridOverlayType | undefined,
+  answerText: string | undefined,
+): HTMLDivElement {
+  if (style === 'block') {
+    return buildBlockDom(lines, showAnswer, answerText || undefined)
+  }
+  if (style === 'cells' || style === 'axes' || style === 'number_line' || style === 'ray') {
+    return buildCellsDom(lines, cols, overlay, answerText || undefined)
+  }
+  return buildLinesDom(lines, showAnswer, answerText || undefined)
 }

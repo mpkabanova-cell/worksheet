@@ -207,13 +207,77 @@ export async function rasterizeMatching(
   const right = getMatchingRightItems(block, false, false)
   const exportRows = getMatchingExportRows(block, right, showAnswer)
   const links = showAnswer ? getMatchingCorrectLinks(block, right) : []
-  const highlightedLeft = new Set(links.map((l) => l.leftIndex))
-  const highlightedRight = new Set(links.map((l) => l.rightIndex))
-
   const spec = getMatchingLayoutSpec()
   const cacheKey = `matching:${block.id}:${showAnswer}:${(block.correctAnswers ?? []).join('|')}:${exportRows.map((row) => `${row.left.text}|${row.right.text}`).join(';')}`
 
   ensureKatexStyles(document.body)
+
+  const { board, leftDots, rightDots } = buildMatchingBoard(
+    leftFormat,
+    rightFormat,
+    exportRows,
+    links,
+    showAnswer,
+    spec,
+  )
+
+  return captureDomToPng(
+    board,
+    cacheKey,
+    ctx,
+    showAnswer && links.length > 0
+      ? () => {
+          const matchLines = measureMatchLines(board, leftDots, rightDots, links)
+          addMatchLinesSvg(board, matchLines)
+        }
+      : undefined,
+    { fitContent: false, contentPaddingPx: 0 },
+  )
+}
+
+/** Mount matching widget as live DOM (PDF — single capture pass). */
+export function appendMatchingWidget(
+  parent: HTMLElement,
+  block: WorksheetBlock,
+  showAnswer: boolean,
+): void {
+  const leftFormat = block.matchingLeftFormat ?? 'text'
+  const rightFormat = block.matchingRightFormat ?? 'text'
+  const right = getMatchingRightItems(block, false, false)
+  const exportRows = getMatchingExportRows(block, right, showAnswer)
+  const links = showAnswer ? getMatchingCorrectLinks(block, right) : []
+  const spec = getMatchingLayoutSpec()
+
+  ensureKatexStyles(parent)
+  const { board, leftDots, rightDots } = buildMatchingBoard(
+    leftFormat,
+    rightFormat,
+    exportRows,
+    links,
+    showAnswer,
+    spec,
+  )
+  if (showAnswer && links.length > 0) {
+    const matchLines = measureMatchLines(board, leftDots, rightDots, links)
+    addMatchLinesSvg(board, matchLines)
+  }
+  parent.appendChild(board)
+}
+
+function buildMatchingBoard(
+  leftFormat: ChoiceOptionFormat,
+  rightFormat: ChoiceOptionFormat,
+  exportRows: ReturnType<typeof getMatchingExportRows>,
+  links: { leftIndex: number; rightIndex: number }[],
+  _showAnswer: boolean,
+  spec: ReturnType<typeof getMatchingLayoutSpec>,
+): {
+  board: HTMLDivElement
+  leftDots: HTMLSpanElement[]
+  rightDots: HTMLSpanElement[]
+} {
+  const highlightedLeft = new Set(links.map((l) => l.leftIndex))
+  const highlightedRight = new Set(links.map((l) => l.rightIndex))
 
   const board = document.createElement('div')
   board.style.position = 'relative'
@@ -253,16 +317,5 @@ export async function rasterizeMatching(
 
   board.appendChild(rowsWrap)
 
-  return captureDomToPng(
-    board,
-    cacheKey,
-    ctx,
-    showAnswer && links.length > 0
-      ? () => {
-          const matchLines = measureMatchLines(board, leftDots, rightDots, links)
-          addMatchLinesSvg(board, matchLines)
-        }
-      : undefined,
-    { fitContent: false, contentPaddingPx: 0 },
-  )
+  return { board, leftDots, rightDots }
 }
