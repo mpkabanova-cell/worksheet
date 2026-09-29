@@ -14,6 +14,7 @@ import { formatProbePlan, formatProbeWorksheet } from '../src/data/technicalProb
 import { labelForType } from '../src/data/worksheet'
 import { prepareReferenceContent } from '../src/data/contextFilter'
 import { referenceFilePayload } from '../src/data/contextFile'
+import { resolveApiKey, resolveBaseUrl } from '../server/openrouterEnv.js'
 
 dotenv.config()
 
@@ -24,11 +25,8 @@ const DOCX_PATH =
 const MD_PATH = path.join(root, 'docs/ZADACHI_PROBY_EXTRACT.md')
 const CONTEXT_BLOCK = process.env.PROBE_BLOCK?.trim() || undefined
 
-const OPENAI_API_KEY = (process.env.OPENAI_API_KEY || '').trim()
-const OPENAI_BASE_URL = (process.env.OPENAI_BASE_URL || 'https://openrouter.ai/api/v1').replace(
-  /\/$/,
-  '',
-)
+const OPENAI_API_KEY = resolveApiKey()
+const OPENAI_BASE_URL = resolveBaseUrl()
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'google/gemini-2.5-flash'
 
 async function extractDocx(): Promise<{ text: string; truncated: boolean; sec: number; sizeMb: string }> {

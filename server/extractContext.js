@@ -6,6 +6,7 @@ import { extractTextFromDocxWithVision } from './docxVision.js'
 import { extractTextFromPdf } from './pdfExtract.js'
 import { callVisionOcr, getVisionConfig, guessImageMime } from './visionOcr.js'
 import { truncateContextText } from './markdownClean.js'
+import { AUTH_ERROR_USER_MESSAGE, messageLooksLikeAuthFailure } from './openrouterEnv.js'
 
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
@@ -14,6 +15,15 @@ const IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif'])
 function extension(name) {
   const idx = name.lastIndexOf('.')
   return idx >= 0 ? name.slice(idx).toLowerCase() : ''
+}
+
+function rethrowExtractError(err) {
+  if (err instanceof ContextExtractError) throw err
+  const detail = err instanceof Error ? err.message : 'Не удалось обработать файл'
+  if (messageLooksLikeAuthFailure(detail)) {
+    throw new ContextExtractError('AUTH_ERROR', AUTH_ERROR_USER_MESSAGE, 401)
+  }
+  throw err
 }
 
 /**
@@ -31,7 +41,11 @@ export async function extractContextFromFile(buffer, filename, contentType) {
     if (!visionConfig.apiKey) {
       throw new ContextExtractError('NO_API_KEY', 'OPENAI_API_KEY не задан на сервере', 503)
     }
-    text = await extractTextFromDocxWithVision(buffer, visionConfig)
+    try {
+      text = await extractTextFromDocxWithVision(buffer, visionConfig)
+    } catch (err) {
+      rethrowExtractError(err)
+    }
   } else if (ext === '.pdf') {
     if (!visionConfig.apiKey) {
       throw new ContextExtractError('NO_API_KEY', 'OPENAI_API_KEY не задан на сервере', 503)
@@ -40,6 +54,9 @@ export async function extractContextFromFile(buffer, filename, contentType) {
       text = await extractTextFromPdf(buffer, visionConfig)
     } catch (err) {
       const detail = err instanceof Error ? err.message : 'Не удалось обработать PDF'
+      if (messageLooksLikeAuthFailure(detail)) {
+        throw new ContextExtractError('AUTH_ERROR', AUTH_ERROR_USER_MESSAGE, 401)
+      }
       throw new ContextExtractError(
         'PDF_EXTRACT_ERROR',
         `Не удалось извлечь текст из PDF: ${detail}`,
@@ -51,7 +68,11 @@ export async function extractContextFromFile(buffer, filename, contentType) {
       throw new ContextExtractError('NO_API_KEY', 'OPENAI_API_KEY не задан на сервере', 503)
     }
     const mime = guessImageMime(filename, contentType)
-    text = await callVisionOcr(buffer, mime, visionConfig)
+    try {
+      text = await callVisionOcr(buffer, mime, visionConfig)
+    } catch (err) {
+      rethrowExtractError(err)
+    }
   } else {
     throw new ContextExtractError(
       'BAD_FORMAT',

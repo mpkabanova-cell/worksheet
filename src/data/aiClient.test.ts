@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { AiError, extractJson } from '@/data/aiClient'
+import { describe, expect, it, vi, afterEach } from 'vitest'
+import { AiError, AUTH_ERROR_USER_MESSAGE, chatJson, extractJson, isAuthError } from '@/data/aiClient'
 import { sanitizeAiJsonText } from '@/data/mathTextUtils'
 
 describe('sanitizeAiJsonText', () => {
@@ -73,5 +73,29 @@ describe('extractJson', () => {
       expect(err).not.toBeInstanceOf(SyntaxError)
       expect((err as Error).message).not.toContain('Bad escaped character')
     }
+  })
+})
+
+describe('chatJson auth errors', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('maps 401 with AUTH_ERROR to user message', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: false,
+        status: 401,
+        text: async () =>
+          JSON.stringify({ error: 'AUTH_ERROR', message: AUTH_ERROR_USER_MESSAGE }),
+      })),
+    )
+
+    await expect(chatJson('sys', 'user')).rejects.toSatisfy((err: unknown) => {
+      expect(isAuthError(err)).toBe(true)
+      expect(err).toBeInstanceOf(AiError)
+      return true
+    })
   })
 })

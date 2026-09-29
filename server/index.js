@@ -6,6 +6,14 @@ import dotenv from 'dotenv'
 import { extractContextFromFile, ContextExtractError, MAX_UPLOAD_BYTES } from './extractContext.js'
 import { parseSingleFileUpload, UploadError } from './upload.js'
 import { getVisionConfig } from './visionOcr.js'
+import {
+  authHintForKey,
+  AUTH_ERROR_USER_MESSAGE,
+  isLikelyOpenRouterKey,
+  isUpstreamAuthFailure,
+  resolveApiKey,
+  resolveBaseUrl,
+} from './openrouterEnv.js'
 
 dotenv.config()
 
@@ -14,11 +22,8 @@ const root = path.resolve(__dirname, '..')
 const dist = path.join(root, 'dist')
 
 const PORT = Number(process.env.PORT) || 3001
-const OPENAI_API_KEY = (process.env.OPENAI_API_KEY || '').trim()
-const OPENAI_BASE_URL = (
-  process.env.OPENAI_BASE_URL ||
-  'https://openrouter.ai/api/v1'
-).replace(/\/$/, '')
+const OPENAI_API_KEY = resolveApiKey()
+const OPENAI_BASE_URL = resolveBaseUrl()
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'google/gemini-2.5-flash'
 const visionConfig = getVisionConfig()
 
@@ -27,9 +32,14 @@ app.disable('x-powered-by')
 app.use(express.json({ limit: '1mb' }))
 
 app.get('/health', (_req, res) => {
+  const hasKey = Boolean(OPENAI_API_KEY)
+  const keyPrefixOk = isLikelyOpenRouterKey(OPENAI_API_KEY)
+  const authHint = authHintForKey(OPENAI_API_KEY)
   res.status(200).json({
     ok: true,
-    hasKey: Boolean(OPENAI_API_KEY),
+    hasKey,
+    keyPrefixOk: hasKey && keyPrefixOk,
+    ...(authHint ? { authHint } : {}),
     model: OPENAI_MODEL,
     ocrModel: visionConfig.model,
   })
@@ -102,6 +112,14 @@ app.post('/api/chat', async (req, res) => {
       }
       if (!message.trim()) message = `Upstream HTTP ${upstream.status}`
       console.error('[api/chat] upstream error', upstream.status, message)
+      if (isUpstreamAuthFailure(upstream.status)) {
+        res.status(upstream.status).json({
+          error: 'AUTH_ERROR',
+          message: AUTH_ERROR_USER_MESSAGE,
+          detail: message.slice(0, 500),
+        })
+        return
+      }
       res.status(upstream.status).json({
         error: 'UPSTREAM_ERROR',
         message,

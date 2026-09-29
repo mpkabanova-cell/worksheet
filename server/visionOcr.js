@@ -3,6 +3,7 @@
  */
 
 import { stripMarkdownImages } from './markdownClean.js'
+import { resolveApiKey, resolveBaseUrl } from './openrouterEnv.js'
 
 export const DEFAULT_CONTEXT_OCR_MODEL = 'qwen/qwen3-vl-235b-a22b-instruct'
 
@@ -63,8 +64,8 @@ function openrouterErrorMessage(statusCode, body) {
 }
 
 export function getVisionConfig(env = process.env) {
-  const apiKey = (env.OPENAI_API_KEY || '').trim()
-  const baseUrl = (env.OPENAI_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '')
+  const apiKey = resolveApiKey(env)
+  const baseUrl = resolveBaseUrl(env)
   const model = (env.CONTEXT_OCR_MODEL || '').trim() || DEFAULT_CONTEXT_OCR_MODEL
   const timeoutMs = Number(env.CONTEXT_EXTRACT_TIMEOUT_MS) || 300_000
   const referer = (env.APP_URL || 'https://worksheet.onrender.com').trim()

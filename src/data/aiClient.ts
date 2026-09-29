@@ -1,5 +1,12 @@
 import { sanitizeAiJsonText } from './mathTextUtils'
 
+export const AUTH_ERROR_USER_MESSAGE =
+  'OpenRouter отклонил ключ API. Обновите OPENAI_API_KEY (или OPENROUTER_API_KEY) в Render → Environment или в локальном .env — нужен актуальный ключ sk-or-... с openrouter.ai/keys.'
+
+export function isAuthError(err: unknown): boolean {
+  return err instanceof AiError && err.message === AUTH_ERROR_USER_MESSAGE
+}
+
 export class AiError extends Error {
   constructor(message: string) {
     super(message)
@@ -135,18 +142,24 @@ export async function chatJson<T>(
 
     if (!res.ok) {
       let detail = ''
+      let errorCode = ''
       try {
         const err = JSON.parse(raw) as {
           message?: string
           error?: string | { message?: string }
         }
+        if (typeof err.error === 'string') errorCode = err.error
         if (typeof err.message === 'string' && err.message.trim()) detail = err.message
-        else if (typeof err.error === 'string') detail = err.error
+        else if (typeof err.error === 'string' && err.error !== 'UPSTREAM_ERROR') detail = err.error
         else if (err.error && typeof err.error === 'object' && err.error.message) {
           detail = err.error.message
         }
       } catch {
         detail = raw.trim()
+      }
+
+      if (res.status === 401 || res.status === 403 || errorCode === 'AUTH_ERROR') {
+        throw new AiError(AUTH_ERROR_USER_MESSAGE)
       }
 
       if (!detail) {

@@ -68,6 +68,7 @@ flowchart LR
 | Переменная | Назначение | По умолчанию |
 |------------|------------|--------------|
 | `OPENAI_API_KEY` | ключ OpenRouter / совместимого API | — |
+| `OPENROUTER_API_KEY` | alias для `OPENAI_API_KEY` (удобно, если ключ уже задан под этим именем) | — |
 | `OPENAI_BASE_URL` | base URL chat API | `https://openrouter.ai/api/v1` |
 | `OPENAI_MODEL` | модель генерации plan/worksheet | `google/gemini-2.5-flash` |
 | `CONTEXT_OCR_MODEL` | vision-модель для OCR прикреплённых файлов (отдельно от генерации) | `qwen/qwen3-vl-235b-a22b-instruct` |
@@ -80,7 +81,9 @@ flowchart LR
 | `APP_URL` | Referer для OpenRouter | — |
 | `PORT` | порт | `3001` |
 
-Эндпоинты: `GET /health` (`model` — генерация, `ocrModel` — распознавание файлов), `POST /api/chat`, `POST /api/extract-context`.
+Эндпоинты: `GET /health` (`hasKey`, `keyPrefixOk`, опционально `authHint`; `model` — генерация, `ocrModel` — распознавание файлов), `POST /api/chat`, `POST /api/extract-context`.
+
+**Ошибка 401 / AUTH_ERROR:** OpenRouter отклонил ключ. На Render задайте секрет `OPENAI_API_KEY` (или alias `OPENROUTER_API_KEY`) — актуальный `sk-or-...` с [openrouter.ai/keys](https://openrouter.ai/keys). Если `/health` показывает `hasKey: true`, но генерация падает с 401, ключ устарел или отозван, а не «отсутствует» (отсутствие ключа даёт **503** `NO_API_KEY`).
 
 #### POST /api/extract-context
 
