@@ -10,6 +10,7 @@ declare module 'docx-preview' {
     renderFooters?: boolean
     renderFootnotes?: boolean
     renderEndnotes?: boolean
+    useBase64URL?: boolean
   }
 
   export function renderAsync(
