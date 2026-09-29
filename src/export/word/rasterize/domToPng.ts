@@ -152,7 +152,7 @@ export async function captureDomToPng(
     node.style.width = `${captureWidth}px`
     node.style.maxWidth = `${captureWidth}px`
     node.style.boxSizing = 'border-box'
-    node.style.overflow = fitContent ? 'visible' : 'hidden'
+    node.style.overflow = 'visible'
   }
 
   await waitForLayout()

@@ -31,20 +31,22 @@ export async function rasterizeExportHeader(ctx: ExportContext): Promise<DomImag
   if (!minimal) {
     const student = document.createElement('div')
     student.style.display = 'flex'
-    student.style.justifyContent = 'space-between'
-    student.style.alignItems = 'baseline'
+    student.style.alignItems = 'flex-end'
+    student.style.gap = '8px'
+    student.style.width = '100%'
+    student.style.minHeight = '20px'
     student.style.fontSize = `${TYPO.studentLine.sizePx}px`
     student.style.lineHeight = `${TYPO.studentLine.linePx}px`
     student.style.color = `#${COLORS.textSecondary}`
-    student.style.borderBottom = `1px solid #${COLORS.borderSecondary}`
-    student.style.paddingBottom = '4px'
     student.style.marginBottom = '24px'
     student.appendChild(document.createTextNode('Ученик:'))
-    const line = document.createElement('span')
+    const line = document.createElement('i')
     line.style.flex = '1'
-    line.style.marginLeft = '16px'
-    line.style.borderBottom = `1px solid #${COLORS.borderSecondary}`
-    line.style.minHeight = '1em'
+    line.style.height = '1px'
+    line.style.marginBottom = '5px'
+    line.style.background = `#${COLORS.borderSecondary}`
+    line.style.border = 'none'
+    line.style.fontStyle = 'normal'
     student.appendChild(line)
     root.appendChild(student)
   }
@@ -72,7 +74,7 @@ export async function rasterizeExportHeader(ctx: ExportContext): Promise<DomImag
   }
 
   const spacer = document.createElement('div')
-  spacer.style.height = `${LAYOUT.sheetContentPaddingX}px`
+  spacer.style.height = '8px'
   root.appendChild(spacer)
 
   return captureDomToPng(root, `pdf-header-${draft.id}`, ctx, undefined, { fitContent: false })

@@ -82,7 +82,7 @@ export async function collectWorksheetPdfSlices(ctx: ExportContext): Promise<Pdf
 
   const header = await rasterizeExportHeader(studentCtx)
   if (header) {
-    slices.push({ kind: 'image', image: header, gapAfterPx: LAYOUT.sheetContentPaddingX })
+    slices.push({ kind: 'image', image: header, gapAfterPx: 0 })
   }
 
   slices.push(...(await collectAllPageSlices(studentCtx, showAnswersInline)))

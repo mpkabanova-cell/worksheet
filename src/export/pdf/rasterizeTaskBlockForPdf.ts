@@ -28,7 +28,6 @@ import {
   SHEET_CONTENT_WIDTH_PX,
   SLOT_CONTENT_WIDTH_PX,
   TYPO,
-  slotBodyTopSpacingPx,
 } from '@/export/word/layoutTokens'
 import { pngBytesToDataUrl } from '@/export/pdf/pngDataUrl'
 import { captureDomToPng } from '@/export/word/rasterize/domToPng'
@@ -45,7 +44,21 @@ function createTaskRoot(): HTMLDivElement {
   root.style.boxSizing = 'border-box'
   root.style.fontFamily = FONT_CSS
   root.style.background = '#ffffff'
+  root.style.display = 'flex'
+  root.style.flexDirection = 'column'
+  root.style.gap = `${LAYOUT.taskGap}px`
   return root
+}
+
+function createTaskSlot(): HTMLDivElement {
+  const slot = document.createElement('div')
+  slot.style.width = '100%'
+  slot.style.boxSizing = 'border-box'
+  slot.style.padding = `${LAYOUT.slotPaddingTop}px ${LAYOUT.slotPaddingRight}px 0 ${LAYOUT.slotPaddingLeft}px`
+  slot.style.display = 'flex'
+  slot.style.flexDirection = 'column'
+  slot.style.gap = `${LAYOUT.slotGap}px`
+  return slot
 }
 
 async function appendMarkerImg(
@@ -78,7 +91,7 @@ function bytesToDataUrl(bytes: Uint8Array): string {
 }
 
 async function appendChoiceImageOptions(
-  body: HTMLDivElement,
+  slot: HTMLDivElement,
   block: WorksheetBlock,
   showAnswer: boolean,
   ctx: ExportContext,
@@ -154,7 +167,7 @@ async function appendChoiceImageOptions(
     grid.appendChild(cell)
   }
 
-  body.appendChild(grid)
+  slot.appendChild(grid)
 }
 
 async function choiceMarkerPng(
@@ -177,17 +190,16 @@ async function choiceMarkerPng(
 }
 
 async function appendDifficultyRow(
-  root: HTMLDivElement,
+  parent: HTMLDivElement,
   block: WorksheetBlock,
   ctx: ExportContext,
-  topGapPx: number,
 ): Promise<void> {
   const row = document.createElement('div')
   row.style.display = 'flex'
   row.style.alignItems = 'center'
   row.style.gap = '4px'
-  row.style.marginTop = `${topGapPx}px`
-  row.style.marginLeft = `${LAYOUT.taskNumWidth}px`
+  row.style.marginTop = '0'
+  row.style.marginLeft = '0'
 
   const label = document.createElement('span')
   label.textContent = 'Сложность:'
@@ -210,7 +222,7 @@ async function appendDifficultyRow(
     await appendMarkerImg(stars, png, LAYOUT.diffStarSizePx)
   }
   row.appendChild(stars)
-  root.appendChild(row)
+  parent.appendChild(row)
 }
 
 function appendEmbeddedPng(
@@ -250,6 +262,7 @@ export async function rasterizeTaskBlockForPdf(
   headRow.style.display = 'flex'
   headRow.style.alignItems = 'flex-start'
   headRow.style.gap = '0'
+  headRow.style.width = '100%'
 
   const numCell = document.createElement('div')
   numCell.style.width = `${LAYOUT.taskNumWidth}px`
@@ -260,28 +273,31 @@ export async function rasterizeTaskBlockForPdf(
   numCell.textContent = taskNumber != null ? `${taskNumber}.` : ''
   headRow.appendChild(numCell)
 
+  const mainCol = document.createElement('div')
+  mainCol.style.flex = '1'
+  mainCol.style.minWidth = '0'
+  mainCol.style.display = 'flex'
+  mainCol.style.flexDirection = 'column'
+  mainCol.style.gap = isAnswerBlock ? `${LAYOUT.answerTaskMainGap}px` : `${LAYOUT.taskMainGap}px`
+
   const questionCell = document.createElement('div')
-  questionCell.style.flex = '1'
   questionCell.style.minWidth = '0'
   appendMathText(questionCell, questionText, {
     fontSize: qStyle.sizePx,
     lineHeight: qStyle.linePx,
     color: `#${COLORS.textDefault}`,
   })
-  headRow.appendChild(questionCell)
-  root.appendChild(headRow)
+  mainCol.appendChild(questionCell)
 
   const showDifficulty = ctx.options.showDifficulty && (isAnswerBlock || !!block.difficulty)
   if (showDifficulty) {
-    const gap = isAnswerBlock ? LAYOUT.answerTaskMainGap : LAYOUT.taskMainGap
-    await appendDifficultyRow(root, block, ctx, gap)
+    await appendDifficultyRow(mainCol, block, ctx)
   }
 
-  const body = document.createElement('div')
-  body.style.marginLeft = `${LAYOUT.taskNumWidth}px`
-  body.style.paddingLeft = `${LAYOUT.slotPaddingLeft}px`
-  body.style.marginTop = `${slotBodyTopSpacingPx()}px`
-  body.style.maxWidth = `${SLOT_CONTENT_WIDTH_PX}px`
+  headRow.appendChild(mainCol)
+  root.appendChild(headRow)
+
+  const slot = createTaskSlot()
 
   if (isChoiceBlock(block) && (block.choiceOptionFormat ?? 'text') === 'text') {
     let options = getChoiceDisplayOptions(block, false, false)
@@ -295,8 +311,7 @@ export async function rasterizeTaskBlockForPdf(
       const row = document.createElement('div')
       row.style.display = 'flex'
       row.style.alignItems = 'flex-start'
-      row.style.gap = '8px'
-      row.style.marginBottom = `${LAYOUT.slotGap}px`
+      row.style.gap = `${LAYOUT.choiceMarkerTextGapPx}px`
       const marker = document.createElement('span')
       marker.style.marginTop = '2px'
       await appendMarkerImg(
@@ -312,27 +327,27 @@ export async function rasterizeTaskBlockForPdf(
         lineHeight: TYPO.option.linePx,
       })
       row.appendChild(textWrap)
-      body.appendChild(row)
+      slot.appendChild(row)
     }
   } else if (isChoiceBlock(block)) {
-    await appendChoiceImageOptions(body, block, showAnswer, ctx)
+    await appendChoiceImageOptions(slot, block, showAnswer, ctx)
   }
 
   if (block.type === 'matching') {
     const image = await rasterizeMatching(block, showAnswer, ctx)
-    appendEmbeddedPng(body, image, getMatchingLayoutSpec().imageWidthPx)
+    appendEmbeddedPng(slot, image, getMatchingLayoutSpec().contentWidthPx)
   } else if (block.type === 'ordering') {
     const image = await rasterizeOrdering(block, showAnswer, ctx)
-    appendEmbeddedPng(body, image, getOrderingLayoutSpec().imageWidthPx)
+    appendEmbeddedPng(slot, image, getOrderingLayoutSpec().contentWidthPx)
   } else if (block.type === 'grouping') {
     const image = await rasterizeGrouping(block, showAnswer, ctx)
-    appendEmbeddedPng(body, image, getGroupingLayoutSpec().imageWidthPx)
+    appendEmbeddedPng(slot, image, getGroupingLayoutSpec().contentWidthPx)
   }
 
   if (isAnswerBlock) {
     const style = getBlockAnswerStyle(block, ctx.subject)
     const image = await rasterizeAnswerArea(block, style, ctx.subject, showAnswer, ctx)
-    appendEmbeddedPng(body, image, SLOT_CONTENT_WIDTH_PX)
+    appendEmbeddedPng(slot, image, SLOT_CONTENT_WIDTH_PX)
   }
 
   if (block.type === 'fill_gaps') {
@@ -344,19 +359,15 @@ export async function rasterizeTaskBlockForPdf(
       : showAnswer
         ? markGapAnswersInText(source, gapWords)
         : getGapsStudentText(block)
-    appendMathText(body, text.trim() || 'Текст с пропусками', {
+    appendMathText(slot, text.trim() || 'Текст с пропусками', {
       fontSize: TYPO.gapsText.sizePx,
       lineHeight: TYPO.gapsText.linePx,
     })
   }
 
-  if (body.childNodes.length > 0) {
-    root.appendChild(body)
+  if (slot.childNodes.length > 0) {
+    root.appendChild(slot)
   }
-
-  const gap = document.createElement('div')
-  gap.style.height = `${LAYOUT.taskGap}px`
-  root.appendChild(gap)
 
   return captureDomToPng(root, `pdf-task-${block.id}-${showAnswer ? 'a' : 's'}`, ctx, undefined, {
     fitContent: false,
