@@ -8,7 +8,7 @@ import {
 import { promptsForPlan, promptsForSingleTask, promptsForWorksheet } from './aiPrompts'
 import { sanitizeBlock, clampAnswerHeight, defaultAnswerHeight, defaultAnswerStyle, groupsToTableFields, createDefaultGroupingTableFields, getGapsSourceText, isValidFillGapsBlock } from './blockUtils'
 import { expectationToQuestion, looksLikeAuthorPlanDescription, isGenericTopicFillGaps, normalizeAiTask } from './taskContent'
-import { repairJsonLatexEscapes } from './mathTextUtils'
+import { gapsTextHasBlankMarkers, repairJsonLatexEscapes } from './mathTextUtils'
 import {
   blockQuestionIssues,
   hasCaveNarrativeInQuestion,
