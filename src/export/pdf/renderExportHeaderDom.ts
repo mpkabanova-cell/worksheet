@@ -2,7 +2,6 @@ import { sheetTopicLabel } from '@/data/worksheet'
 import {
   COLORS,
   FONT_CSS,
-  LAYOUT,
   SHEET_CONTENT_WIDTH_PX,
   TYPO,
   resolveTextColorCss,
