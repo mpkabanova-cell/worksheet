@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  authErrorMessageForUpstream,
   authHintForKey,
   isLikelyOpenRouterKey,
+  isOpenRouterUserNotFoundMessage,
+  OPENROUTER_USER_NOT_FOUND_MESSAGE,
   resolveApiKey,
   resolveBaseUrl,
   resolveChatResponseFormat,
@@ -60,5 +63,12 @@ describe('resolveChatResponseFormat', () => {
 
   it('uses json_object for other models', () => {
     expect(resolveChatResponseFormat('openai/gpt-4o-mini', undefined)).toEqual({ type: 'json_object' })
+  })
+})
+
+describe('authErrorMessageForUpstream', () => {
+  it('detects User not found', () => {
+    expect(isOpenRouterUserNotFoundMessage('User not found.')).toBe(true)
+    expect(authErrorMessageForUpstream('User not found.')).toBe(OPENROUTER_USER_NOT_FOUND_MESSAGE)
   })
 })

@@ -3,8 +3,18 @@ import { sanitizeAiJsonText } from './mathTextUtils'
 export const AUTH_ERROR_USER_MESSAGE =
   'OpenRouter отклонил ключ API. Обновите OPENAI_API_KEY (или OPENROUTER_API_KEY) в Render → Environment или в локальном .env — нужен актуальный ключ sk-or-... с openrouter.ai/keys.'
 
+export const OPENROUTER_USER_NOT_FOUND_MESSAGE =
+  'OpenRouter: «User not found» — ключ не подходит для генерации. Создайте обычный inference API key на openrouter.ai/settings/keys (не provisioning/management). Ключ мог истечь или быть отозван — создайте новый и обновите OPENAI_API_KEY на Render и в .env.'
+
 export function isAuthError(err: unknown): boolean {
-  return err instanceof AiError && err.message === AUTH_ERROR_USER_MESSAGE
+  if (!(err instanceof AiError)) return false
+  const m = err.message
+  return (
+    m === AUTH_ERROR_USER_MESSAGE ||
+    m === OPENROUTER_USER_NOT_FOUND_MESSAGE ||
+    m.startsWith('OpenRouter отклонил') ||
+    m.startsWith('OpenRouter: «User not found»')
+  )
 }
 
 export class AiError extends Error {
@@ -148,19 +158,17 @@ export async function chatJson<T>(
     if (!res.ok) {
       let detail = ''
       let errorCode = ''
-      let upstreamDetail = ''
       try {
-        const err = JSON.parse(raw) as {
+        const body = JSON.parse(raw) as {
           message?: string
           detail?: string
           error?: string | { message?: string }
         }
-        if (typeof err.error === 'string') errorCode = err.error
-        if (typeof err.detail === 'string' && err.detail.trim()) upstreamDetail = err.detail.trim()
-        if (typeof err.message === 'string' && err.message.trim()) detail = err.message
-        else if (typeof err.error === 'string' && err.error !== 'UPSTREAM_ERROR') detail = err.error
-        else if (err.error && typeof err.error === 'object' && err.error.message) {
-          detail = err.error.message
+        if (typeof body.error === 'string') errorCode = body.error
+        if (typeof body.message === 'string' && body.message.trim()) detail = body.message
+        else if (typeof body.error === 'string' && body.error !== 'UPSTREAM_ERROR') detail = body.error
+        else if (body.error && typeof body.error === 'object' && body.error.message) {
+          detail = body.error.message
         }
       } catch {
         detail = raw.trim()
@@ -174,12 +182,7 @@ export async function chatJson<T>(
       }
 
       if (res.status === 401 || res.status === 403 || errorCode === 'AUTH_ERROR') {
-        const hint = upstreamDetail || (detail && detail !== AUTH_ERROR_USER_MESSAGE ? detail : '')
-        throw new AiError(
-          hint
-            ? `${AUTH_ERROR_USER_MESSAGE} (${hint.slice(0, 160)})`
-            : AUTH_ERROR_USER_MESSAGE,
-        )
+        throw new AiError(detail || AUTH_ERROR_USER_MESSAGE)
       }
 
       if (!detail) {

@@ -8,13 +8,14 @@ import { parseSingleFileUpload, UploadError } from './upload.js'
 import { getVisionConfig } from './visionOcr.js'
 import {
   authHintForKey,
-  AUTH_ERROR_USER_MESSAGE,
+  authErrorMessageForUpstream,
   DEFAULT_CHAT_MODEL,
   isLikelyOpenRouterKey,
   isUpstreamAuthFailure,
   resolveApiKey,
   resolveBaseUrl,
   resolveChatResponseFormat,
+  verifyOpenRouterKey,
 } from './openrouterEnv.js'
 
 dotenv.config()
@@ -29,6 +30,33 @@ const OPENAI_BASE_URL = resolveBaseUrl()
 const OPENAI_MODEL = process.env.OPENAI_MODEL || DEFAULT_CHAT_MODEL
 const visionConfig = getVisionConfig()
 
+/** @type {{ ok: boolean | null, hint?: string, checkedAt?: string, credits?: Record<string, unknown> }} */
+let openRouterAuthState = { ok: null }
+
+async function refreshOpenRouterAuthState() {
+  if (!OPENAI_API_KEY) {
+    openRouterAuthState = { ok: false, hint: 'OPENAI_API_KEY не задан', checkedAt: new Date().toISOString() }
+    return
+  }
+  const result = await verifyOpenRouterKey(OPENAI_API_KEY, OPENAI_BASE_URL)
+  openRouterAuthState = {
+    ok: result.ok,
+    ...(result.hint ? { hint: result.hint } : {}),
+    ...(result.credits ? { credits: result.credits } : {}),
+    checkedAt: new Date().toISOString(),
+  }
+  if (result.ok) {
+    const c = result.credits
+    const bal =
+      c && c.limitRemaining != null
+        ? `limit_remaining=$${c.limitRemaining}`
+        : 'key ok'
+    console.log('[startup] OpenRouter key: verified', bal)
+  } else {
+    console.error('[startup] OpenRouter key check failed', result.status, result.upstreamMessage)
+  }
+}
+
 const app = express()
 app.disable('x-powered-by')
 app.use(express.json({ limit: '1mb' }))
@@ -42,6 +70,10 @@ app.get('/health', (_req, res) => {
     hasKey,
     keyPrefixOk: hasKey && keyPrefixOk,
     ...(authHint ? { authHint } : {}),
+    openRouterAuthOk: openRouterAuthState.ok,
+    ...(openRouterAuthState.hint ? { openRouterAuthHint: openRouterAuthState.hint } : {}),
+    ...(openRouterAuthState.checkedAt ? { openRouterAuthCheckedAt: openRouterAuthState.checkedAt } : {}),
+    ...(openRouterAuthState.credits ? { openRouterCredits: openRouterAuthState.credits } : {}),
     model: OPENAI_MODEL,
     ocrModel: visionConfig.model,
   })
@@ -122,9 +154,10 @@ app.post('/api/chat', async (req, res) => {
         return
       }
       if (isUpstreamAuthFailure(upstream.status)) {
+        const userMessage = authErrorMessageForUpstream(message)
         res.status(upstream.status).json({
           error: 'AUTH_ERROR',
-          message: AUTH_ERROR_USER_MESSAGE,
+          message: userMessage,
           detail: message.slice(0, 500),
         })
         return
@@ -181,22 +214,9 @@ if (fs.existsSync(dist)) {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Worksheet server on http://0.0.0.0:${PORT}`)
   console.log(`Chat model: ${OPENAI_MODEL}; OCR model: ${visionConfig.model}; key: ${OPENAI_API_KEY ? 'set' : 'MISSING'}`)
-  if (OPENAI_API_KEY) {
-    fetch(`${OPENAI_BASE_URL}/auth/key`, {
-      headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
-    })
-      .then(async (res) => {
-        if (res.ok) {
-          console.log('[startup] OpenRouter key: verified')
-          return
-        }
-        const body = (await res.text()).slice(0, 300)
-        console.error('[startup] OpenRouter key check failed', res.status, body)
-      })
-      .catch((err) => {
-        console.warn('[startup] OpenRouter key check error', err instanceof Error ? err.message : err)
-      })
-  }
+  refreshOpenRouterAuthState().catch((err) => {
+    console.warn('[startup] OpenRouter auth refresh failed', err instanceof Error ? err.message : err)
+  })
 })
 
 import('pdf-parse/worker')

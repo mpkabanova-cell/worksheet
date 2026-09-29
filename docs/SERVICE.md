@@ -85,6 +85,25 @@ flowchart LR
 
 **Ошибка 401 / AUTH_ERROR:** OpenRouter отклонил ключ. На Render задайте секрет `OPENAI_API_KEY` (или alias `OPENROUTER_API_KEY`) — актуальный `sk-or-...` с [openrouter.ai/keys](https://openrouter.ai/keys). Если `/health` показывает `hasKey: true`, но генерация падает с 401, ключ устарел или отозван, а не «отсутствует» (отсутствие ключа даёт **503** `NO_API_KEY`).
 
+### Troubleshooting OpenRouter
+
+| Симптом | HTTP | Что значит | Действие |
+|---------|------|------------|----------|
+| `NO_API_KEY` в UI / 503 | 503 | Ключ не задан на сервере | `OPENAI_API_KEY` в Render Environment или `.env`, `npm run dev` |
+| Toast «User not found» / `openRouterAuthOk: false` | 401 | Ключ **не inference** (management/provisioning), **истёк** или **отозван** | Новый **inference** key на [openrouter.ai/settings/keys](https://openrouter.ai/settings/keys) → Render + `.env` → redeploy |
+| Недостаточно кредитов | 402 | Баланс OpenRouter | Пополнить credits на openrouter.ai |
+| `hasKey: true`, `keyPrefixOk: false` | — | Странный формат ключа | Должен быть `sk-or-v1-...` |
+
+Проверка локально (ключ не печатается):
+
+```bash
+npm run verify:openrouter
+```
+
+На Render после деплоя: `GET /health` — поля `openRouterAuthOk`, `openRouterAuthHint`, `openRouterAuthCheckedAt`.
+
+**Render (прод):** сервис [worksheet-rphn.onrender.com](https://worksheet-rphn.onrender.com). В Environment обязательны `OPENAI_API_KEY` (inference) и `APP_URL=https://worksheet-rphn.onrender.com` (см. [`render.yaml`](render.yaml)). Секреты **не** откатываются вместе с git — при 401 после откода кода обновите ключ в Dashboard.
+
 #### POST /api/extract-context
 
 Принимает `multipart/form-data` с полем `file` (docx, pdf, jpg, png; до 10 Мб). Возвращает `{ text, truncated? }` — распознанный текст для промптов. Текст пользователю в UI не показывается.

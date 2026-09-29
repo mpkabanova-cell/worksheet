@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from 'vitest'
-import { AiError, AUTH_ERROR_USER_MESSAGE, chatJson, extractJson, isAuthError } from '@/data/aiClient'
+import { AiError, OPENROUTER_USER_NOT_FOUND_MESSAGE, chatJson, extractJson, isAuthError } from '@/data/aiClient'
 import { sanitizeAiJsonText } from '@/data/mathTextUtils'
 
 describe('sanitizeAiJsonText', () => {
@@ -88,13 +88,18 @@ describe('chatJson auth errors', () => {
         ok: false,
         status: 401,
         text: async () =>
-          JSON.stringify({ error: 'AUTH_ERROR', message: AUTH_ERROR_USER_MESSAGE }),
+          JSON.stringify({
+            error: 'AUTH_ERROR',
+            message: OPENROUTER_USER_NOT_FOUND_MESSAGE,
+            detail: 'User not found.',
+          }),
       })),
     )
 
     await expect(chatJson('sys', 'user')).rejects.toSatisfy((err: unknown) => {
       expect(isAuthError(err)).toBe(true)
       expect(err).toBeInstanceOf(AiError)
+      expect((err as AiError).message).toBe(OPENROUTER_USER_NOT_FOUND_MESSAGE)
       return true
     })
   })

@@ -9,6 +9,7 @@
     "dev:api": "node --watch server/index.js",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
+    "verify:openrouter": "node scripts/verify-openrouter.mjs",
     "start": "node server/index.js",
     "preview": "vite preview"
   },

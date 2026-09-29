@@ -28,4 +28,4 @@ services:
       - key: CONTEXT_EXTRACT_TIMEOUT_MS
         value: "300000"
       - key: APP_URL
-        sync: false
+        value: https://worksheet-rphn.onrender.com

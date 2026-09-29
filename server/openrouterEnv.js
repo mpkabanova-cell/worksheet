@@ -58,6 +58,105 @@ export function authHintForKey(apiKey) {
 export const AUTH_ERROR_USER_MESSAGE =
   'OpenRouter отклонил ключ API. Обновите OPENAI_API_KEY (или OPENROUTER_API_KEY) в Render → Environment или в локальном .env — нужен актуальный ключ sk-or-... с openrouter.ai/keys.'
 
+export const OPENROUTER_USER_NOT_FOUND_MESSAGE =
+  'OpenRouter: «User not found» — ключ не подходит для генерации. Создайте обычный inference API key на openrouter.ai/settings/keys (не provisioning/management). Ключ мог истечь или быть отозван — создайте новый и обновите OPENAI_API_KEY на Render и в .env.'
+
+/**
+ * @param {string} upstreamMessage
+ * @returns {boolean}
+ */
+export function isOpenRouterUserNotFoundMessage(upstreamMessage) {
+  return /user not found/i.test(String(upstreamMessage || ''))
+}
+
+/**
+ * @param {string} [upstreamMessage]
+ * @returns {string}
+ */
+export function authErrorMessageForUpstream(upstreamMessage) {
+  if (isOpenRouterUserNotFoundMessage(upstreamMessage)) {
+    return OPENROUTER_USER_NOT_FOUND_MESSAGE
+  }
+  return AUTH_ERROR_USER_MESSAGE
+}
+
+/**
+ * @param {string} apiKey
+ * @param {string} [baseUrl]
+ * @returns {Promise<{
+ *   ok: boolean
+ *   status: number
+ *   upstreamMessage: string
+ *   hint?: string
+ *   credits?: {
+ *     limitRemaining: number | null
+ *     limit: number | null
+ *     usageMonthly: number | null
+ *     isManagementKey?: boolean
+ *     isProvisioningKey?: boolean
+ *   }
+ * }>}
+ */
+export async function verifyOpenRouterKey(apiKey, baseUrl = DEFAULT_BASE_URL) {
+  if (!apiKey) {
+    return { ok: false, status: 0, upstreamMessage: '', hint: 'OPENAI_API_KEY не задан' }
+  }
+
+  const root = baseUrl.replace(/\/$/, '')
+
+  try {
+    const res = await fetch(`${root}/key`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    })
+    const text = await res.text()
+    let upstreamMessage = text.slice(0, 500)
+    /** @type {Record<string, unknown> | null} */
+    let data = null
+    try {
+      const parsed = JSON.parse(text)
+      if (parsed.error && typeof parsed.error === 'object' && parsed.error.message) {
+        upstreamMessage = String(parsed.error.message)
+      } else if (typeof parsed.message === 'string') {
+        upstreamMessage = parsed.message
+      }
+      if (parsed.data && typeof parsed.data === 'object') {
+        data = parsed.data
+      }
+    } catch {
+      /* keep raw */
+    }
+
+    if (res.ok && data) {
+      return {
+        ok: true,
+        status: res.status,
+        upstreamMessage: '',
+        credits: {
+          limitRemaining: typeof data.limit_remaining === 'number' ? data.limit_remaining : null,
+          limit: typeof data.limit === 'number' ? data.limit : null,
+          usageMonthly: typeof data.usage_monthly === 'number' ? data.usage_monthly : null,
+          isManagementKey: Boolean(data.is_management_key),
+          isProvisioningKey: Boolean(data.is_provisioning_key),
+        },
+      }
+    }
+
+    if (res.ok) {
+      return { ok: true, status: res.status, upstreamMessage: '' }
+    }
+
+    return {
+      ok: false,
+      status: res.status,
+      upstreamMessage,
+      hint: authErrorMessageForUpstream(upstreamMessage),
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    return { ok: false, status: 0, upstreamMessage: msg, hint: `Не удалось связаться с OpenRouter: ${msg}` }
+  }
+}
+
 /**
  * @param {number} status
  * @returns {boolean}

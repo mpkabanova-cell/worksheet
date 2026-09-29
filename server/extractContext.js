@@ -6,7 +6,7 @@ import { extractTextFromDocxWithVision } from './docxVision.js'
 import { extractTextFromPdf } from './pdfExtract.js'
 import { callVisionOcr, getVisionConfig, guessImageMime } from './visionOcr.js'
 import { truncateContextText } from './markdownClean.js'
-import { AUTH_ERROR_USER_MESSAGE, messageLooksLikeAuthFailure } from './openrouterEnv.js'
+import { authErrorMessageForUpstream, messageLooksLikeAuthFailure } from './openrouterEnv.js'
 
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
@@ -21,7 +21,7 @@ function rethrowExtractError(err) {
   if (err instanceof ContextExtractError) throw err
   const detail = err instanceof Error ? err.message : 'Не удалось обработать файл'
   if (messageLooksLikeAuthFailure(detail)) {
-    throw new ContextExtractError('AUTH_ERROR', AUTH_ERROR_USER_MESSAGE, 401)
+    throw new ContextExtractError('AUTH_ERROR', authErrorMessageForUpstream(detail), 401)
   }
   throw err
 }
@@ -55,7 +55,7 @@ export async function extractContextFromFile(buffer, filename, contentType) {
     } catch (err) {
       const detail = err instanceof Error ? err.message : 'Не удалось обработать PDF'
       if (messageLooksLikeAuthFailure(detail)) {
-        throw new ContextExtractError('AUTH_ERROR', AUTH_ERROR_USER_MESSAGE, 401)
+        throw new ContextExtractError('AUTH_ERROR', authErrorMessageForUpstream(detail), 401)
       }
       throw new ContextExtractError(
         'PDF_EXTRACT_ERROR',
