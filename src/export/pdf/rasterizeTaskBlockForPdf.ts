@@ -32,7 +32,7 @@ import {
 import { pngBytesToDataUrl } from '@/export/pdf/pngDataUrl'
 import { captureDomToPng } from '@/export/word/rasterize/domToPng'
 import { rasterizeAnswerArea } from '@/export/word/rasterize/renderAnswerAreaDom'
-import { appendMathText, ensureKatexStyles } from '@/export/word/rasterize/renderMathHtml'
+import { appendGapsText, appendMathText, ensureKatexStyles } from '@/export/word/rasterize/renderMathHtml'
 import { rasterizeGrouping } from '@/export/word/rasterize/renderGroupingDom'
 import { rasterizeMatching } from '@/export/word/rasterize/renderMatchingDom'
 import { rasterizeOrdering } from '@/export/word/rasterize/renderOrderingDom'
@@ -359,7 +359,7 @@ export async function rasterizeTaskBlockForPdf(
       : showAnswer
         ? markGapAnswersInText(source, gapWords)
         : getGapsStudentText(block)
-    appendMathText(slot, text.trim() || 'Текст с пропусками', {
+    appendGapsText(slot, text.trim() || 'Текст с пропусками', {
       fontSize: TYPO.gapsText.sizePx,
       lineHeight: TYPO.gapsText.linePx,
     })
