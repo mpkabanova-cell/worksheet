@@ -55,9 +55,9 @@ describe('key hints', () => {
 
 describe('resolveChatResponseFormat', () => {
   it('omits json_object for Gemini', () => {
-    expect(resolveChatResponseFormat('google/gemini-2.0-flash-001', undefined)).toBeUndefined()
+    expect(resolveChatResponseFormat('google/gemini-3.1-pro-preview', undefined)).toBeUndefined()
     expect(
-      resolveChatResponseFormat('google/gemini-2.0-flash-001', { type: 'json_object' }),
+      resolveChatResponseFormat('google/gemini-3.1-pro-preview', { type: 'json_object' }),
     ).toBeUndefined()
   })
 

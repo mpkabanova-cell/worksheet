@@ -16,7 +16,7 @@
 |------|------------|
 | Фронтенд | React 19, TypeScript, Vite 6 |
 | Бэкенд | Express 5 (`server/index.js`) |
-| ИИ | OpenRouter (по умолчанию `google/gemini-2.0-flash-001`) |
+| ИИ | OpenRouter (по умолчанию `google/gemini-3.1-pro-preview`) |
 | Формулы | KaTeX (`MathText`) |
 | Деплой | Render Web Service (`render.yaml`) |
 
@@ -70,7 +70,7 @@ flowchart LR
 | `OPENAI_API_KEY` | ключ OpenRouter / совместимого API | — |
 | `OPENROUTER_API_KEY` | alias для `OPENAI_API_KEY` (удобно, если ключ уже задан под этим именем) | — |
 | `OPENAI_BASE_URL` | base URL chat API | `https://openrouter.ai/api/v1` |
-| `OPENAI_MODEL` | модель генерации plan/worksheet | `google/gemini-2.0-flash-001` |
+| `OPENAI_MODEL` | модель генерации plan/worksheet | `google/gemini-3.1-pro-preview` |
 | `CONTEXT_OCR_MODEL` | vision-модель для OCR прикреплённых файлов (отдельно от генерации) | `qwen/qwen3-vl-235b-a22b-instruct` |
 | `CONTEXT_EXTRACT_TIMEOUT_MS` | таймаут OCR-запроса | `300000` |
 | `CONTEXT_PDF_MAX_PAGES` | макс. страниц PDF (`0` = все) | `0` |

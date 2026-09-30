@@ -15,7 +15,7 @@ npm run dev
 http://localhost:5173/
 
 **Модели (сервер, `.env`):**
-- `OPENAI_MODEL=google/gemini-2.5-flash` — генерация плана и листа
+- `OPENAI_MODEL=google/gemini-3.1-pro-preview` — генерация плана и листа
 - `CONTEXT_OCR_MODEL=qwen/qwen3-vl-235b-a22b-instruct` — распознавание прикреплённых PDF-сканов и изображений
 
 Проверка: `GET http://localhost:3001/health` → `{ model, ocrModel, hasKey }`.

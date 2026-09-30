@@ -5,7 +5,7 @@
 const DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1'
 
 /** Модель генерации plan/worksheet по умолчанию (OpenRouter slug). */
-export const DEFAULT_CHAT_MODEL = 'google/gemini-2.0-flash-001'
+export const DEFAULT_CHAT_MODEL = 'google/gemini-3.1-pro-preview'
 
 function stripWrappingQuotes(value) {
   if (

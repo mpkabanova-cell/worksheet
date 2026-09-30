@@ -105,7 +105,7 @@
 | — | — | Ключ API | `OPENAI_API_KEY` |
 | — | — | Base URL | `OPENAI_BASE_URL` |
 
-Генерация plan/worksheet (Агенты 1–2) использует **отдельную** модель `OPENAI_MODEL` (Gemini Flash) — не путать с Агентом 0.
+Генерация plan/worksheet (Агенты 1–2) использует **отдельную** модель `OPENAI_MODEL` (Gemini 3.1 Pro Preview) — не путать с Агентом 0.
 
 ### Prompt_0 (vision OCR)
 

@@ -12,7 +12,7 @@
 
 | Параметр | Значение |
 |----------|----------|
-| Модель по умолчанию | **`google/gemini-2.5-flash`** |
+| Модель по умолчанию | **`google/gemini-3.1-pro-preview`** |
 | Провайдер | [OpenRouter](https://openrouter.ai) (`OPENAI_BASE_URL=https://openrouter.ai/api/v1`) |
 | Где задаётся | `OPENAI_MODEL` на сервере (`server/index.js`, `render.yaml`, `.env.example`) |
 | API | OpenAI-compatible `POST /chat/completions` |
@@ -58,7 +58,7 @@
 flowchart LR
   UI[React UI] -->|system + user| Client[aiClient.ts]
   Client -->|POST /api/chat| API[Express server]
-  API -->|chat/completions| OR["OpenRouter<br/>google/gemini-2.5-flash"]
+  API -->|chat/completions| OR["OpenRouter<br/>google/gemini-3.1-pro-preview"]
   OR --> API --> Client --> AI[ai.ts]
   AI -->|WorksheetDraft / PlanTask / Block| UI
   AI -.->|нет ключа| Mock[generator.ts]
