@@ -499,6 +499,32 @@
   min-width: 0;
 }
 
+/* mathPreview: рамка на обёртке, превью под прозрачным textarea (не белый фон input) */
+.ws-task-question-row .math-editable.ws-inline-textarea {
+  border: 1px solid var(--border-brand);
+  border-radius: 8px;
+  background: var(--bg-white);
+  min-height: 48px;
+}
+
+.ws-task-question-row .math-editable.ws-inline-textarea .math-editable-input {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  min-height: 48px;
+  padding: 8px 12px;
+}
+
+.ws-task-question-row .math-editable.ws-inline-textarea .math-editable-input:focus {
+  box-shadow: none;
+}
+
+.ws-task-question-row .math-editable.ws-inline-textarea .math-editable-preview {
+  padding: 8px 12px;
+  overflow: visible;
+  white-space: pre-wrap;
+}
+
 .ws-task-question-row .ws-task-text,
 .ws-task-question-row .ws-inline-textarea,
 .ws-task-question-row .math-editable,

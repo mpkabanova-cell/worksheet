@@ -78,7 +78,7 @@ function blockForType(
         choiceShuffle: false,
       }
     case 'fill_gaps': {
-      const gaps = fillGapsPayloadFromPlanBrief(expectation, topic)
+      const gaps = fillGapsPayloadFromPlanBrief(expectation, topic, { planIndex: index })
       return {
         ...base,
         instruction: '',

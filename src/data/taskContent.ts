@@ -66,10 +66,104 @@ export function questionMatchesPlanBrief(question: string, brief: string): boole
   return false
 }
 
+type FillGapsTemplate = { gaps_text: string; gaps_answers: string[] }
+
+/** Пропуски только вне $...$ — иначе sanitizeGapsSourceText удаляет ___ из формул. */
+const LIKE_TERMS_FILL_GAPS: FillGapsTemplate[] = [
+  {
+    gaps_text:
+      'Сумму $7x + 2x$ можно записать как ___$x$. Числовой коэффициент при $x$ в этой сумме равен ___.',
+    gaps_answers: ['9', '9'],
+  },
+  {
+    gaps_text:
+      'Выражение $5a - 2a$ после приведения подобных записывается как ___$a$. Коэффициент при $a$ равен ___.',
+    gaps_answers: ['3', '3'],
+  },
+  {
+    gaps_text:
+      'Сумма $4y + y$ имеет вид ___$y$. Коэффициент при $y$ в этой сумме равен ___.',
+    gaps_answers: ['5', '5'],
+  },
+  {
+    gaps_text:
+      'Разность $11m - 4m$ записывается как ___$m$. Коэффициент при $m$ равен ___.',
+    gaps_answers: ['7', '7'],
+  },
+  {
+    gaps_text:
+      'Сумма $3b + 8b$ равна ___$b$. Числовой коэффициент при $b$ равен ___.',
+    gaps_answers: ['11', '11'],
+  },
+  {
+    gaps_text:
+      'Выражение $6c - c$ после упрощения имеет вид ___$c$. Коэффициент при $c$ равен ___.',
+    gaps_answers: ['5', '5'],
+  },
+]
+
+const MONOMIAL_FILL_GAPS: FillGapsTemplate[] = [
+  {
+    gaps_text:
+      'В одночлене $4a^2b$ коэффициент равен ___. Сумма показателей степени в $4a^2b$ равна ___.',
+    gaps_answers: ['4', '3'],
+  },
+  {
+    gaps_text:
+      'В одночлене $5x^3$ коэффициент равен ___. Сумма показателей степени равна ___.',
+    gaps_answers: ['5', '3'],
+  },
+  {
+    gaps_text:
+      'В одночлене $2ab^2$ коэффициент равен ___. Сумма показателей степени равна ___.',
+    gaps_answers: ['2', '3'],
+  },
+]
+
+const FRACTION_FILL_GAPS: FillGapsTemplate[] = [
+  {
+    gaps_text:
+      'Сумма $\\frac{2}{7} + \\frac{3}{7}$ равна $\\frac{5}{7}$. Числитель этой дроби равен ___, знаменатель ___.',
+    gaps_answers: ['5', '7'],
+  },
+  {
+    gaps_text:
+      'Сумма $\\frac{1}{4} + \\frac{2}{4}$ равна $\\frac{3}{4}$. Числитель равен ___, знаменатель ___.',
+    gaps_answers: ['3', '4'],
+  },
+]
+
+export interface FillGapsFromPlanOptions {
+  planIndex?: number
+  avoidGapsTexts?: string[]
+}
+
+function pickFillGapsTemplate(
+  variants: FillGapsTemplate[],
+  planIndex: number,
+  avoidGapsTexts: string[],
+): FillGapsTemplate {
+  const avoided = new Set(avoidGapsTexts.map((text) => normalizeWs(text)))
+  for (let offset = 0; offset < variants.length; offset++) {
+    const candidate = variants[(planIndex + offset) % variants.length]!
+    if (!avoided.has(normalizeWs(candidate.gaps_text))) {
+      return candidate
+    }
+  }
+  const fallback = variants[planIndex % variants.length]!
+  return {
+    gaps_text: `${fallback.gaps_text} (задание ${planIndex + 1})`,
+    gaps_answers: [...fallback.gaps_answers],
+  }
+}
+
 export function fillGapsPayloadFromPlanBrief(
   brief: string,
   sheetTopic: string,
+  options: FillGapsFromPlanOptions = {},
 ): { question: string; gaps_text: string; gaps_answers: string[] } {
+  const planIndex = options.planIndex ?? 0
+  const avoidGapsTexts = options.avoidGapsTexts ?? []
   const plan = brief.trim()
   const topic = sheetTopic.trim() || 'тема'
   const fromPlan = expectationToQuestion(plan)
@@ -82,41 +176,40 @@ export function fillGapsPayloadFromPlanBrief(
 
   if (/подобн|коэффициент|слагаем/.test(lower)) {
     question = 'Заполните пропуски, восстановив коэффициенты при приведении подобных слагаемых.'
-    return {
-      question,
-      gaps_text:
-        'Сумму $7x + 2x$ можно записать как $___x$. Числовой коэффициент при $x$ в этой сумме равен ___.',
-      gaps_answers: ['9', '9'],
-    }
+    const picked = pickFillGapsTemplate(LIKE_TERMS_FILL_GAPS, planIndex, avoidGapsTexts)
+    return { question, gaps_text: picked.gaps_text, gaps_answers: picked.gaps_answers }
   }
 
   if (/одночлен|многочлен|моном/.test(lower)) {
     question = `Заполните пропуски по теме «${topic}».`
-    return {
-      question,
-      gaps_text:
-        'В одночлене $4a^2b$ коэффициент равен ___. Сумма показателей степени в $4a^2b$ равна ___.',
-      gaps_answers: ['4', '3'],
-    }
+    const picked = pickFillGapsTemplate(MONOMIAL_FILL_GAPS, planIndex, avoidGapsTexts)
+    return { question, gaps_text: picked.gaps_text, gaps_answers: picked.gaps_answers }
   }
 
   if (/дроб|числител|знаменател/.test(lower)) {
     question = `Заполните пропуски по теме «${topic}».`
-    return {
-      question,
-      gaps_text:
-        'Сумма $\\frac{2}{7} + \\frac{3}{7}$ равна $\\frac{___}{7}$. Числитель результата равен ___.',
-      gaps_answers: ['5', '5'],
-    }
+    const picked = pickFillGapsTemplate(FRACTION_FILL_GAPS, planIndex, avoidGapsTexts)
+    return { question, gaps_text: picked.gaps_text, gaps_answers: picked.gaps_answers }
   }
 
   const lead = plan.replace(/\.$/, '').slice(0, 120)
   question = fromPlan && !looksLikeBareTaskInstruction(fromPlan) ? fromPlan : `Заполните пропуски: ${lead}.`
+  const coef = 3 + ((planIndex * 2) % 7)
+  const sum = coef + 2
   return {
     question,
-    gaps_text: `${lead}: в выражении $2x + ___x$ пропущен коэффициент ___.`,
-    gaps_answers: ['3', '3'],
+    gaps_text: `По условию «${lead.slice(0, 80)}»: выражение $${coef}x + 2x$ равно ___$x$, коэффициент ___.`,
+    gaps_answers: [String(sum), String(sum)],
   }
+}
+
+export function collectFillGapsTextsFromBlocks(
+  blocks: { type: string; gapsText?: string; gapsSourceText?: string }[],
+): string[] {
+  return blocks
+    .filter((block) => block.type === 'fill_gaps')
+    .map((block) => normalizeWs(block.gapsText?.trim() || block.gapsSourceText?.trim() || ''))
+    .filter(Boolean)
 }
 
 /** Шаблонное fill_gaps из mock-генератора — не из файла и не по сюжету. */

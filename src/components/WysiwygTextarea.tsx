@@ -57,7 +57,7 @@ export function WysiwygTextarea({
       </div>
       <textarea
         ref={setTextareaRef}
-        className="math-editable-input ws-inline-textarea"
+        className="math-editable-input"
         rows={rows}
         value={value}
         maxLength={maxLength}

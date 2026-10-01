@@ -3,6 +3,7 @@ import {
   DEFAULT_ORDERING_QUESTION,
   DEFAULT_SHORT_ANSWER_QUESTION,
   containsMetaTaskDescription,
+  fillGapsPayloadFromPlanBrief,
   getBlockQuestion,
   looksLikeTheory,
   looksLikeAuthorPlanDescription,
@@ -143,6 +144,18 @@ describe('normalizeAiTask', () => {
     expect(task.gaps_text).toContain('___')
     expect(task.gaps_text).not.toMatch(/важно помнить/)
     expect(task.gaps_answers).not.toEqual(['правило', 'пример'])
+    expect(task.gaps_text).not.toMatch(/\$___/)
+  })
+
+  it('varies like-terms fill_gaps by plan index and avoids duplicates', () => {
+    const brief = 'Восстановление коэффициентов в записи приведения подобных слагаемых.'
+    const first = fillGapsPayloadFromPlanBrief(brief, 'Алгебра', { planIndex: 0 })
+    const second = fillGapsPayloadFromPlanBrief(brief, 'Алгебра', {
+      planIndex: 1,
+      avoidGapsTexts: [first.gaps_text],
+    })
+    expect(second.gaps_text).not.toBe(first.gaps_text)
+    expect(second.gaps_text).toContain('___')
   })
 })
 

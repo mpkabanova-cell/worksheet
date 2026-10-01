@@ -15,6 +15,8 @@ import {
   stripMetaTaskDescription,
   containsMetaTaskDescription,
   fillGapsPayloadFromPlanBrief,
+  collectFillGapsTextsFromBlocks,
+  normalizeWs,
   questionMatchesPlanBrief,
 } from './taskContent'
 import { gapsTextHasBlankMarkers, repairJsonLatexEscapes } from './mathTextUtils'
@@ -371,7 +373,10 @@ export function ensureWorksheetTaskBlocks(
         sanitized.type === 'fill_gaps' &&
         (isGenericTopicFillGaps(gapsText, sanitized.gapsAnswers) || !isValidFillGapsBlock(sanitized))
       ) {
-        const gaps = fillGapsPayloadFromPlanBrief(brief, draft.topic)
+        const gaps = fillGapsPayloadFromPlanBrief(brief, draft.topic, {
+          planIndex: i,
+          avoidGapsTexts: collectFillGapsTextsFromBlocks(result),
+        })
         sanitized = sanitizeBlock({
           ...sanitized,
           question: gaps.question,
@@ -426,15 +431,24 @@ export function repairWorksheetBlocksForDelivery(
 
     if (block.type === 'fill_gaps') {
       const gapsText = getGapsSourceText(block)
+      const usedGapsTexts = collectFillGapsTextsFromBlocks(result)
+      const duplicateGaps =
+        Boolean(gapsText.trim()) &&
+        usedGapsTexts.includes(normalizeWs(gapsText))
       const needsGapsFix =
         !isValidFillGapsBlock(block) ||
         isGenericTopicFillGaps(gapsText, block.gapsAnswers) ||
+        duplicateGaps ||
         (!gapsTextHasBlankMarkers(gapsText) && !(block.gapsAnswers?.length ?? 0))
+      const fillGapsOptions = {
+        planIndex: i,
+        avoidGapsTexts: usedGapsTexts,
+      }
       if (needsGapsFix) {
         if (refContent) {
           block = buildFillGapsFallbackBlock(block, refContent, brief, anchors)
         } else {
-          const gaps = fillGapsPayloadFromPlanBrief(brief, draft.topic)
+          const gaps = fillGapsPayloadFromPlanBrief(brief, draft.topic, fillGapsOptions)
           block = {
             ...block,
             question: gaps.question,
@@ -447,7 +461,7 @@ export function repairWorksheetBlocksForDelivery(
         (questionMatchesPlanBrief(block.question || '', brief) ||
           looksLikeAuthorPlanDescription(block.question || ''))
       ) {
-        const gaps = fillGapsPayloadFromPlanBrief(brief, draft.topic)
+        const gaps = fillGapsPayloadFromPlanBrief(brief, draft.topic, fillGapsOptions)
         block = { ...block, question: gaps.question }
       }
     } else if (looksLikeAuthorPlanDescription(block.question || '') && refContent) {

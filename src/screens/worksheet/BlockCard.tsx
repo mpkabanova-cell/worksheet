@@ -294,8 +294,12 @@ export function BlockCard({
                 {isEditing && editingQuestion ? (
                   <WysiwygTextarea
                     className="ws-inline-textarea"
-                    rows={1}
-                    value={showsQuestionPlaceholder ? '' : (block.question ?? question)}
+                    rows={3}
+                    value={
+                      showsQuestionPlaceholder
+                        ? ''
+                        : (block.question?.trim() ? block.question : question)
+                    }
                     maxLength={questionMaxLength}
                     placeholder={questionPlaceholder}
                     floatingToolbar
