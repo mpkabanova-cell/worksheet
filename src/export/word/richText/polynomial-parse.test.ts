@@ -56,4 +56,13 @@ describe('polynomial question export', () => {
       expect(mathSegments[0].value).toBe(tex)
     }
   })
+
+  it('parses markdown bold for portal and PDF', () => {
+    const segments = parseContent('Кот спит на **коврике**.')
+    const bold = segments.find((s) => s.kind === 'text' && s.bold)
+    expect(bold?.kind).toBe('text')
+    if (bold?.kind === 'text') {
+      expect(bold.value).toBe('коврике')
+    }
+  })
 })

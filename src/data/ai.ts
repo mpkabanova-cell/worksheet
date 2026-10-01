@@ -397,7 +397,7 @@ export function ensureWorksheetTaskBlocks(
 /** Детерминированная починка перед финальной проверкой; лист всё равно выдаётся ученику. */
 export function repairWorksheetBlocksForDelivery(
   blocks: WorksheetBlock[],
-  plan: PlanTask[],
+  _plan: PlanTask[],
   draft: WorksheetDraft,
   refContent: string | null | undefined,
   planBriefs: string[],
