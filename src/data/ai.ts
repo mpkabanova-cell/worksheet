@@ -1,5 +1,5 @@
 import type { PlanTask, TaskType, WorksheetBlock, WorksheetDraft } from './worksheet'
-import { createPlan, uid } from './worksheet'
+import { uid } from './worksheet'
 import { chatJson, AiError, isAiUnavailable } from './aiClient'
 import {
   generateWorksheet as mockGenerate,
