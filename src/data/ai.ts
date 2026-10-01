@@ -7,7 +7,16 @@ import {
 } from './generator'
 import { promptsForPlan, promptsForSingleTask, promptsForWorksheet } from './aiPrompts'
 import { sanitizeBlock, clampAnswerHeight, defaultAnswerHeight, defaultAnswerStyle, groupsToTableFields, createDefaultGroupingTableFields, getGapsSourceText, isValidFillGapsBlock } from './blockUtils'
-import { expectationToQuestion, looksLikeAuthorPlanDescription, isGenericTopicFillGaps, normalizeAiTask, stripMetaTaskDescription, containsMetaTaskDescription } from './taskContent'
+import {
+  expectationToQuestion,
+  looksLikeAuthorPlanDescription,
+  isGenericTopicFillGaps,
+  normalizeAiTask,
+  stripMetaTaskDescription,
+  containsMetaTaskDescription,
+  fillGapsPayloadFromPlanBrief,
+  questionMatchesPlanBrief,
+} from './taskContent'
 import { gapsTextHasBlankMarkers, repairJsonLatexEscapes } from './mathTextUtils'
 import {
   blockQuestionIssues,
@@ -361,9 +370,13 @@ export function ensureWorksheetTaskBlocks(
         sanitized.type === 'fill_gaps' &&
         (isGenericTopicFillGaps(gapsText, sanitized.gapsAnswers) || !isValidFillGapsBlock(sanitized))
       ) {
-        sanitized = sanitizeBlock(
-          mockBlockForPlanIndex(draft, result, planItem, brief, refContent, anchors),
-        )
+        const gaps = fillGapsPayloadFromPlanBrief(brief, draft.topic)
+        sanitized = sanitizeBlock({
+          ...sanitized,
+          question: gaps.question,
+          gapsText: gaps.gaps_text,
+          gapsAnswers: gaps.gaps_answers,
+        })
       } else if (
         looksLikeAuthorPlanDescription(sanitized.question || '') ||
         containsMetaTaskDescription(sanitized.question || '')
@@ -418,9 +431,24 @@ export function repairWorksheetBlocksForDelivery(
         isGenericTopicFillGaps(gapsText, block.gapsAnswers) ||
         (!gapsTextHasBlankMarkers(gapsText) && !(block.gapsAnswers?.length ?? 0))
       if (needsGapsFix) {
-        block = refContent
-          ? buildFillGapsFallbackBlock(block, refContent, brief, anchors)
-          : mockBlockForPlanIndex(draft, result, planItem, brief, refContent, anchors)
+        if (refContent) {
+          block = buildFillGapsFallbackBlock(block, refContent, brief, anchors)
+        } else {
+          const gaps = fillGapsPayloadFromPlanBrief(brief, draft.topic)
+          block = {
+            ...block,
+            question: gaps.question,
+            gapsText: gaps.gaps_text,
+            gapsAnswers: gaps.gaps_answers,
+          }
+        }
+      } else if (
+        brief &&
+        (questionMatchesPlanBrief(block.question || '', brief) ||
+          looksLikeAuthorPlanDescription(block.question || ''))
+      ) {
+        const gaps = fillGapsPayloadFromPlanBrief(brief, draft.topic)
+        block = { ...block, question: gaps.question }
       }
     } else if (looksLikeAuthorPlanDescription(block.question || '') && refContent) {
       block = enrichBlockFromReference(block, refContent, brief)
@@ -456,7 +484,7 @@ function toBlock(
   }
 
   const planBrief = planItem ? planGenerationBrief(planItem) : undefined
-  const normalized = normalizeAiTask(task, type, planBrief)
+  const normalized = normalizeAiTask(task, type, planBrief, draft.topic)
   const optionTexts = normalized.options?.length ? normalized.options : task.options ?? []
   const options = optionTexts.map((text, i) => ({
     id: `option_${i + 1}`,
@@ -516,7 +544,7 @@ function toBlock(
     answerAreaStyle:
       type === 'short_answer' || type === 'extended_answer' ? answerStyle : undefined,
     gapsText: normalized.gaps_text ? sanitizeAiText(normalized.gaps_text) : normalized.gaps_text,
-    gapsAnswers: task.gaps_answers?.map(sanitizeAiText),
+    gapsAnswers: (normalized.gaps_answers ?? task.gaps_answers)?.map(sanitizeAiText),
     leftItems,
     rightItems,
     matchingPairCount,

@@ -5,6 +5,7 @@ export interface AiTaskFields {
   type?: TaskType | string
   question?: string
   gaps_text?: string
+  gaps_answers?: string[]
   left_items?: string[]
   right_items?: string[]
   options?: string[]
@@ -49,8 +50,73 @@ export function looksLikeAuthorPlanDescription(text: string): boolean {
   if (/с записью полного хода решения/i.test(value)) return true
   if (/ожидается\s+подробн/i.test(value)) return true
   if (/^восстановление\s+пропущенных\s+числовых\s+данных/i.test(value)) return true
+  if (/^восстановление\s+/i.test(value) && !hasGapMarker(value) && !/\?\s*$/.test(value)) return true
+  if (/^закрепление\s+/i.test(value) && value.length <= 280 && !hasGapMarker(value)) return true
+  if (/^формирование\s+/i.test(value) && value.length <= 280 && !hasGapMarker(value)) return true
   if (/^[^.\n]{10,180},\s*требующ/i.test(value)) return true
   return false
+}
+
+export function questionMatchesPlanBrief(question: string, brief: string): boolean {
+  const q = normalizeWs(question)
+  const b = normalizeWs(brief)
+  if (!q || !b) return false
+  if (q === b) return true
+  if (b.startsWith(q) || q.startsWith(b)) return Math.min(q.length, b.length) >= 24
+  return false
+}
+
+export function fillGapsPayloadFromPlanBrief(
+  brief: string,
+  sheetTopic: string,
+): { question: string; gaps_text: string; gaps_answers: string[] } {
+  const plan = brief.trim()
+  const topic = sheetTopic.trim() || 'тема'
+  const fromPlan = expectationToQuestion(plan)
+  const lower = `${plan} ${topic}`.toLowerCase()
+
+  let question =
+    fromPlan && !looksLikeAuthorPlanDescription(fromPlan)
+      ? fromPlan
+      : `Заполните пропуски по заданию.`
+
+  if (/подобн|коэффициент|слагаем/.test(lower)) {
+    question = 'Заполните пропуски, восстановив коэффициенты при приведении подобных слагаемых.'
+    return {
+      question,
+      gaps_text:
+        'Сумму $7x + 2x$ можно записать как $___x$. Числовой коэффициент при $x$ в этой сумме равен ___.',
+      gaps_answers: ['9', '9'],
+    }
+  }
+
+  if (/одночлен|многочлен|моном/.test(lower)) {
+    question = `Заполните пропуски по теме «${topic}».`
+    return {
+      question,
+      gaps_text:
+        'В одночлене $4a^2b$ коэффициент равен ___. Сумма показателей степени в $4a^2b$ равна ___.',
+      gaps_answers: ['4', '3'],
+    }
+  }
+
+  if (/дроб|числител|знаменател/.test(lower)) {
+    question = `Заполните пропуски по теме «${topic}».`
+    return {
+      question,
+      gaps_text:
+        'Сумма $\\frac{2}{7} + \\frac{3}{7}$ равна $\\frac{___}{7}$. Числитель результата равен ___.',
+      gaps_answers: ['5', '5'],
+    }
+  }
+
+  const lead = plan.replace(/\.$/, '').slice(0, 120)
+  question = fromPlan && !looksLikeBareTaskInstruction(fromPlan) ? fromPlan : `Заполните пропуски: ${lead}.`
+  return {
+    question,
+    gaps_text: `${lead}: в выражении $2x + ___x$ пропущен коэффициент ___.`,
+    gaps_answers: ['3', '3'],
+  }
 }
 
 /** Шаблонное fill_gaps из mock-генератора — не из файла и не по сюжету. */
@@ -257,13 +323,33 @@ function sanitizeTaskTextFields<T extends AiTaskFields>(task: T): T {
 function normalizeFillGapsTask<T extends AiTaskFields>(
   task: T,
   expectation?: string,
+  sheetTopic?: string,
 ): T {
   let question = (task.question ?? '').trim()
-  const gapsText = (task.gaps_text ?? '').trim()
+  let gapsText = (task.gaps_text ?? '').trim()
+  let gapsAnswers = task.gaps_answers
   const defaultQuestion = defaultQuestionForTaskType('fill_gaps', expectation)
+  const brief = expectation?.trim() ?? ''
 
   if (!question) {
     question = defaultQuestion
+  }
+
+  if (brief && (questionMatchesPlanBrief(question, brief) || looksLikeAuthorPlanDescription(question))) {
+    question = defaultQuestion
+  }
+
+  if (isGenericTopicFillGaps(gapsText, gapsAnswers)) {
+    const built = fillGapsPayloadFromPlanBrief(brief || question, sheetTopic ?? '')
+    gapsText = built.gaps_text
+    gapsAnswers = built.gaps_answers
+    if (
+      !question ||
+      questionMatchesPlanBrief(question, brief) ||
+      looksLikeAuthorPlanDescription(question)
+    ) {
+      question = built.question
+    }
   }
 
   if (gapsText) {
@@ -281,7 +367,7 @@ function normalizeFillGapsTask<T extends AiTaskFields>(
 
   question = finalizeQuestionText(question, 'fill_gaps', expectation)
 
-  return { ...task, question, gaps_text: gapsText }
+  return { ...task, question, gaps_text: gapsText, gaps_answers: gapsAnswers }
 }
 
 function finalizeQuestionText(question: string, type: TaskType, expectation?: string): string {
@@ -325,12 +411,13 @@ export function normalizeAiTask<T extends AiTaskFields>(
   task: T,
   type: TaskType,
   expectation?: string,
+  sheetTopic?: string,
 ): T {
   const sanitized = sanitizeTaskTextFields(task)
 
   switch (type) {
     case 'fill_gaps':
-      return normalizeFillGapsTask(sanitized, expectation)
+      return normalizeFillGapsTask(sanitized, expectation, sheetTopic)
     case 'matching':
       return normalizeMatchingTask(sanitized, expectation)
     case 'grouping':

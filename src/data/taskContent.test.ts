@@ -91,6 +91,14 @@ describe('looksLikeAuthorPlanDescription', () => {
       ),
     ).toBe(false)
   })
+
+  it('flags plan-style «Восстановление коэффициентов…» as author description', () => {
+    expect(
+      looksLikeAuthorPlanDescription(
+        'Восстановление коэффициентов в записи приведения подобных слагаемых.',
+      ),
+    ).toBe(true)
+  })
 })
 
 describe('normalizeAiTask', () => {
@@ -116,6 +124,25 @@ describe('normalizeAiTask', () => {
   it('fills empty ordering question from plan expectation', () => {
     const task = normalizeAiTask({ question: '' }, 'ordering', 'Упорядочить шаги решения')
     expect(task.question).toBe('Упорядочьте шаги решения')
+  })
+
+  it('replaces generic fill_gaps and plan description in question', () => {
+    const brief = 'Восстановление коэффициентов в записи приведения подобных слагаемых.'
+    const task = normalizeAiTask(
+      {
+        question: brief,
+        gaps_text:
+          'По теме «Сложение одночленов» важно помнить: ___ — это основа, а ___ помогает проверить результат.',
+        gaps_answers: ['правило', 'пример'],
+      },
+      'fill_gaps',
+      brief,
+      'Сложение одночленов',
+    )
+    expect(task.question).toContain('подобных')
+    expect(task.gaps_text).toContain('___')
+    expect(task.gaps_text).not.toMatch(/важно помнить/)
+    expect(task.gaps_answers).not.toEqual(['правило', 'пример'])
   })
 })
 

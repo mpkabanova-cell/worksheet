@@ -2,7 +2,7 @@ import type { DifficultyMode, PlanTask, TaskType, WorksheetBlock, WorksheetDraft
 import { labelForType, uid } from './worksheet'
 import { resizePlanToTaskCount } from './taskPlanOrchestration'
 import { createDefaultGroupingTableFields, defaultAnswerHeight, defaultAnswerStyle, groupsToTableFields } from './blockUtils'
-import { expectationToQuestion } from './taskContent'
+import { expectationToQuestion, fillGapsPayloadFromPlanBrief } from './taskContent'
 import { fromSpecMechanic, normalizeDifficultyMode, planDifficultyToStars } from './planMechanics'
 
 function starsForIndex(i: number, mode: DifficultyMode, total: number): 1 | 2 | 3 {
@@ -77,15 +77,16 @@ function blockForType(
         choiceOptionCount: 4,
         choiceShuffle: false,
       }
-    case 'fill_gaps':
+    case 'fill_gaps': {
+      const gaps = fillGapsPayloadFromPlanBrief(expectation, topic)
       return {
         ...base,
         instruction: '',
-        question:
-          expectationToQuestion(expectation) || `Заполните пропуски по теме «${topic}».`,
-        gapsText: `По теме «${topic}» важно помнить: ___ — это основа, а ___ помогает проверить результат.`,
-        gapsAnswers: ['правило', 'пример'],
+        question: gaps.question,
+        gapsText: gaps.gaps_text,
+        gapsAnswers: gaps.gaps_answers,
       }
+    }
     case 'matching':
       return {
         ...base,
