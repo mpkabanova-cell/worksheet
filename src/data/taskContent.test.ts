@@ -38,6 +38,11 @@ describe('stripTheoryFromField', () => {
       'Множество рациональных чисел обозначается буквой Q. Любое целое число можно представить в виде дроби со знаменателем 1.'
     expect(stripTheoryFromField(text)).toBe('')
   })
+
+  it('keeps choice option text with «неправильной» (not theory)', () => {
+    const text = 'В переписывании неправильной дроби в смешанную (Шаг 3)'
+    expect(stripTheoryFromField(text)).toBe(text)
+  })
 })
 
 describe('stripLeadingTheoryFromGaps', () => {

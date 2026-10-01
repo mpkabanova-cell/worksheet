@@ -248,7 +248,7 @@ export function ChoiceOptionsView({
         return (
           <label key={opt.id} className="option option--text">
             <ChoiceMarker block={block} correct={showCorrectUi} />
-            <MathText text={opt.text} />
+            <MathText text={opt.text?.trim() ? opt.text : 'Ответ'} />
           </label>
         )
       })}

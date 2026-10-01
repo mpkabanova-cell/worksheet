@@ -457,7 +457,8 @@ function toBlock(
 
   const planBrief = planItem ? planGenerationBrief(planItem) : undefined
   const normalized = normalizeAiTask(task, type, planBrief)
-  const options = (task.options ?? []).map((text, i) => ({
+  const optionTexts = normalized.options?.length ? normalized.options : task.options ?? []
+  const options = optionTexts.map((text, i) => ({
     id: `option_${i + 1}`,
     text: sanitizeAiText(text),
   }))

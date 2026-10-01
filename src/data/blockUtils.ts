@@ -348,12 +348,22 @@ function resolveBlockQuestion(block: WorksheetBlock): WorksheetBlock {
 
 /** Приводит блок к безопасному виду после ответа модели (защита от падения UI). */
 export function sanitizeBlock(block: WorksheetBlock): WorksheetBlock {
-  const baseOptions = block.options?.map((option, index) => ({
-    id: option.id || `option_${index + 1}`,
-    text: clampText(stripTheoryFromField(asText(option.text) ?? ''), CHOICE_OPTION_MAX),
-    imageData: option.imageData,
-    imageFileName: asText(option.imageFileName),
-  }))
+  const baseOptions = block.options?.map((option, index) => {
+    const rawText = asText(option.text) ?? ''
+    let text = clampText(stripTheoryFromField(rawText), CHOICE_OPTION_MAX)
+    if (!text.trim() && rawText.trim()) {
+      text = clampText(rawText, CHOICE_OPTION_MAX)
+    }
+    if (!text.trim()) {
+      text = defaultChoiceOptionText(index)
+    }
+    return {
+      id: option.id || `option_${index + 1}`,
+      text,
+      imageData: option.imageData,
+      imageFileName: asText(option.imageFileName),
+    }
+  })
 
   const choiceExtras = isChoiceBlock(block)
     ? (() => {
