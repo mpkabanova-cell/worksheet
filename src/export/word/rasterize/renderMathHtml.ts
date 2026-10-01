@@ -1,11 +1,8 @@
 import katex from 'katex'
 import katexCss from 'katex/dist/katex.min.css?inline'
-import {
-  needsDoubleCellHeight,
-  preprocessMathText,
-  texForCellsLayout,
-} from '@/data/mathTextUtils'
+import { needsDoubleCellHeight, texForCellsLayout } from '@/data/mathTextUtils'
 import { FONT_MATH_CSS, resolveTextColorCss } from '@/export/word/layoutTokens'
+import { parseContent, type ContentSegment } from '@/export/word/richText/parseRichText'
 
 let katexStyleNode: HTMLStyleElement | null = null
 
@@ -99,9 +96,54 @@ function appendKatexSegment(
   parent.appendChild(span)
 }
 
-function appendPreparedMathText(
+function appendStyledTextSegment(
   parent: HTMLElement,
-  prepared: string,
+  segment: ContentSegment & { kind: 'text' },
+): void {
+  if (!segment.value) return
+
+  let node: HTMLElement | Text
+  if (segment.bold || segment.italic || segment.strike || segment.code || segment.underline) {
+    node = document.createElement('span')
+    let inner: HTMLElement = node
+    if (segment.code) {
+      const code = document.createElement('code')
+      inner.appendChild(code)
+      inner = code
+    }
+    if (segment.underline) {
+      const u = document.createElement('u')
+      u.style.textDecoration = 'underline'
+      u.style.textUnderlineOffset = '2px'
+      inner.appendChild(u)
+      inner = u
+    }
+    if (segment.strike) {
+      const s = document.createElement('s')
+      inner.appendChild(s)
+      inner = s
+    }
+    if (segment.italic) {
+      const em = document.createElement('em')
+      inner.appendChild(em)
+      inner = em
+    }
+    if (segment.bold) {
+      const strong = document.createElement('strong')
+      inner.appendChild(strong)
+      inner = strong
+    }
+    inner.appendChild(document.createTextNode(segment.value))
+  } else {
+    node = document.createTextNode(segment.value)
+  }
+
+  parent.appendChild(node)
+}
+
+function appendContentSegments(
+  parent: HTMLElement,
+  segments: ContentSegment[],
   options: MathHtmlOptions,
 ): HTMLElement {
   const cellSize = options.cellSize ?? options.lineHeight ?? 16
@@ -113,24 +155,23 @@ function appendPreparedMathText(
   container.style.lineHeight = `${options.cellsLayout ? cellSize : (options.lineHeight ?? 20)}px`
   container.style.color = color
 
-  const re = /\$\$([\s\S]+?)\$\$|\$([^$\n]+?)\$/g
-  let last = 0
-  let match: RegExpExecArray | null
-
-  while ((match = re.exec(prepared)) !== null) {
-    if (match.index > last) {
-      appendPlainTextWithGapsMarkup(container, prepared.slice(last, match.index))
+  for (const segment of segments) {
+    if (segment.kind === 'break') {
+      container.appendChild(document.createElement('br'))
+      continue
     }
-    const display = match[1] != null
-    const rawTex = (display ? match[1] : match[2] ?? '').trim()
-    if (rawTex) {
-      appendKatexSegment(container, rawTex, display, options)
+    if (segment.kind === 'math') {
+      const rawTex = segment.value.trim()
+      if (rawTex) {
+        appendKatexSegment(container, rawTex, segment.display, options)
+      }
+      continue
     }
-    last = match.index + match[0].length
-  }
-
-  if (last < prepared.length) {
-    appendPlainTextWithGapsMarkup(container, prepared.slice(last))
+    if (segment.underline && !segment.bold && !segment.italic && !segment.strike && !segment.code) {
+      appendPlainTextWithGapsMarkup(container, `<u>${segment.value}</u>`)
+      continue
+    }
+    appendStyledTextSegment(container, segment)
   }
 
   parent.appendChild(container)
@@ -138,8 +179,8 @@ function appendPreparedMathText(
 }
 
 export function appendMathText(parent: HTMLElement, text: string, options: MathHtmlOptions = {}): HTMLElement {
-  const prepared = preprocessMathText(text)
-  return appendPreparedMathText(parent, prepared, options)
+  const segments = parseContent(text)
+  return appendContentSegments(parent, segments, options)
 }
 
 /** fill_gaps: same pipeline as portal MathText (preprocess + $…$ + `<u>` answers). */

@@ -407,7 +407,6 @@ export function repairWorksheetBlocksForDelivery(
   for (let i = 0; i < blocks.length; i++) {
     let block = blocks[i]!
     const brief = planBriefs[i] ?? ''
-    const planItem = plan[i]!
     const anchors = collectAnchorTasks([...result, ...blocks.slice(i + 1)], planBriefs, {
       skipBlockIndex: i,
     })
