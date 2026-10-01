@@ -124,6 +124,28 @@ describe('generatePlanAI task_count safety net', () => {
     expect(plan[1].description).toContain('утверждение')
   })
 
+  it('fills descriptions for mechanics-only plan when model omits description', async () => {
+    vi.mocked(chatJson).mockResolvedValue({
+      task_plan: [
+        { type: 'input', user_description: null, description: null, difficulty: 'basic' },
+        { type: 'single_choice', user_description: null, description: null, difficulty: 'medium' },
+      ],
+    })
+
+    const taskPlan = createPlan(2)
+    taskPlan[0].type = 'input'
+    taskPlan[1].type = 'single_choice'
+    taskPlan[0].userDescription = ''
+    taskPlan[1].userDescription = ''
+    const draft = { ...filledCreateDraft(), taskCount: 2, taskPlan, topic: 'Падежи' }
+
+    const plan = await generatePlanAI(draft)
+    expect(plan[0].type).toBe('input')
+    expect(plan[1].type).toBe('single_choice')
+    expect(plan[0].description?.trim()).toBeTruthy()
+    expect(plan[1].description?.trim()).toBeTruthy()
+  })
+
   it('preserves preselected plan type when planner returns another mechanic', async () => {
     vi.mocked(chatJson).mockResolvedValue({
       task_plan: [

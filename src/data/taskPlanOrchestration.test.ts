@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createPlan } from './worksheet'
 import {
+  fillMissingPlanDescriptions,
   invalidateDescriptions,
   planNeedsPlanner,
   planRowToSpec,
@@ -130,6 +131,34 @@ describe('invalidateDescriptions', () => {
     expect(invalidated[0].description).toBe('d0')
     expect(invalidated[1].description).toBe('d1')
     expect(invalidated[2].description).toBeNull()
+  })
+})
+
+describe('fillMissingPlanDescriptions', () => {
+  it('keeps user mechanics and fills description when empty', () => {
+    const plan = createPlan(3)
+    plan[0].type = 'input'
+    plan[1].type = 'single_choice'
+    plan[2].type = 'fill_gaps'
+    plan.forEach((row) => {
+      row.userDescription = ''
+      row.description = null
+    })
+
+    const draft = {
+      subject: 'Русский язык',
+      grade: '5',
+      topic: 'Падежи',
+      taskCount: 3,
+      taskPlan: plan,
+    } as import('./worksheet').WorksheetDraft
+
+    const filled = fillMissingPlanDescriptions(plan, draft)
+    expect(filled[0].type).toBe('input')
+    expect(filled[1].type).toBe('single_choice')
+    expect(filled[2].type).toBe('fill_gaps')
+    expect(filled.every((row) => row.description?.trim())).toBe(true)
+    expect(filled[1].description).toContain('Один вариант ответа')
   })
 })
 

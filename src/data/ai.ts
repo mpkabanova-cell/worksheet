@@ -49,6 +49,7 @@ import {
   toSpecMechanic,
 } from './planMechanics'
 import {
+  fillMissingPlanDescriptions,
   preparePlanForGeneration,
   resizePlanToTaskCount,
   withGenerationBaseline,
@@ -660,7 +661,7 @@ export async function generatePlanAIWithMeta(
       }
     }
 
-    const plan = rowsToPlan(rows, workingDraft)
+    const plan = fillMissingPlanDescriptions(rowsToPlan(rows, workingDraft), workingDraft)
     const meta: PlanGenerationMeta = validationIssues.length
       ? { source: 'ai_with_validation_warnings', validationIssues }
       : { source: 'ai' }
@@ -675,7 +676,10 @@ export async function generatePlanAIWithMeta(
         }
       }
       return {
-        plan: createPlan(workingDraft.taskCount),
+        plan: fillMissingPlanDescriptions(
+          resizePlanToTaskCount(workingDraft.taskPlan, workingDraft.taskCount),
+          workingDraft,
+        ),
         meta: { source: 'fallback_no_api' },
       }
     }

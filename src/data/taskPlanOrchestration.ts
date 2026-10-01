@@ -1,6 +1,11 @@
 import type { DifficultyMode, PlanItemDifficulty, PlanTask, WorksheetDraft } from './worksheet'
 import { sourceContentForDraft } from './contextFile'
-import { normalizeDifficultyMode, defaultSpecMechanicForPlanIndex, type SpecMechanic } from './planMechanics'
+import {
+  labelForSpecMechanic,
+  normalizeDifficultyMode,
+  defaultSpecMechanicForPlanIndex,
+  type SpecMechanic,
+} from './planMechanics'
 
 export interface SpecTaskPlanRow {
   type: SpecMechanic | null
@@ -124,6 +129,35 @@ export function invalidateDescriptions(
 
 export function planNeedsPlanner(plan: PlanTask[]): boolean {
   return plan.some((row) => !row.description?.trim())
+}
+
+function descriptionForEmptyPlanRow(
+  row: PlanTask,
+  draft: WorksheetDraft,
+  index: number,
+): string {
+  const hint = row.userDescription?.trim()
+  if (hint) {
+    return `${hint}. Самостоятельное задание с полным условием для ученика.`.slice(0, 2000)
+  }
+  const topic = draft.topic.trim() || 'тема'
+  const mechanicLabel = row.type ? labelForSpecMechanic(row.type) : 'Задание'
+  return `${mechanicLabel} по теме «${topic}» (пункт ${index + 1}). Самостоятельное задание с полным условием для ученика.`.slice(
+    0,
+    2000,
+  )
+}
+
+/** Дописывает description/user_description, сохраняя type и порядок (если планировщик не заполнил). */
+export function fillMissingPlanDescriptions(plan: PlanTask[], draft: WorksheetDraft): PlanTask[] {
+  return plan.map((row, index) => {
+    if (row.description?.trim()) return row
+    const description = descriptionForEmptyPlanRow(row, draft, index)
+    const userDescription =
+      row.userDescription?.trim() ||
+      (description.length <= 100 ? description : `${description.slice(0, 97).trim()}…`)
+    return { ...row, description, userDescription }
+  })
 }
 
 export function saveGenerationBaseline(draft: WorksheetDraft, plan: PlanTask[]): GenerationBaseline {
