@@ -1,12 +1,30 @@
 import { describe, expect, it } from 'vitest'
 import type { AiTaskPayload } from './ai'
 import {
+  blockingSelfSufficiencyIssues,
   validatePlanIndependence,
   validateTaskIndependence,
   validateTaskSelfSufficiency,
   validateWorksheetPipeline,
   taskSelfSufficiencyIssues,
 } from './taskIndependence'
+
+describe('blockingSelfSufficiencyIssues', () => {
+  it('treats cross-refs and meta description as blocking', () => {
+    const issues = [
+      'Задание 1: отсылка к другим заданиям, reference_file или тексту листа',
+      'Задание 2: question слишком короткое — нет полного условия с данными',
+    ]
+    const blocking = blockingSelfSufficiencyIssues(issues)
+    expect(blocking).toHaveLength(1)
+    expect(blocking[0]).toMatch(/отсылка/)
+  })
+
+  it('does not block short-question warnings', () => {
+    const issues = ['Задание 1: ordering без полного условия задачи в question']
+    expect(blockingSelfSufficiencyIssues(issues)).toEqual([])
+  })
+})
 
 describe('validatePlanIndependence', () => {
   it('flags repeated cave story in plan', () => {

@@ -6,8 +6,8 @@ import {
   generateSingleTask as mockSingle,
 } from './generator'
 import { promptsForPlan, promptsForSingleTask, promptsForWorksheet } from './aiPrompts'
-import { sanitizeBlock, clampAnswerHeight, defaultAnswerHeight, defaultAnswerStyle, groupsToTableFields, createDefaultGroupingTableFields, getGapsSourceText, getGapsStudentText, isValidFillGapsBlock } from './blockUtils'
-import { expectationToQuestion, looksLikeAuthorPlanDescription, isGenericTopicFillGaps, normalizeAiTask } from './taskContent'
+import { sanitizeBlock, clampAnswerHeight, defaultAnswerHeight, defaultAnswerStyle, groupsToTableFields, createDefaultGroupingTableFields, getGapsSourceText, isValidFillGapsBlock } from './blockUtils'
+import { expectationToQuestion, looksLikeAuthorPlanDescription, isGenericTopicFillGaps, normalizeAiTask, stripMetaTaskDescription, containsMetaTaskDescription } from './taskContent'
 import { gapsTextHasBlankMarkers, repairJsonLatexEscapes } from './mathTextUtils'
 import {
   blockQuestionIssues,
@@ -355,9 +355,85 @@ export function ensureWorksheetTaskBlocks(
       ) {
         sanitized = sanitizeBlock(enrichBlockFromReference(sanitized, refContent, brief))
       }
+    } else {
+      const gapsText = getGapsSourceText(sanitized)
+      if (
+        sanitized.type === 'fill_gaps' &&
+        (isGenericTopicFillGaps(gapsText, sanitized.gapsAnswers) || !isValidFillGapsBlock(sanitized))
+      ) {
+        sanitized = sanitizeBlock(
+          mockBlockForPlanIndex(draft, result, planItem, brief, refContent, anchors),
+        )
+      } else if (
+        looksLikeAuthorPlanDescription(sanitized.question || '') ||
+        containsMetaTaskDescription(sanitized.question || '')
+      ) {
+        const q = expectationToQuestion(brief) || fallbackPlanExpectation(draft, i)
+        if (q.trim()) {
+          sanitized = sanitizeBlock({ ...sanitized, question: q })
+        }
+      }
     }
 
     result.push(sanitized)
+  }
+
+  return result
+}
+
+/** Детерминированная починка перед финальной проверкой; лист всё равно выдаётся ученику. */
+export function repairWorksheetBlocksForDelivery(
+  blocks: WorksheetBlock[],
+  plan: PlanTask[],
+  draft: WorksheetDraft,
+  refContent: string | null | undefined,
+  planBriefs: string[],
+): WorksheetBlock[] {
+  const result: WorksheetBlock[] = []
+
+  for (let i = 0; i < blocks.length; i++) {
+    let block = blocks[i]!
+    const brief = planBriefs[i] ?? ''
+    const planItem = plan[i]!
+    const anchors = collectAnchorTasks([...result, ...blocks.slice(i + 1)], planBriefs, {
+      skipBlockIndex: i,
+    })
+
+    const rawQuestion = block.question?.trim() ?? ''
+    if (rawQuestion) {
+      let question = stripMetaTaskDescription(rawQuestion)
+      if (containsMetaTaskDescription(question) || looksLikeAuthorPlanDescription(question)) {
+        question =
+          expectationToQuestion(brief) || fallbackPlanExpectation(draft, i) || 'Решите задачу по условию.'
+      }
+      if (question !== block.question) {
+        block = { ...block, question }
+      }
+    }
+
+    if (block.type === 'fill_gaps') {
+      const gapsText = getGapsSourceText(block)
+      const needsGapsFix =
+        !isValidFillGapsBlock(block) ||
+        isGenericTopicFillGaps(gapsText, block.gapsAnswers) ||
+        (!gapsTextHasBlankMarkers(gapsText) && !(block.gapsAnswers?.length ?? 0))
+      if (needsGapsFix) {
+        block = refContent
+          ? buildFillGapsFallbackBlock(block, refContent, brief, anchors)
+          : mockBlockForPlanIndex(draft, result, planItem, brief, refContent, anchors)
+      }
+    } else if (looksLikeAuthorPlanDescription(block.question || '') && refContent) {
+      block = enrichBlockFromReference(block, refContent, brief)
+    }
+
+    block = trimReferenceDumpFromBlock(block)
+    result.push(
+      sanitizeBlock({
+        ...block,
+        id: block.id,
+        title: block.title ?? `Задание ${i + 1}`,
+      }),
+    )
   }
 
   return result
@@ -591,7 +667,7 @@ function blockNeedsRepair(block: WorksheetBlock, planBrief?: string): boolean {
 function blockToAiPayload(block: WorksheetBlock): AiTaskPayload {
   const gapsText =
     block.type === 'fill_gaps'
-      ? getGapsStudentText(block).trim() || getGapsSourceText(block).trim() || block.gapsText?.trim()
+      ? getGapsSourceText(block).trim() || block.gapsText?.trim() || block.gapsSourceText?.trim()
       : block.gapsText?.trim() ||
         (block.gapsSourceText?.trim() && gapsTextHasBlankMarkers(block.gapsSourceText)
           ? block.gapsSourceText
@@ -812,6 +888,7 @@ export async function generateWorksheetAI(
     }
 
     blocks = ensureWorksheetTaskBlocks(blocks, plan, prepared, refContent, planBriefs)
+    blocks = repairWorksheetBlocksForDelivery(blocks, plan, prepared, refContent, planBriefs)
 
     if (!options?.skipFinalSelfSufficiencyGate) {
       let finalIssues = collectWorksheetValidationIssues(blocks, planBriefs)
@@ -833,11 +910,13 @@ export async function generateWorksheetAI(
           }
         }
         blocks = ensureWorksheetTaskBlocks(blocks, plan, prepared, refContent, planBriefs)
+        blocks = repairWorksheetBlocksForDelivery(blocks, plan, prepared, refContent, planBriefs)
         finalIssues = collectWorksheetValidationIssues(blocks, planBriefs)
         const blocking = blockingSelfSufficiencyIssues(finalIssues)
         if (blocking.length) {
-          throw new AiError(
-            `Лист не прошёл проверку самодостаточности заданий: ${blocking.slice(0, 4).join('; ')}`,
+          console.warn(
+            '[generateWorksheetAI] самодостаточность (лист всё равно выдан):',
+            blocking.slice(0, 4).join('; '),
           )
         }
         if (finalIssues.length) {

@@ -1,7 +1,23 @@
 import { describe, expect, it } from 'vitest'
 import { createPlan, filledCreateDraft } from './worksheet'
-import { countWorksheetTaskBlocks, ensureWorksheetTaskBlocks, templateToBlocks } from './ai'
+import {
+  countWorksheetTaskBlocks,
+  ensureWorksheetTaskBlocks,
+  repairWorksheetBlocksForDelivery,
+  templateToBlocks,
+} from './ai'
+import { blockingSelfSufficiencyIssues, validateTaskSelfSufficiency } from './taskIndependence'
 import type { WorksheetBlock } from './worksheet'
+
+function collectIssues(blocks: WorksheetBlock[], planBriefs: string[]): string[] {
+  const tasks = blocks.map((block) => ({
+    type: block.type,
+    question: block.question,
+    gaps_text: block.type === 'fill_gaps' ? block.gapsSourceText ?? block.gapsText : undefined,
+    gaps_answers: block.gapsAnswers,
+  }))
+  return validateTaskSelfSufficiency(tasks, planBriefs)
+}
 
 describe('ensureWorksheetTaskBlocks', () => {
   it('restores fill_gaps block degraded to text', () => {
@@ -97,5 +113,64 @@ describe('ensureWorksheetTaskBlocks', () => {
     expect(blocks[0].type).toBe('short_answer')
     expect(blocks[0].question).toContain('2+2')
     expect(blocks[0].correctAnswers).toEqual(['4'])
+  })
+})
+
+describe('repairWorksheetBlocksForDelivery', () => {
+  it('replaces author plan description in question', () => {
+    const draft = { ...filledCreateDraft(), taskCount: 1 }
+    const plan = createPlan(1)
+    plan[0] = {
+      ...plan[0],
+      type: 'input',
+      description: 'Сравнить две обыкновенные дроби и выбрать большую',
+      userDescription: 'Дроби',
+    }
+    const brief = plan[0].description ?? ''
+    const blocks: WorksheetBlock[] = [
+      {
+        id: 'task-1',
+        type: 'single_choice',
+        page: 0,
+        title: 'Задание 1',
+        instruction: '',
+        question:
+          'Задача на выбор персонажа, который затратил наибольшее время, исходя из предоставленных данных.',
+        options: [
+          { id: 'a', text: '1/2' },
+          { id: 'b', text: '1/3' },
+        ],
+      },
+    ]
+
+    const repaired = repairWorksheetBlocksForDelivery(blocks, plan, draft, null, [brief])
+    expect(repaired[0].question).not.toMatch(/Задача на выбор/)
+    expect(repaired[0].question!.length).toBeGreaterThan(10)
+  })
+
+  it('reduces blocking issues for generic fill_gaps without ref file', () => {
+    const draft = { ...filledCreateDraft(), taskCount: 1, topic: 'Дроби' }
+    const plan = createPlan(1)
+    plan[0] = { ...plan[0], type: 'fill_gaps', userDescription: 'Пропуски', description: 'Текст с пропусками' }
+    const brief = 'Заполните пропуски в правиле сложения дробей'
+    const blocks: WorksheetBlock[] = [
+      {
+        id: 'task-1',
+        type: 'fill_gaps',
+        page: 0,
+        title: 'Задание 1',
+        instruction: '',
+        question: 'Заполните пропуски.',
+        gapsText:
+          'По теме «Дроби» важно помнить: ___ — это основа, а ___ помогает проверить результат.',
+        gapsAnswers: ['правило', 'пример'],
+      },
+    ]
+
+    const before = blockingSelfSufficiencyIssues(collectIssues(blocks, [brief]))
+    const repaired = repairWorksheetBlocksForDelivery(blocks, plan, draft, null, [brief])
+    const after = blockingSelfSufficiencyIssues(collectIssues(repaired, [brief]))
+    expect(before.length).toBeGreaterThan(0)
+    expect(after.length).toBeLessThan(before.length)
   })
 })

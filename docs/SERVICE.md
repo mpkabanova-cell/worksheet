@@ -165,6 +165,7 @@ npm run verify:openrouter
 1. Учитель заполняет create-форму (тема обязательна).
 2. Опционально: «Сгенерировать план» → `generatePlanAI` → `promptsForPlan`.
 3. «Создать» → экран loader → `generateWorksheetAI` → `promptsForWorksheet` (`create`).
+   Финальная проверка самодостаточности заданий **не блокирует** выдачу листа: при нарушениях выполняется автопочинка и один повтор запроса к модели; оставшиеся замечания пишутся в server log (`console.warn`), лист сохраняется.
 4. Предпросмотр / редактирование.
 5. «Перегенерировать» → снова loader с `mode: regenerate`.
 6. «Сгенерировать задание» → `generateSingleTaskAI` → `promptsForSingleTask`.
