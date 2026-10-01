@@ -197,6 +197,23 @@ export function WorksheetScreen({
     else setSheetSettingsOpen(true)
   }, [selected?.id, hasTaskSettings])
 
+  useEffect(() => {
+    if (!isEdit || !selectedBlockId || !onSelectBlock) return
+
+    const deselectIfOutsideTask = (e: MouseEvent) => {
+      const target = e.target
+      if (!(target instanceof HTMLElement)) return
+      if (target.closest('.ws-task-wrap')) return
+      if (target.closest('.ws-sidepanel')) return
+      if (target.closest('.ws-tools-sidebar')) return
+      if (target.closest('.modal-overlay')) return
+      onSelectBlock(null)
+    }
+
+    document.addEventListener('mousedown', deselectIfOutsideTask)
+    return () => document.removeEventListener('mousedown', deselectIfOutsideTask)
+  }, [isEdit, selectedBlockId, onSelectBlock])
+
   const taskSettingsPanel =
     selected && onChangeBlock
       ? (() => {
